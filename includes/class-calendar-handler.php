@@ -11,6 +11,24 @@ class RMM_Calendar_Handler {
 	public function __construct() {
 		add_action( 'rest_api_init', array( $this, 'register_calendar_endpoint' ) );
 		add_shortcode( 'clan_calendario', array( $this, 'render_calendar_shortcode' ) );
+		
+		// Auto-inject ORBAT in single pages
+		add_filter( 'the_content', array( $this, 'inject_orbat_to_content' ) );
+	}
+
+	/**
+	 * AUTO-INJECT: Mostrar el ORBAT automáticamente en misiones y eventos
+	 */
+	public function inject_orbat_to_content( $content ) {
+		if ( ! is_singular( array( 'misiones', 'eventos_partidas' ) ) ) return $content;
+		
+		$shortcode = '[clan_orbat]';
+		$header = '<div class="rmm-frontend-header" style="background:#111; padding:20px; border-left:4px solid #2271b1; margin-bottom:30px;">
+			<h2 style="color:#fff; margin:0; text-transform:uppercase; letter-spacing:1px;">🛡️ Estructura de Combate (ORBAT)</h2>
+			<p style="color:#888; font-size:13px; margin:5px 0 0 0;">Selecciona tu rol para participar en la operación.</p>
+		</div>';
+		
+		return $content . $header . do_shortcode( $shortcode );
 	}
 
 	/**
@@ -112,7 +130,7 @@ class RMM_Calendar_Handler {
 					center: 'title',
 					right: 'dayGridMonth,listWeek'
 				},
-				events: '/wp-json/clan/v1/calendario',
+				events: '<?php echo esc_url( get_rest_url( null, "clan/v1/calendario" ) ); ?>',
 				eventClick: function(info) {
 					if (info.event.url) {
 						window.open(info.event.url, "_self");

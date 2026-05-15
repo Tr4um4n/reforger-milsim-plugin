@@ -12,8 +12,9 @@ class RMM_Metabox_Handler {
 		add_action( 'add_meta_boxes', array( $this, 'register_metaboxes' ) );
 		add_action( 'save_post', array( $this, 'save_all_metadata' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
-		// AJAX Handler for Workshop Sync
+		// AJAX Handlers
 		add_action( 'wp_ajax_sync_reforger_api', array( $this, 'ajax_sync_workshop' ) );
+		add_action( 'wp_ajax_get_mission_orbat', array( $this, 'ajax_get_mission_orbat' ) );
 	}
 
 	/**
@@ -74,6 +75,17 @@ class RMM_Metabox_Handler {
 	}
 
 	/**
+	 * AJAX: Obtener ORBAT de una misión específica
+	 */
+	public function ajax_get_mission_orbat() {
+		check_ajax_referer( 'rmm_admin_nonce', 'nonce' );
+		$mission_id = intval( $_POST['mission_id'] );
+		$orbat = get_post_meta( $mission_id, 'orbat_maestro', true );
+		if ( empty( $orbat ) ) wp_send_json_error( 'Esta misión no tiene ORBAT configurado.' );
+		wp_send_json_success( $orbat );
+	}
+
+	/**
 	 * RENDER: Configuración de Misión
 	 */
 	public function render_mission_metabox( $post ) {
@@ -84,22 +96,24 @@ class RMM_Metabox_Handler {
 		$addons_text = is_array($addons) ? implode("\n", $addons) : $addons;
 
 		?>
+		?>
 		<div class="rmm-api-sync-box">
-			<label><strong>Workshop ID</strong></label>
-			<div style="display:flex; gap:5px; margin: 5px 0;">
-				<input type="text" name="workshop_id" id="workshop_id" value="<?php echo esc_attr($workshop_id); ?>" class="widefat" placeholder="66B69C25...">
-				<button type="button" id="btn-sync-workshop" class="button button-primary">Sync</button>
+			<label style="display:block; margin-bottom:10px; font-weight:bold; letter-spacing:1px; color:#aaa; text-transform:uppercase; font-size:10px;">Workshop Interface</label>
+			<div style="display:flex; gap:10px; margin-bottom:15px;">
+				<input type="text" name="workshop_id" id="workshop_id" value="<?php echo esc_attr($workshop_id); ?>" style="flex:1; background:#111; border:1px solid #444; color:#fff; padding:8px;" placeholder="ID del Workshop...">
+				<button type="button" id="btn-sync-workshop" class="button button-primary" style="height:auto;">SYNC DATA</button>
 			</div>
-			<div id="api-preview" style="background:#f0f0f1; padding:10px; border-radius:4px; font-size:12px; <?php echo $mission_name ? '' : 'display:none;'; ?>">
-				<p><strong>Misión:</strong> <span id="prev-name"><?php echo esc_html($mission_name); ?></span></p>
-				<p><a id="prev-url" href="<?php echo esc_url($workshop_url); ?>" target="_blank">Ver en Workshop</a></p>
+			<div id="api-preview" style="background:#111; padding:12px; border:1px solid #333; border-radius:4px; margin-bottom:15px; <?php echo $mission_name ? '' : 'display:none;'; ?>">
+				<div style="color:#2271b1; font-weight:bold; margin-bottom:5px;"><?php _e('CONECTADO', 'reforger-milsim'); ?></div>
+				<p style="margin:0; font-size:13px;"><strong>Misión:</strong> <span id="prev-name"><?php echo esc_html($mission_name); ?></span></p>
+				<p style="margin:5px 0 0 0; font-size:12px;"><a id="prev-url" href="<?php echo esc_url($workshop_url); ?>" target="_blank" style="color:#72aee6;">Ver en Steam Workshop</a></p>
 			</div>
 			<input type="hidden" name="mission_api_name" id="hidden-api-name" value="<?php echo esc_attr($mission_name); ?>">
 			<input type="hidden" name="workshop_url" id="hidden-api-url" value="<?php echo esc_attr($workshop_url); ?>">
-			<p>
-				<label><strong>Dependencias (Addons)</strong></label>
-				<textarea name="addons_requeridos_text" id="addons_requeridos" readonly class="widefat" rows="5"><?php echo esc_textarea($addons_text); ?></textarea>
-			</p>
+			<div style="margin-top:15px;">
+				<label style="display:block; margin-bottom:5px; font-size:11px; color:#aaa;">LISTA DE DEPENDENCIAS</label>
+				<textarea name="addons_requeridos_text" id="addons_requeridos" readonly style="width:100%; background:#111; border:1px solid #333; color:#888; font-family:monospace; font-size:11px;" rows="4"><?php echo esc_textarea($addons_text); ?></textarea>
+			</div>
 		</div>
 		<script>
 		jQuery('#btn-sync-workshop').on('click', function() {
@@ -112,12 +126,12 @@ class RMM_Metabox_Handler {
 				workshop_id: id,
 				nonce: rmmAdminData.nonce
 			}, function(res) {
-				btn.prop('disabled', false).text('Sync');
+				btn.prop('disabled', false).text('SYNC DATA');
 				if(res.success) {
 					jQuery('#prev-name, #hidden-api-name').text(res.data.title).val(res.data.title);
 					jQuery('#prev-url, #hidden-api-url').attr('href', res.data.url).text('Ver en Workshop').val(res.data.url);
 					jQuery('#addons_requeridos').val(res.data.dependencies.join("\n"));
-					jQuery('#api-preview').show();
+					jQuery('#api-preview').slideDown();
 				} else alert(res.data);
 			});
 		});
@@ -165,16 +179,31 @@ class RMM_Metabox_Handler {
 		if ( empty( $orbat_json ) ) $orbat_json = '[]';
 
 		?>
-		<div id="rmm-orbat-app">
+		<div id="rmm-orbat-app" style="padding:10px;">
+			<?php if ( get_post_type($post->ID) === 'eventos_partidas' ) : ?>
+			<div class="rmm-import-box" style="margin-bottom:20px; padding:15px; background:#1e3a8a22; border:1px solid #1e3a8a; border-radius:4px;">
+				<p style="margin:0 0 10px 0; font-size:12px; color:#93c5fd;"><strong>HERENCIA DE MISIÓN:</strong> Puedes importar la estructura de escuadras definida en la misión seleccionada.</p>
+				<button type="button" class="button" id="rmm-pull-mission-orbat">📥 IMPORTAR ORBAT DE MISIÓN</button>
+			</div>
+			<?php endif; ?>
 			<div id="rmm-squads-container"></div>
-			<button type="button" class="button button-primary" id="rmm-add-squad">Añadir Escuadra</button>
-			<input type="hidden" name="rmm_orbat_data" id="rmm-orbat-data-input" value='<?php echo esc_attr(json_encode($orbat_json)); ?>'>
+			<div style="margin-top:20px; padding-top:20px; border-top:1px solid #333;">
+				<button type="button" class="button button-primary" id="rmm-add-squad" style="background:#2271b1; border-color:#2271b1;">+ AÑADIR ESCUADRA TÁCTICA</button>
+			</div>
+			<input type="hidden" name="rmm_orbat_data" id="rmm-orbat-data-input" value='<?php echo esc_attr($orbat_json); ?>'>
 		</div>
 		<style>
-			.rmm-squad-card { background:#fff; border:1px solid #ccd0d4; padding:15px; margin-bottom:15px; border-left:4px solid #2271b1; }
-			.rmm-slot-row { display:grid; grid-template-columns: 1.5fr 2fr auto; gap:10px; padding:10px; border-bottom:1px solid #eee; align-items:center; }
-			.rmm-slot-row select { width:100% !important; }
-			.rmm-status-badge { background:#e7f5ed; color:#184a33; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:bold; }
+			.rmm-squad-card { background:#222 !important; border:1px solid #444 !important; border-radius:4px; margin-bottom:20px; overflow:hidden; }
+			.rmm-squad-header { background:#2a2a2a; padding:10px 15px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; }
+			.rmm-squad-title { border:none !important; background:none !important; color:#fff !important; font-size:14px !important; font-weight:bold !important; width:100%; box-shadow:none !important; }
+			.rmm-slot-row { display:grid; grid-template-columns: 180px 1fr 120px 40px; gap:10px; padding:12px 15px; border-bottom:1px solid #333; align-items:center; }
+			.rmm-slot-row:last-child { border-bottom:none; }
+			.rmm-slot-row select, .rmm-slot-row input { background:#111 !important; border:1px solid #444 !important; color:#eee !important; font-size:12px !important; }
+			.rmm-remove-btn { color:#ff4d4d; cursor:pointer; font-size:18px; opacity:0.6; transition:opacity 0.2s; }
+			.rmm-remove-btn:hover { opacity:1; }
+			.select2-container--default .select2-selection--multiple { background-color: #111 !important; border: 1px solid #444 !important; }
+			.select2-container--default .select2-selection--multiple .select2-selection__choice { background-color: #2271b1 !important; border: none !important; color: #fff !important; }
+			.rmm-add-slot-container { padding:10px 15px; background:#1a1a1a; }
 		</style>
 		<script>
 		jQuery(document).ready(function($) {
@@ -183,39 +212,48 @@ class RMM_Metabox_Handler {
 			let data = JSON.parse(input.val() || '[]');
 			if(typeof data === 'string') data = JSON.parse(data);
 
+			// Logic to pull ORBAT from mission if event is new and mission is selected
+			const postType = '<?php echo get_post_type($post->ID); ?>';
+			if(postType === 'eventos_partidas' && data.length === 0) {
+				const missionId = $('select[name="mision_id"]').val();
+				if(missionId) {
+					// This would ideally be an AJAX call, but for now we suggest saving and pulling
+					// We'll implement a "Pull from Mission" button to make it explicit
+				}
+			}
+
 			function render() {
 				container.empty();
 				data.forEach((squad, sIdx) => {
 					const card = $(`<div class="rmm-squad-card">
-						<div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-							<input type="text" value="${squad.escuadra}" placeholder="Alpha" style="font-weight:bold; border:none; background:none;">
-							<span class="rmm-remove-btn" style="cursor:pointer; color:#d63638;">&times;</span>
+						<div class="rmm-squad-header">
+							<input type="text" class="rmm-squad-title" value="${squad.escuadra || ''}" placeholder="NOMBRE DE ESCUADRA (Ej: ALPHA 1-1)">
+							<span class="rmm-remove-btn dashicons dashicons-trash" title="Borrar Escuadra"></span>
 						</div>
 						<div class="rmm-slots-list"></div>
-						<button type="button" class="button rmm-add-slot" style="margin-top:10px;">+ Slot</button>
+						<div class="rmm-add-slot-container">
+							<button type="button" class="button rmm-add-slot">+ AÑADIR ROL</button>
+						</div>
 					</div>`);
 
 					squad.slots.forEach((slot, rIdx) => {
 						const row = $(`<div class="rmm-slot-row">
 							<select class="slot-role-sel"></select>
 							<select class="orbat-medals-select" multiple style="width:100%"></select>
-							<div style="display:flex; align-items:center; gap:5px;">
-								${(slot.usuario_id && rmmAdminData.is_event) ? `<span class="rmm-status-badge">User ID: ${slot.usuario_id}</span>` : ''}
-								<span class="rmm-remove-btn" style="cursor:pointer; color:#d63638;">&times;</span>
+							<div class="rmm-slot-status">
+								${(slot.usuario_id && rmmAdminData.is_event) ? `<span class="rmm-status-badge">OCUPADO</span>` : `<span style="color:#666; font-size:10px;">VACANTE</span>`}
 							</div>
+							<span class="rmm-remove-btn dashicons dashicons-no-alt" title="Quitar Rol"></span>
 						</div>`);
 
-						// Populate Roles
 						rmmAdminData.roles.forEach(r => row.find('.slot-role-sel').append(new Option(r, r, r===slot.rol, r===slot.rol)));
-						
-						// Populate Medals (Select2)
 						rmmAdminData.medals.forEach(m => {
 							const selected = (slot.condecoraciones_requeridas || []).includes(m.id);
 							row.find('.orbat-medals-select').append(new Option(m.text, m.id, selected, selected));
 						});
 
 						row.find('.slot-role-sel').on('change', function() { data[sIdx].slots[rIdx].rol = $(this).val(); updateInput(); });
-						row.find('.orbat-medals-select').select2({ placeholder: "Medallas Requeridas" }).on('change', function() {
+						row.find('.orbat-medals-select').select2({ placeholder: "Requisitos" }).on('change', function() {
 							data[sIdx].slots[rIdx].condecoraciones_requeridas = $(this).val().map(Number);
 							updateInput();
 						});
@@ -228,8 +266,8 @@ class RMM_Metabox_Handler {
 						data[sIdx].slots.push({ id: crypto.randomUUID(), rol:'', usuario_id: null, condecoraciones_requeridas: [] });
 						render(); updateInput();
 					});
-					card.find('.rmm-remove-btn').first().on('click', () => { data.splice(sIdx, 1); render(); updateInput(); });
-					card.find('input').first().on('change', function() { data[sIdx].escuadra = $(this).val(); updateInput(); });
+					card.find('.rmm-remove-btn').first().on('click', () => { if(confirm('¿Borrar escuadra completa?')) { data.splice(sIdx, 1); render(); updateInput(); } });
+					card.find('.rmm-squad-title').on('change', function() { data[sIdx].escuadra = $(this).val(); updateInput(); });
 					container.append(card);
 				});
 			}
@@ -237,10 +275,28 @@ class RMM_Metabox_Handler {
 			function updateInput() { input.val(JSON.stringify(data)); }
 			$('#rmm-add-squad').on('click', () => { data.push({ escuadra: '', slots: [] }); render(); updateInput(); });
 			
-			rmmAdminData.is_event = <?php echo get_post_type($post->ID) === 'eventos_partidas' ? 'true' : 'false'; ?>;
+			$('#rmm-pull-mission-orbat').on('click', function() {
+				const missionId = $('select[name="mision_id"]').val();
+				if(!missionId) return alert('Primero selecciona una misión en el panel lateral.');
+				if(data.length > 0 && !confirm('Esto borrará el ORBAT actual. ¿Continuar?')) return;
+				
+				$.post(rmmAdminData.ajax_url, {
+					action: 'get_mission_orbat',
+					mission_id: missionId,
+					nonce: rmmAdminData.nonce
+				}, function(res) {
+					if(res.success) {
+						data = res.data;
+						render();
+						updateInput();
+					} else alert(res.data);
+				});
+			});
+
 			render();
 		});
 		</script>
+		<?php
 		<?php
 	}
 

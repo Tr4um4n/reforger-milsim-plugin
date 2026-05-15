@@ -68,6 +68,7 @@ class ReforgerMilsimManagement {
 	 * Initialize Handlers.
 	 */
 	private function init_handlers() {
+		new RMM_Roles_Handler();
 		new RMM_CPT_Handler();
 		new RMM_Metabox_Handler();
 		new RMM_Medals_Handler();
@@ -87,6 +88,23 @@ class ReforgerMilsimManagement {
 
 		// Core Setup
 		add_action( 'after_setup_theme', array( $this, 'register_image_sizes' ) );
+		add_action( 'admin_head', array( $this, 'inject_admin_tactical_css' ) );
+	}
+
+	/**
+	 * Inject Tactical CSS into WP Admin
+	 */
+	public function inject_admin_tactical_css() {
+		echo '<style>
+			#rmm_orbat_manager, #rmm_mission_config, #rmm_event_config { background: #1a1a1a; border: 1px solid #333; color: #eee; }
+			#rmm_orbat_manager .postbox-header { border-bottom: 1px solid #333; background: #222; color: #fff; }
+			#rmm_orbat_manager .hndle { color: #fff !important; }
+			.rmm-squad-card { background: #2a2a2a !important; border: 1px solid #444 !important; color: #eee; }
+			.rmm-slot-row { border-bottom: 1px solid #3a3a3a !important; }
+			.rmm-slot-row select, .rmm-slot-row input { background: #333 !important; border: 1px solid #555 !important; color: #fff !important; }
+			.rmm-status-badge { background: #1e3a1e !important; color: #a5d6a7 !important; }
+			.rmm-api-sync-box { background: #222; padding: 15px; border-radius: 8px; border: 1px solid #444; }
+		</style>';
 	}
 
 	/**
