@@ -68,9 +68,11 @@ class RMM_Metabox_Handler {
 		if ( ! $body || ! isset( $body['item'] ) ) wp_send_json_error( 'ID de Workshop no encontrado' );
 
 		wp_send_json_success( array(
-			'title' => $body['item']['title'],
-			'url'   => $body['item']['url'],
-			'dependencies' => array_column( $body['dependencies'], 'name' )
+			'title' => $body['item']['title'] ?? '',
+			'url'   => $body['item']['url'] ?? '',
+			'image' => $body['item']['image'] ?? '',
+			'description' => $body['item']['description'] ?? '',
+			'dependencies' => isset($body['dependencies']) ? array_column( $body['dependencies'], 'name' ) : array()
 		) );
 	}
 
@@ -120,6 +122,7 @@ class RMM_Metabox_Handler {
 			</div>
 			<input type="hidden" name="mission_api_name" id="hidden-api-name" value="<?php echo esc_attr($mission_name); ?>">
 			<input type="hidden" name="workshop_url" id="hidden-api-url" value="<?php echo esc_attr($workshop_url); ?>">
+			<input type="hidden" name="workshop_image_url" id="workshop_image_url" value="">
 			<div style="margin-top:15px;">
 				<label style="display:block; margin-bottom:5px; font-size:11px; color:#aaa;">LISTA DE DEPENDENCIAS</label>
 				<textarea name="addons_requeridos_text" id="addons_requeridos" readonly style="width:100%; background:#111; border:1px solid #333; color:#888; font-family:monospace; font-size:11px;" rows="4"><?php echo esc_textarea($addons_text); ?></textarea>
@@ -143,12 +146,22 @@ class RMM_Metabox_Handler {
 					jQuery('#addons_requeridos').val(res.data.dependencies.join("\n"));
 					jQuery('#api-preview').slideDown();
 					
+					// Guardar URL de imagen para descarga automática al guardar
+					if (res.data.image) {
+						jQuery('#workshop_image_url').val(res.data.image);
+					}
+					
 					// Inject auto-summary into editor if empty
-					let contentText = "<h3>Operación: " + res.data.title + "</h3>\n<p><strong>Enlace oficial:</strong> <a href='" + res.data.url + "' target='_blank'>Steam Workshop</a></p>\n";
-					if(res.data.dependencies.length > 0) {
+					let contentText = "<h3>Operación: " + res.data.title + "</h3>\n";
+					if (res.data.description) {
+						contentText += "<blockquote>" + res.data.description.replace(/\n/g, "<br>") + "</blockquote>\n";
+					}
+					contentText += "<p><strong>Enlace oficial:</strong> <a href='" + res.data.url + "' target='_blank'>Steam Workshop</a></p>\n";
+					
+					if(res.data.dependencies && res.data.dependencies.length > 0) {
 						contentText += "<h4>📦 Addons Requeridos:</h4>\n<ul>\n";
 						res.data.dependencies.forEach(d => contentText += "<li>" + d + "</li>\n");
-						contentText += "</ul>\n<hr/>\n<p><em>Introduce aquí el briefing de la misión...</em></p>\n";
+						contentText += "</ul>\n<hr/>\n<p><em>Introduce aquí el briefing extra de la misión...</em></p>\n";
 					}
 					
 					if (typeof wp !== 'undefined' && wp.data && wp.data.select('core/editor')) {
@@ -377,6 +390,19 @@ class RMM_Metabox_Handler {
 		$fields = array( 'workshop_id', 'mission_api_name', 'workshop_url', 'mision_id', 'fecha_inicio', 'fecha_fin', 'estado', 'condecoracion_premio' );
 		foreach ( $fields as $f ) {
 			if ( isset( $_POST[$f] ) ) update_post_meta( $post_id, $f, sanitize_text_field( $_POST[$f] ) );
+		}
+		
+		// Auto-descargar Imagen Destacada si viene del Workshop y no tiene una
+		if ( !empty($_POST['workshop_image_url']) && !has_post_thumbnail($post_id) ) {
+			require_once(ABSPATH . 'wp-admin/includes/media.php');
+			require_once(ABSPATH . 'wp-admin/includes/file.php');
+			require_once(ABSPATH . 'wp-admin/includes/image.php');
+			$image_url = esc_url_raw($_POST['workshop_image_url']);
+			$attach_id = media_sideload_image($image_url, $post_id, null, 'id');
+			if ( !is_wp_error($attach_id) ) {
+				set_post_thumbnail( $post_id, $attach_id );
+			}
+			// El campo workshop_image_url no se guarda, era solo temporal.
 		}
 		
 		// Save Addons (processed as array from text)
