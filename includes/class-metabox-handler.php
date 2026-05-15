@@ -15,6 +15,8 @@ class RMM_Metabox_Handler {
 		// AJAX Handlers
 		add_action( 'wp_ajax_sync_reforger_api', array( $this, 'ajax_sync_workshop' ) );
 		add_action( 'wp_ajax_get_mission_orbat', array( $this, 'ajax_get_mission_orbat' ) );
+		add_action( 'wp_ajax_set_workshop_thumbnail', array( $this, 'ajax_set_workshop_thumbnail' ) );
+		add_action( 'wp_ajax_sync_mission_to_event', array( $this, 'ajax_sync_mission_to_event' ) );
 	}
 
 	/**
@@ -71,6 +73,7 @@ class RMM_Metabox_Handler {
 			'title' => $body['item']['title'] ?? '',
 			'url'   => $body['item']['url'] ?? '',
 			'image' => $body['item']['image'] ?? '',
+			'summary' => $body['item']['summary'] ?? '',
 			'description' => $body['item']['description'] ?? '',
 			'dependencies' => isset($body['dependencies']) ? array_column( $body['dependencies'], 'name' ) : array()
 		) );
@@ -99,6 +102,60 @@ class RMM_Metabox_Handler {
 	}
 
 	/**
+	 * AJAX: Sideload Workshop Image
+	 */
+	public function ajax_set_workshop_thumbnail() {
+		check_ajax_referer( 'rmm_admin_nonce', 'nonce' );
+		if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( 'No permission' );
+
+		$post_id = intval( $_POST['post_id'] );
+		$image_url = esc_url_raw( $_POST['image_url'] );
+
+		if ( empty($image_url) ) wp_send_json_error('No URL provided');
+		if ( has_post_thumbnail( $post_id ) ) wp_send_json_success('Already has thumbnail');
+
+		require_once(ABSPATH . 'wp-admin/includes/media.php');
+		require_once(ABSPATH . 'wp-admin/includes/file.php');
+		require_once(ABSPATH . 'wp-admin/includes/image.php');
+
+		$attach_id = media_sideload_image($image_url, $post_id, null, 'id');
+		if ( is_wp_error($attach_id) ) {
+			wp_send_json_error( $attach_id->get_error_message() );
+		}
+
+		set_post_thumbnail( $post_id, $attach_id );
+		wp_send_json_success( array( 'message' => 'Thumbnail set', 'attach_id' => $attach_id ) );
+	}
+
+	/**
+	 * AJAX: Sincronizar datos de Misión a Evento
+	 */
+	public function ajax_sync_mission_to_event() {
+		check_ajax_referer( 'rmm_admin_nonce', 'nonce' );
+		if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( 'No permission' );
+
+		$mission_id = intval( $_POST['mission_id'] );
+		$mission = get_post( $mission_id );
+		if ( ! $mission ) wp_send_json_error( 'Misión no encontrada' );
+
+		$orbat = get_post_meta( $mission_id, 'orbat_maestro', true );
+		$workshop_id = get_post_meta( $mission_id, 'workshop_id', true );
+		$workshop_url = get_post_meta( $mission_id, 'workshop_url', true );
+		$addons = get_post_meta( $mission_id, 'addons_requeridos', true );
+		$thumbnail_id = get_post_thumbnail_id( $mission_id );
+
+		wp_send_json_success( array(
+			'title'       => $mission->post_title,
+			'content'     => $mission->post_content,
+			'orbat'       => $orbat,
+			'workshop_id' => $workshop_id,
+			'workshop_url' => $workshop_url,
+			'addons'      => $addons,
+			'thumbnail_id' => $thumbnail_id
+		) );
+	}
+
+	/**
 	 * RENDER: Configuración de Misión
 	 */
 	public function render_mission_metabox( $post ) {
@@ -111,9 +168,9 @@ class RMM_Metabox_Handler {
 		?>
 		<div class="rmm-api-sync-box">
 			<label style="display:block; margin-bottom:10px; font-weight:bold; letter-spacing:1px; color:#aaa; text-transform:uppercase; font-size:10px;">Workshop Interface</label>
-			<div style="display:flex; gap:10px; margin-bottom:15px;">
-				<input type="text" name="workshop_id" id="workshop_id" value="<?php echo esc_attr($workshop_id); ?>" style="flex:1; background:#111; border:1px solid #444; color:#fff; padding:8px;" placeholder="ID del Workshop...">
-				<button type="button" id="btn-sync-workshop" class="button button-primary" style="height:auto;">SYNC DATA</button>
+			<div style="margin-bottom:15px;">
+				<input type="text" name="workshop_id" id="workshop_id" value="<?php echo esc_attr($workshop_id); ?>" style="width:100%; box-sizing:border-box; background:#111; border:1px solid #444; color:#fff; padding:8px; margin-bottom:8px;" placeholder="ID del Workshop...">
+				<button type="button" id="btn-sync-workshop" class="button button-primary" style="width:100%; text-align:center;">SYNC DATA</button>
 			</div>
 			<div id="api-preview" style="background:#111; padding:12px; border:1px solid #333; border-radius:4px; margin-bottom:15px; <?php echo $mission_name ? '' : 'display:none;'; ?>">
 				<div style="color:#2271b1; font-weight:bold; margin-bottom:5px;"><?php _e('CONECTADO', 'reforger-milsim'); ?></div>
@@ -146,23 +203,36 @@ class RMM_Metabox_Handler {
 					jQuery('#addons_requeridos').val(res.data.dependencies.join("\n"));
 					jQuery('#api-preview').slideDown();
 					
-					// Guardar URL de imagen para descarga automática al guardar
-					if (res.data.image) {
-						jQuery('#workshop_image_url').val(res.data.image);
+					// Auto-descargar y setear imagen destacada via AJAX
+					if (res.data.image && jQuery('#post_ID').length) {
+						let postId = jQuery('#post_ID').val();
+						jQuery.post(rmmAdminData.ajax_url, {
+							action: 'set_workshop_thumbnail',
+							post_id: postId,
+							image_url: res.data.image,
+							nonce: rmmAdminData.nonce
+						}, function(imgRes) {
+							if(imgRes.success) {
+								if(imgRes.data && imgRes.data.attach_id && typeof wp !== 'undefined' && wp.data && wp.data.dispatch('core/editor')) {
+									wp.data.dispatch('core/editor').editPost({ featured_media: imgRes.data.attach_id });
+								}
+							} else if(imgRes.data !== 'Already has thumbnail') {
+								console.error("Error descargando imagen destacada:", imgRes.data);
+								alert("Aviso: No se pudo descargar la imagen destacada. Error: " + imgRes.data);
+							}
+						});
 					}
 					
 					// Inject auto-summary into editor if empty
 					let contentText = "<h3>Operación: " + res.data.title + "</h3>\n";
+					if (res.data.summary) {
+						contentText += "<blockquote><strong>Resumen:</strong> " + res.data.summary.replace(/\n/g, "<br>") + "</blockquote>\n";
+					}
 					if (res.data.description) {
-						contentText += "<blockquote>" + res.data.description.replace(/\n/g, "<br>") + "</blockquote>\n";
+						contentText += "<h4>Briefing Oficial:</h4>\n<p>" + res.data.description.replace(/\n/g, "<br>") + "</p>\n";
 					}
 					contentText += "<p><strong>Enlace oficial:</strong> <a href='" + res.data.url + "' target='_blank'>Steam Workshop</a></p>\n";
-					
-					if(res.data.dependencies && res.data.dependencies.length > 0) {
-						contentText += "<h4>📦 Addons Requeridos:</h4>\n<ul>\n";
-						res.data.dependencies.forEach(d => contentText += "<li>" + d + "</li>\n");
-						contentText += "</ul>\n<hr/>\n<p><em>Introduce aquí el briefing extra de la misión...</em></p>\n";
-					}
+					contentText += "[clan_orbat]\n";
 					
 					if (typeof wp !== 'undefined' && wp.data && wp.data.select('core/editor')) {
 						let currentContent = wp.data.select('core/editor').getEditedPostAttribute('content');
@@ -205,6 +275,52 @@ class RMM_Metabox_Handler {
 			<option value="">-- Elige Misión --</option>
 			<?php foreach($misiones as $m) echo '<option value="'.$m->ID.'" '.selected($mision_id,$m->ID,false).'>'.$m->post_title.'</option>'; ?>
 		</select></p>
+		<script>
+		jQuery('select[name="mision_id"]').on('change', function() {
+			const missionId = jQuery(this).val();
+			if(!missionId) return;
+			
+			if(!confirm('¿Quieres importar todos los datos (Título, ORBAT, Imagen, Briefing) de la misión seleccionada? Esto sobrescribirá lo actual.')) return;
+			
+			jQuery.post(rmmAdminData.ajax_url, {
+				action: 'sync_mission_to_event',
+				mission_id: missionId,
+				nonce: rmmAdminData.nonce
+			}, function(res) {
+				if(res.success) {
+					// 1. Título
+					if(jQuery('#title').length) jQuery('#title').val(res.data.title);
+					if(typeof wp !== 'undefined' && wp.data && wp.data.dispatch('core/editor')) {
+						wp.data.dispatch('core/editor').editPost({ title: res.data.title });
+					}
+					
+					// 2. ORBAT
+					if(jQuery('#rmm-orbat-data-input').length) {
+						jQuery('#rmm-orbat-data-input').val(JSON.stringify(res.data.orbat)).trigger('change');
+						if(typeof window.renderORBAT === 'function') window.renderORBAT();
+					}
+					
+					// 3. Workshop & Addons
+					jQuery('#workshop_id').val(res.data.workshop_id);
+					jQuery('#addons_requeridos').val(res.data.addons.join("\n"));
+					
+					// 4. Imagen Destacada
+					if(res.data.thumbnail_id && typeof wp !== 'undefined' && wp.data && wp.data.dispatch('core/editor')) {
+						wp.data.dispatch('core/editor').editPost({ featured_media: parseInt(res.data.thumbnail_id) });
+					}
+					
+					// 5. Contenido / Briefing
+					if (typeof wp !== 'undefined' && wp.data && wp.data.dispatch('core/editor')) {
+						wp.data.dispatch('core/editor').editPost({ content: res.data.content });
+					} else if (typeof tinymce !== 'undefined' && tinymce.activeEditor) {
+						tinymce.activeEditor.setContent(res.data.content);
+					}
+					
+					alert('Datos de misión importados correctamente.');
+				} else alert(res.data);
+			});
+		});
+		</script>
 		<p><label><strong>Inicio</strong></label><input type="datetime-local" name="fecha_inicio" value="<?php echo $fecha_inicio; ?>" style="width:100%; padding:5px; border:1px solid #ccc;"></p>
 		<p><label><strong>Fin</strong></label><input type="datetime-local" name="fecha_fin" value="<?php echo $fecha_fin; ?>" style="width:100%; padding:5px; border:1px solid #ccc;"></p>
 		<p><label><strong>Estado</strong></label><select name="estado" class="widefat">
@@ -390,19 +506,6 @@ class RMM_Metabox_Handler {
 		$fields = array( 'workshop_id', 'mission_api_name', 'workshop_url', 'mision_id', 'fecha_inicio', 'fecha_fin', 'estado', 'condecoracion_premio' );
 		foreach ( $fields as $f ) {
 			if ( isset( $_POST[$f] ) ) update_post_meta( $post_id, $f, sanitize_text_field( $_POST[$f] ) );
-		}
-		
-		// Auto-descargar Imagen Destacada si viene del Workshop y no tiene una
-		if ( !empty($_POST['workshop_image_url']) && !has_post_thumbnail($post_id) ) {
-			require_once(ABSPATH . 'wp-admin/includes/media.php');
-			require_once(ABSPATH . 'wp-admin/includes/file.php');
-			require_once(ABSPATH . 'wp-admin/includes/image.php');
-			$image_url = esc_url_raw($_POST['workshop_image_url']);
-			$attach_id = media_sideload_image($image_url, $post_id, null, 'id');
-			if ( !is_wp_error($attach_id) ) {
-				set_post_thumbnail( $post_id, $attach_id );
-			}
-			// El campo workshop_image_url no se guarda, era solo temporal.
 		}
 		
 		// Save Addons (processed as array from text)

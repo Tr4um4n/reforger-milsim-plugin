@@ -25,9 +25,16 @@ class RMM_Frontend_ORBAT {
 
 	public function render_orbat_shortcode( $atts ) {
 		$post_id = get_the_ID();
-		if ( get_post_type($post_id) !== 'eventos_partidas' ) return '';
+		$post_type = get_post_type($post_id);
+		
+		if ( ! in_array( $post_type, array( 'eventos_partidas', 'misiones' ) ) ) return '';
 
-		$orbat = get_post_meta( $post_id, 'orbat_activo', true );
+		if ( $post_type === 'misiones' ) {
+			$orbat = get_post_meta( $post_id, 'orbat_maestro', true );
+		} else {
+			$orbat = get_post_meta( $post_id, 'orbat_activo', true );
+		}
+
 		if ( empty($orbat) ) return '<p>No hay ORBAT definido.</p>';
 
 		$current_user_id = get_current_user_id();
@@ -35,24 +42,11 @@ class RMM_Frontend_ORBAT {
 
 		ob_start();
 		
-		// Addons / Dependencies Section
-		// Si es un evento, los addons están guardados en su misión enlazada.
-		$mission_id = get_post_meta( $post_id, 'mision_id', true );
-		$target_id  = !empty( $mission_id ) ? $mission_id : $post_id;
-		$addons = get_post_meta( $target_id, 'addons_requeridos', true );
+		$current_user_id = get_current_user_id();
+		$user_medals = $this->get_user_medal_ids( $current_user_id );
 		
-		if ( !empty($addons) && is_array($addons) ) :
+		// ORBAT Grid First
 		?>
-		<div class="rmm-addons-box">
-			<h4 class="rmm-addons-title">📦 Addons Requeridos</h4>
-			<ul class="rmm-addons-list">
-				<?php foreach ( $addons as $addon ) : ?>
-					<li><?php echo esc_html($addon); ?></li>
-				<?php endforeach; ?>
-			</ul>
-		</div>
-		<?php endif; ?>
-
 		<div class="rmm-orbat-wrapper">
 			<?php foreach ( $orbat as $squad ) : ?>
 				<div class="rmm-squad-container">
@@ -65,29 +59,33 @@ class RMM_Frontend_ORBAT {
 								$occupied = !empty($slot['usuario_id']);
 								$user = $occupied ? get_userdata($slot['usuario_id']) : null;
 								$missing = $this->get_missing_medals($slot['condecoraciones_requeridas'], $user_medals);
-								$can_reserve = empty($missing) && current_user_can('reserve_orbat_slot');
+								$can_reserve = empty($missing) && current_user_can('reserve_orbat_slot') && $post_type === 'eventos_partidas';
 							?>
 							<div class="rmm-slot-card <?php echo $occupied ? 'is-occupied' : 'is-vacant'; ?>">
 								<div class="rmm-slot-role">
-									<span><?php echo esc_html($slot['rol']); ?></span>
+									<?php echo esc_html(strtoupper($slot['rol'] ?: 'Líder de Escuadra')); ?>
 								</div>
 								<div class="rmm-slot-action">
 								<?php if ($occupied) : ?>
 									<span class="rmm-slot-user"><?php echo esc_html($user->display_name); ?></span>
-									<?php if ( $slot['usuario_id'] == $current_user_id ) : ?>
+									<?php if ( (int)$slot['usuario_id'] === $current_user_id && $post_type === 'eventos_partidas' ) : ?>
 										<button data-uuid="<?php echo esc_attr($slot['id']); ?>" data-post-id="<?php echo $post_id; ?>" class="elementor-button elementor-size-sm rmm-leave-btn" style="background-color:#dc3232; margin-top:5px; padding:5px 10px; font-size:10px;">
 											<span class="elementor-button-content-wrapper"><span class="elementor-button-text">Desapuntarse</span></span>
 										</button>
 									<?php endif; ?>
-								<?php elseif ($can_reserve) : ?>
-									<button data-uuid="<?php echo esc_attr($slot['id']); ?>" data-post-id="<?php echo $post_id; ?>" class="elementor-button elementor-size-sm rmm-reserve-btn">
-										<span class="elementor-button-content-wrapper"><span class="elementor-button-text">Reclamar</span></span>
-									</button>
+								<?php elseif ($post_type === 'eventos_partidas') : ?>
+									<?php if ($can_reserve) : ?>
+										<button data-uuid="<?php echo esc_attr($slot['id']); ?>" data-post-id="<?php echo $post_id; ?>" class="elementor-button elementor-size-sm rmm-reserve-btn">
+											<span class="elementor-button-content-wrapper"><span class="elementor-button-text">Reclamar</span></span>
+										</button>
+									<?php else : ?>
+										<button disabled class="elementor-button elementor-size-sm rmm-locked-btn">
+											<span class="elementor-button-content-wrapper"><span class="elementor-button-text">Bloqueado</span></span>
+										</button>
+										<?php if(!empty($missing)) : ?><p class="rmm-missing-medals">Faltan: <?php echo implode(', ', $missing); ?></p><?php endif; ?>
+									<?php endif; ?>
 								<?php else : ?>
-									<button disabled class="elementor-button elementor-size-sm rmm-locked-btn">
-										<span class="elementor-button-content-wrapper"><span class="elementor-button-text">Bloqueado</span></span>
-									</button>
-									<?php if(!empty($missing)) : ?><p class="rmm-missing-medals">Faltan: <?php echo implode(', ', $missing); ?></p><?php endif; ?>
+									<span class="rmm-slot-status">VACANTE</span>
 								<?php endif; ?>
 								</div>
 							</div>
@@ -96,8 +94,30 @@ class RMM_Frontend_ORBAT {
 				</div>
 			<?php endforeach; ?>
 		</div>
+
+		<?php
+		// Addons / Dependencies Section Second (Collapsible)
+		$mission_id = get_post_meta( $post_id, 'mision_id', true );
+		$target_id  = !empty( $mission_id ) ? $mission_id : $post_id;
+		$addons = get_post_meta( $target_id, 'addons_requeridos', true );
 		
-		<style>
+		if ( !empty($addons) && is_array($addons) ) :
+		?>
+		<details class="rmm-addons-collapsible" style="margin-top:40px; border-top:1px solid #333; padding-top:20px; cursor:pointer;">
+			<summary style="font-weight:bold; color:#2271b1; font-size:1.1em; list-style:none; outline:none;">
+				📦 VER ADDONS REQUERIDOS (<?php echo count($addons); ?>)
+			</summary>
+			<div class="rmm-addons-box" style="margin-top:15px; padding:15px; background:rgba(255,255,255,0.05); border-radius:8px;">
+				<ul class="rmm-addons-list" style="columns: 2; -webkit-columns: 2; list-style-type: square; margin-left:20px;">
+					<?php foreach ( $addons as $addon ) : ?>
+						<li style="font-size:0.9em; margin-bottom:5px;"><?php echo esc_html($addon); ?></li>
+					<?php endforeach; ?>
+				</ul>
+			</div>
+		</details>
+		<?php endif; ?>
+		
+		<style>style>
 			/* CSS Estructural para integración con Elementor */
 			.rmm-addons-box { margin-bottom: 25px; padding: 15px; border-left: 4px solid var(--e-global-color-primary, #2271b1); background-color: rgba(0,0,0,0.03); }
 			.rmm-addons-title { margin: 0 0 10px 0; font-size: 1.1em; color: var(--e-global-color-secondary, inherit); }
@@ -130,6 +150,16 @@ class RMM_Frontend_ORBAT {
 		$post_id = intval($_POST['post_id']);
 		$uuid = sanitize_text_field($_POST['uuid']);
 		$orbat = get_post_meta( $post_id, 'orbat_activo', true );
+		$current_user_id = get_current_user_id();
+
+		// BLOQUEO: Verificar si el usuario ya tiene algún slot en este ORBAT
+		foreach ( $orbat as $squad ) {
+			foreach ( $squad['slots'] as $s ) {
+				if ( (int)$s['usuario_id'] === $current_user_id ) {
+					wp_send_json_error( 'Ya tienes un slot reservado en esta operación.' );
+				}
+			}
+		}
 
 		foreach ( $orbat as &$squad ) {
 			foreach ( $squad['slots'] as &$slot ) {
@@ -156,7 +186,7 @@ class RMM_Frontend_ORBAT {
 		foreach ( $orbat as &$squad ) {
 			foreach ( $squad['slots'] as &$slot ) {
 				if ( $slot['id'] === $uuid ) {
-					if ( $slot['usuario_id'] != $current_user_id ) wp_send_json_error( 'No puedes liberar un slot que no es tuyo.' );
+					if ( (int)$slot['usuario_id'] !== $current_user_id ) wp_send_json_error( 'No puedes liberar un slot que no es tuyo.' );
 					$slot['usuario_id'] = null; // Liberar el slot
 					update_post_meta( $post_id, 'orbat_activo', $orbat );
 					wp_send_json_success( 'Slot liberado' );
