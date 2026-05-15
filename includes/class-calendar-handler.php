@@ -59,11 +59,17 @@ class RMM_Calendar_Handler {
 			$fin    = get_post_meta( $post->ID, 'fecha_fin', true );
 			$estado = get_post_meta( $post->ID, 'estado', true );
 
+			$start_formatted = !empty($inicio) ? date('c', strtotime($inicio)) : null;
+			$end_formatted   = !empty($fin) ? date('c', strtotime($fin)) : null;
+
+			// Skip events without start date
+			if ( !$start_formatted ) continue;
+
 			$formatted_events[] = array(
 				'id'        => $post->ID,
 				'title'     => $post->post_title,
-				'start'     => $inicio,
-				'end'       => $fin,
+				'start'     => $start_formatted,
+				'end'       => $end_formatted,
 				'url'       => get_permalink( $post->ID ),
 				'className' => 'rmm-event-status-' . $estado,
 				'extendedProps' => array(

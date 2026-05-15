@@ -80,9 +80,20 @@ class RMM_Metabox_Handler {
 	public function ajax_get_mission_orbat() {
 		check_ajax_referer( 'rmm_admin_nonce', 'nonce' );
 		$mission_id = intval( $_POST['mission_id'] );
+		
 		$orbat = get_post_meta( $mission_id, 'orbat_maestro', true );
 		if ( empty( $orbat ) ) wp_send_json_error( 'Esta misión no tiene ORBAT configurado.' );
-		wp_send_json_success( $orbat );
+		
+		$addons = get_post_meta( $mission_id, 'addons_requeridos', true );
+		$addons_text = is_array($addons) ? implode("\n", $addons) : $addons;
+		
+		$mission_post = get_post( $mission_id );
+		
+		wp_send_json_success( array(
+			'orbat' => $orbat,
+			'addons' => $addons_text,
+			'content' => $mission_post ? $mission_post->post_content : ''
+		) );
 	}
 
 	/**
@@ -310,9 +321,35 @@ class RMM_Metabox_Handler {
 					nonce: rmmAdminData.nonce
 				}, function(res) {
 					if(res.success) {
-						data = res.data;
+						data = typeof res.data.orbat === 'string' ? JSON.parse(res.data.orbat) : res.data.orbat;
 						render();
 						updateInput();
+						
+						// Inject Addons
+						if (res.data.addons && $('#addons_requeridos').length) {
+							$('#addons_requeridos').val(res.data.addons);
+						}
+						
+						// Inject Content if empty
+						if (res.data.content) {
+							if (typeof wp !== 'undefined' && wp.data && wp.data.select('core/editor')) {
+								let currentContent = wp.data.select('core/editor').getEditedPostAttribute('content');
+								if (!currentContent || currentContent.trim() === '') {
+									wp.data.dispatch('core/editor').editPost({ content: res.data.content });
+								}
+							} else if (typeof tinymce !== 'undefined' && tinymce.activeEditor && !tinymce.activeEditor.isHidden()) {
+								let currentContent = tinymce.activeEditor.getContent();
+								if (!currentContent || currentContent.trim() === '') {
+									tinymce.activeEditor.setContent(res.data.content);
+								}
+							} else if ($('#content').length) {
+								let currentContent = $('#content').val();
+								if (!currentContent || currentContent.trim() === '') {
+									$('#content').val(res.data.content);
+								}
+							}
+						}
+						alert('Datos de la misión importados correctamente.');
 					} else alert(res.data);
 				});
 			});
