@@ -192,8 +192,8 @@ class RMM_Metabox_Handler {
 			<option value="">-- Elige Misión --</option>
 			<?php foreach($misiones as $m) echo '<option value="'.$m->ID.'" '.selected($mision_id,$m->ID,false).'>'.$m->post_title.'</option>'; ?>
 		</select></p>
-		<p><label><strong>Inicio</strong></label><input type="datetime-local" name="fecha_inicio" value="<?php echo $fecha_inicio; ?>" class="widefat"></p>
-		<p><label><strong>Fin</strong></label><input type="datetime-local" name="fecha_fin" value="<?php echo $fecha_fin; ?>" class="widefat"></p>
+		<p><label><strong>Inicio</strong></label><input type="datetime-local" name="fecha_inicio" value="<?php echo $fecha_inicio; ?>" style="width:100%; padding:5px; border:1px solid #ccc;"></p>
+		<p><label><strong>Fin</strong></label><input type="datetime-local" name="fecha_fin" value="<?php echo $fecha_fin; ?>" style="width:100%; padding:5px; border:1px solid #ccc;"></p>
 		<p><label><strong>Estado</strong></label><select name="estado" class="widefat">
 			<?php foreach(['abierta','en_curso','debriefing','finalizada'] as $s) echo '<option value="'.$s.'" '.selected($estado,$s,false).'>'.ucfirst($s).'</option>'; ?>
 		</select></p>

@@ -35,7 +35,11 @@ class RMM_Frontend_ORBAT {
 		ob_start();
 		
 		// Addons / Dependencies Section
-		$addons = get_post_meta( $post_id, 'addons_requeridos', true );
+		// Si es un evento, los addons están guardados en su misión enlazada.
+		$mission_id = get_post_meta( $post_id, 'mision_id', true );
+		$target_id  = !empty( $mission_id ) ? $mission_id : $post_id;
+		$addons = get_post_meta( $target_id, 'addons_requeridos', true );
+		
 		if ( !empty($addons) && is_array($addons) ) :
 		?>
 		<div class="rmm-addons-box">

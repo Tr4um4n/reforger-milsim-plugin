@@ -23,6 +23,10 @@ class RMM_Roles_Handler {
 		add_action( 'edit_user_profile_update', array( $this, 'save_user_profile_fields' ) );
 	}
 
+	public function register_roles() {
+		self::init_roles();
+	}
+
 	/**
 	 * Initialize MILSIM roles and capabilities.
 	 */
