@@ -11,8 +11,38 @@ class RMM_Metabox_Handler {
 	public function __construct() {
 		add_action( 'add_meta_boxes', array( $this, 'register_metaboxes' ) );
 		add_action( 'save_post', array( $this, 'save_all_metadata' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		// AJAX Handler for Workshop Sync
 		add_action( 'wp_ajax_sync_reforger_api', array( $this, 'ajax_sync_workshop' ) );
+	}
+
+	/**
+	 * Enqueue Admin Scripts and CSS
+	 */
+	public function enqueue_admin_assets( $hook ) {
+		if ( ! in_array( $hook, array( 'post.php', 'post-new.php' ) ) ) return;
+		
+		$post_type = get_post_type();
+		if ( ! in_array( $post_type, array( 'misiones', 'eventos_partidas' ) ) ) return;
+
+		// Load Select2 for better UI
+		wp_enqueue_style( 'select2-css', 'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css' );
+		wp_enqueue_script( 'select2-js', 'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js', array( 'jquery' ), '4.1.0', true );
+
+		// Localize data for JS
+		$medals = get_posts( array( 'post_type' => 'condecoraciones', 'numberposts' => -1 ) );
+		$medals_data = array();
+		foreach ( $medals as $m ) {
+			$medals_data[] = array( 'id' => $m->ID, 'text' => $m->post_title );
+		}
+
+		wp_localize_script( 'jquery', 'rmmAdminData', array(
+			'ajax_url' => admin_url( 'admin-ajax.php' ),
+			'nonce'    => wp_create_nonce( 'rmm_admin_nonce' ),
+			'roles'    => array( 'Líder de Escuadra', 'Médico', 'Fusilero', 'Fusilero Automático', 'Granadero', 'Antitanque', 'RTM', 'Piloto' ),
+			'medals'   => $medals_data,
+			'is_event' => ( $post_type === 'eventos_partidas' )
+		) );
 	}
 
 	public function register_metaboxes() {

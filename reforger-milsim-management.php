@@ -8,7 +8,7 @@
  * Author URI:  https://gure.party
  * Text Domain: reforger-milsim
  * License:     GPL2
- *
+ */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -19,6 +19,20 @@ define( 'RMM_VERSION', '1.0.0' );
 define( 'RMM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'RMM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
+// Include Classes
+$rmm_includes = array(
+	'class-db-handler.php',
+	'class-cpt-handler.php',
+	'class-roles-handler.php',
+	'class-metabox-handler.php',
+	'class-medals-handler.php',
+	'class-frontend-orbat.php',
+	'class-calendar-handler.php',
+);
+
+foreach ( $rmm_includes as $file ) {
+	require_once RMM_PLUGIN_DIR . 'includes/' . $file;
+}
 
 /**
  * Main Plugin Class
