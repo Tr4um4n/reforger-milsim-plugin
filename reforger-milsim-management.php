@@ -19,14 +19,6 @@ define( 'RMM_VERSION', '1.0.0' );
 define( 'RMM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'RMM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
-// Include Classes
-require_once RMM_PLUGIN_DIR . 'includes/class-db-handler.php';
-require_once RMM_PLUGIN_DIR . 'includes/class-cpt-handler.php';
-require_once RMM_PLUGIN_DIR . 'includes/class-roles-handler.php';
-require_once RMM_PLUGIN_DIR . 'includes/class-metabox-handler.php';
-require_once RMM_PLUGIN_DIR . 'includes/class-medals-handler.php';
-require_once RMM_PLUGIN_DIR . 'includes/class-frontend-orbat.php';
-require_once RMM_PLUGIN_DIR . 'includes/class-calendar-handler.php';
 
 /**
  * Main Plugin Class
