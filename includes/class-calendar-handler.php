@@ -69,7 +69,7 @@ class RMM_Calendar_Handler {
 				'id'        => $post->ID,
 				'title'     => $post->post_title,
 				'start'     => $start_formatted,
-				'end'       => $end_formatted,
+				// Eliminado 'end' para que FullCalendar dibuje el evento como un punto en el tiempo y no deforme el calendario con bloques que abarcan varios días.
 				'url'       => get_permalink( $post->ID ),
 				'className' => 'rmm-event-status-' . $estado,
 				'extendedProps' => array(

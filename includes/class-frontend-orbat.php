@@ -11,6 +11,7 @@ class RMM_Frontend_ORBAT {
 	public function __construct() {
 		add_shortcode( 'clan_orbat', array( $this, 'render_orbat_shortcode' ) );
 		add_action( 'wp_ajax_reclamar_slot', array( $this, 'handle_slot_reservation' ) );
+		add_action( 'wp_ajax_liberar_slot', array( $this, 'handle_slot_leave' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
 	}
 
@@ -73,6 +74,11 @@ class RMM_Frontend_ORBAT {
 								<div class="rmm-slot-action">
 								<?php if ($occupied) : ?>
 									<span class="rmm-slot-user"><?php echo esc_html($user->display_name); ?></span>
+									<?php if ( $slot['usuario_id'] == $current_user_id ) : ?>
+										<button data-uuid="<?php echo esc_attr($slot['id']); ?>" data-post-id="<?php echo $post_id; ?>" class="elementor-button elementor-size-sm rmm-leave-btn" style="background-color:#dc3232; margin-top:5px; padding:5px 10px; font-size:10px;">
+											<span class="elementor-button-content-wrapper"><span class="elementor-button-text">Desapuntarse</span></span>
+										</button>
+									<?php endif; ?>
 								<?php elseif ($can_reserve) : ?>
 									<button data-uuid="<?php echo esc_attr($slot['id']); ?>" data-post-id="<?php echo $post_id; ?>" class="elementor-button elementor-size-sm rmm-reserve-btn">
 										<span class="elementor-button-content-wrapper"><span class="elementor-button-text">Reclamar</span></span>
@@ -136,6 +142,28 @@ class RMM_Frontend_ORBAT {
 			}
 		}
 		wp_send_json_error( 'Error' );
+	}
+
+	public function handle_slot_leave() {
+		check_ajax_referer( 'rmm_frontend_nonce', 'nonce' );
+		if ( ! is_user_logged_in() ) wp_send_json_error( 'Sin permisos' );
+
+		$post_id = intval($_POST['post_id']);
+		$uuid = sanitize_text_field($_POST['uuid']);
+		$orbat = get_post_meta( $post_id, 'orbat_activo', true );
+		$current_user_id = get_current_user_id();
+
+		foreach ( $orbat as &$squad ) {
+			foreach ( $squad['slots'] as &$slot ) {
+				if ( $slot['id'] === $uuid ) {
+					if ( $slot['usuario_id'] != $current_user_id ) wp_send_json_error( 'No puedes liberar un slot que no es tuyo.' );
+					$slot['usuario_id'] = null; // Liberar el slot
+					update_post_meta( $post_id, 'orbat_activo', $orbat );
+					wp_send_json_success( 'Slot liberado' );
+				}
+			}
+		}
+		wp_send_json_error( 'Slot no encontrado' );
 	}
 
 	private function get_user_medal_ids( $user_id ) {

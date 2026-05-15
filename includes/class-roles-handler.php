@@ -31,13 +31,19 @@ class RMM_Roles_Handler {
 	 * Initialize MILSIM roles and capabilities.
 	 */
 	public static function init_roles() {
-		// Otorga permisos de ORBAT a los administradores
+		// Otorga permisos de ORBAT a los administradores y extrae sus capacidades
 		$admin_role = get_role( 'administrator' );
+		$admin_caps = array();
 		if ( $admin_role ) {
 			$admin_role->add_cap( 'reserve_orbat_slot' );
+			$admin_caps = $admin_role->capabilities;
 		}
 
 		$roles = array(
+			'fundador'        => array(
+				'display_name' => 'Fundador',
+				'capabilities' => array_merge( $admin_caps, array( 'reserve_orbat_slot' => true ) ),
+			),
 			'visitante'       => array(
 				'display_name' => 'Visitante',
 				'capabilities' => array( 'read' => true ),
@@ -101,6 +107,7 @@ class RMM_Roles_Handler {
 
 	public static function remove_roles() {
 		$role_keys = array(
+			'fundador',
 			'visitante',
 			'recluta',
 			'activo',
