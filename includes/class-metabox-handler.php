@@ -96,7 +96,6 @@ class RMM_Metabox_Handler {
 		$addons_text = is_array($addons) ? implode("\n", $addons) : $addons;
 
 		?>
-		?>
 		<div class="rmm-api-sync-box">
 			<label style="display:block; margin-bottom:10px; font-weight:bold; letter-spacing:1px; color:#aaa; text-transform:uppercase; font-size:10px;">Workshop Interface</label>
 			<div style="display:flex; gap:10px; margin-bottom:15px;">
@@ -132,6 +131,31 @@ class RMM_Metabox_Handler {
 					jQuery('#prev-url, #hidden-api-url').attr('href', res.data.url).text('Ver en Workshop').val(res.data.url);
 					jQuery('#addons_requeridos').val(res.data.dependencies.join("\n"));
 					jQuery('#api-preview').slideDown();
+					
+					// Inject auto-summary into editor if empty
+					let contentText = "<h3>Operación: " + res.data.title + "</h3>\n<p><strong>Enlace oficial:</strong> <a href='" + res.data.url + "' target='_blank'>Steam Workshop</a></p>\n";
+					if(res.data.dependencies.length > 0) {
+						contentText += "<h4>📦 Addons Requeridos:</h4>\n<ul>\n";
+						res.data.dependencies.forEach(d => contentText += "<li>" + d + "</li>\n");
+						contentText += "</ul>\n<hr/>\n<p><em>Introduce aquí el briefing de la misión...</em></p>\n";
+					}
+					
+					if (typeof wp !== 'undefined' && wp.data && wp.data.select('core/editor')) {
+						let currentContent = wp.data.select('core/editor').getEditedPostAttribute('content');
+						if (!currentContent || currentContent.trim() === '') {
+							wp.data.dispatch('core/editor').editPost({ content: contentText });
+						}
+					} else if (typeof tinymce !== 'undefined' && tinymce.activeEditor && !tinymce.activeEditor.isHidden()) {
+						let currentContent = tinymce.activeEditor.getContent();
+						if (!currentContent || currentContent.trim() === '') {
+							tinymce.activeEditor.setContent(contentText);
+						}
+					} else if (jQuery('#content').length) {
+						let currentContent = jQuery('#content').val();
+						if (!currentContent || currentContent.trim() === '') {
+							jQuery('#content').val(contentText);
+						}
+					}
 				} else alert(res.data);
 			});
 		});
@@ -296,7 +320,6 @@ class RMM_Metabox_Handler {
 			render();
 		});
 		</script>
-		<?php
 		<?php
 	}
 

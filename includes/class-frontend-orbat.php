@@ -33,14 +33,28 @@ class RMM_Frontend_ORBAT {
 		$user_medals = $this->get_user_medal_ids( $current_user_id );
 
 		ob_start();
+		
+		// Addons / Dependencies Section
+		$addons = get_post_meta( $post_id, 'addons_requeridos', true );
+		if ( !empty($addons) && is_array($addons) ) :
 		?>
-		<div class="rmm-orbat space-y-6">
+		<div class="rmm-addons-box">
+			<h4 class="rmm-addons-title">📦 Addons Requeridos</h4>
+			<ul class="rmm-addons-list">
+				<?php foreach ( $addons as $addon ) : ?>
+					<li><?php echo esc_html($addon); ?></li>
+				<?php endforeach; ?>
+			</ul>
+		</div>
+		<?php endif; ?>
+
+		<div class="rmm-orbat-wrapper">
 			<?php foreach ( $orbat as $squad ) : ?>
-				<div class="bg-gray-900 border border-gray-800 rounded">
-					<div class="px-4 py-2 bg-blue-900/20 border-b border-blue-900/40">
-						<h3 class="text-blue-400 font-bold uppercase text-sm"><?php echo esc_html($squad['escuadra']); ?></h3>
+				<div class="rmm-squad-container">
+					<div class="rmm-squad-header">
+						<h3 class="rmm-squad-name"><?php echo esc_html($squad['escuadra']); ?></h3>
 					</div>
-					<div class="grid grid-cols-1 md:grid-cols-3 gap-2 p-2">
+					<div class="rmm-slots-grid">
 						<?php foreach ( $squad['slots'] as $slot ) : ?>
 							<?php 
 								$occupied = !empty($slot['usuario_id']);
@@ -48,24 +62,53 @@ class RMM_Frontend_ORBAT {
 								$missing = $this->get_missing_medals($slot['condecoraciones_requeridas'], $user_medals);
 								$can_reserve = empty($missing) && current_user_can('reserve_orbat_slot');
 							?>
-							<div class="p-3 border rounded <?php echo $occupied ? 'bg-green-900/10 border-green-900/30' : 'bg-gray-800 border-gray-700'; ?>">
-								<div class="flex justify-between mb-2">
-									<span class="text-[10px] text-gray-500 uppercase font-bold"><?php echo esc_html($slot['rol']); ?></span>
+							<div class="rmm-slot-card <?php echo $occupied ? 'is-occupied' : 'is-vacant'; ?>">
+								<div class="rmm-slot-role">
+									<span><?php echo esc_html($slot['rol']); ?></span>
 								</div>
+								<div class="rmm-slot-action">
 								<?php if ($occupied) : ?>
-									<span class="text-sm text-white font-medium"><?php echo esc_html($user->display_name); ?></span>
+									<span class="rmm-slot-user"><?php echo esc_html($user->display_name); ?></span>
 								<?php elseif ($can_reserve) : ?>
-									<button data-uuid="<?php echo esc_attr($slot['id']); ?>" data-post-id="<?php echo $post_id; ?>" class="rmm-reserve-btn w-full py-1 bg-blue-600 text-white text-[10px] font-bold uppercase rounded">Reclamar</button>
+									<button data-uuid="<?php echo esc_attr($slot['id']); ?>" data-post-id="<?php echo $post_id; ?>" class="elementor-button elementor-size-sm rmm-reserve-btn">
+										<span class="elementor-button-content-wrapper"><span class="elementor-button-text">Reclamar</span></span>
+									</button>
 								<?php else : ?>
-									<button disabled class="w-full py-1 bg-gray-700 text-gray-500 text-[10px] font-bold uppercase rounded">Bloqueado</button>
-									<?php if(!empty($missing)) : ?><p class="text-[9px] text-red-500 mt-1">Faltan: <?php echo implode(', ', $missing); ?></p><?php endif; ?>
+									<button disabled class="elementor-button elementor-size-sm rmm-locked-btn">
+										<span class="elementor-button-content-wrapper"><span class="elementor-button-text">Bloqueado</span></span>
+									</button>
+									<?php if(!empty($missing)) : ?><p class="rmm-missing-medals">Faltan: <?php echo implode(', ', $missing); ?></p><?php endif; ?>
 								<?php endif; ?>
+								</div>
 							</div>
 						<?php endforeach; ?>
 					</div>
 				</div>
 			<?php endforeach; ?>
 		</div>
+		
+		<style>
+			/* CSS Estructural para integración con Elementor */
+			.rmm-addons-box { margin-bottom: 25px; padding: 15px; border-left: 4px solid var(--e-global-color-primary, #2271b1); background-color: rgba(0,0,0,0.03); }
+			.rmm-addons-title { margin: 0 0 10px 0; font-size: 1.1em; color: var(--e-global-color-secondary, inherit); }
+			.rmm-addons-list { margin: 0; padding-left: 20px; list-style-type: disc; font-size: 0.9em; opacity: 0.8; }
+			
+			.rmm-orbat-wrapper { display: flex; flex-direction: column; gap: 20px; font-family: var(--e-global-typography-text-font-family), inherit; }
+			.rmm-squad-container { border: 1px solid rgba(128,128,128,0.2); border-radius: 4px; overflow: hidden; background: transparent; }
+			.rmm-squad-header { padding: 10px 15px; background: rgba(0,0,0,0.05); border-bottom: 1px solid rgba(128,128,128,0.2); }
+			.rmm-squad-name { margin: 0; font-size: 1.2em; font-weight: bold; color: var(--e-global-color-primary, inherit); text-transform: uppercase; }
+			
+			.rmm-slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; padding: 10px; }
+			.rmm-slot-card { padding: 15px; border: 1px solid rgba(128,128,128,0.2); border-radius: 4px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; transition: background 0.2s; }
+			.rmm-slot-card.is-occupied { background: rgba(0,200,0,0.05); border-color: rgba(0,200,0,0.2); }
+			
+			.rmm-slot-role { font-size: 0.85em; text-transform: uppercase; font-weight: 700; opacity: 0.7; border-bottom: 1px solid rgba(128,128,128,0.2); padding-bottom: 5px; }
+			.rmm-slot-user { font-size: 1.1em; font-weight: 600; color: var(--e-global-color-text, inherit); }
+			
+			.rmm-locked-btn { background-color: rgba(128,128,128,0.2) !important; color: inherit !important; opacity: 0.7; cursor: not-allowed; width: 100%; border: none !important; }
+			.rmm-reserve-btn { width: 100%; border-radius: 3px; }
+			.rmm-missing-medals { font-size: 0.75em; color: #dc3232; margin: 5px 0 0 0; text-align: center; }
+		</style>
 		<?php
 		return ob_get_clean();
 	}
