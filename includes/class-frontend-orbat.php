@@ -15,6 +15,7 @@ class RMM_Frontend_ORBAT {
 		add_shortcode( 'rmm_summary', array( $this, 'render_rmm_summary_shortcode' ) );
 		add_shortcode( 'rmm_description', array( $this, 'render_rmm_description_shortcode' ) );
 		add_shortcode( 'rmm_workshop_url', array( $this, 'render_rmm_workshop_url_shortcode' ) );
+		add_shortcode( 'rmm_title', array( $this, 'render_rmm_title_shortcode' ) );
 		add_shortcode( 'fecha_evento', array( $this, 'render_fecha_evento_shortcode' ) );
 		add_action( 'wp_ajax_reclamar_slot', array( $this, 'handle_slot_reservation' ) );
 		add_action( 'wp_ajax_liberar_slot', array( $this, 'handle_slot_leave' ) );
@@ -41,6 +42,13 @@ class RMM_Frontend_ORBAT {
 
 	public function render_legacy_orbat_shortcode( $atts ) {
 		return $this->render_rmm_orbat_shortcode($atts) . $this->render_addons_list_shortcode($atts);
+	}
+
+	public function render_rmm_title_shortcode( $atts ) {
+		$post_id = get_the_ID();
+		if ( ! $post_id ) return '';
+		// get_post_field with 'raw' context bypasses the 'the_title' filters (like the one appending the date)
+		return esc_html( get_post_field( 'post_title', $post_id, 'raw' ) );
 	}
 
 	public function render_rmm_summary_shortcode( $atts ) {
