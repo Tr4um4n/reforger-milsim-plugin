@@ -10,6 +10,7 @@ class RMM_Frontend_ORBAT {
 
 	public function __construct() {
 		add_shortcode( 'clan_orbat', array( $this, 'render_orbat_shortcode' ) );
+		add_shortcode( 'fecha_evento', array( $this, 'render_fecha_evento_shortcode' ) );
 		add_action( 'wp_ajax_reclamar_slot', array( $this, 'handle_slot_reservation' ) );
 		add_action( 'wp_ajax_liberar_slot', array( $this, 'handle_slot_leave' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
@@ -21,6 +22,16 @@ class RMM_Frontend_ORBAT {
 			'ajax_url' => admin_url( 'admin-ajax.php' ),
 			'nonce'    => wp_create_nonce( 'rmm_frontend_nonce' )
 		));
+	}
+
+	public function render_fecha_evento_shortcode( $atts ) {
+		$post_id = get_the_ID();
+		if ( ! $post_id ) return '';
+		
+		$fecha_inicio = get_post_meta( $post_id, 'fecha_inicio', true );
+		if ( empty( $fecha_inicio ) ) return '';
+		
+		return ucfirst( wp_date( 'l, j \d\e F \a \l\a\s H:i', strtotime( $fecha_inicio ) ) );
 	}
 
 	public function render_orbat_shortcode( $atts ) {
