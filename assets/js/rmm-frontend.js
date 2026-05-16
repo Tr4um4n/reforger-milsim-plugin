@@ -1,5 +1,5 @@
 jQuery(document).ready(function($) {
-    $('.rmm-reserve-btn').on('click', function(e) {
+    $(document).on('click', '.rmm-reserve-btn', function(e) {
         e.preventDefault();
         const btn = $(this);
         const uuid = btn.data('uuid');
@@ -25,7 +25,7 @@ jQuery(document).ready(function($) {
         });
     });
 
-    $('.rmm-leave-btn').on('click', function(e) {
+    $(document).on('click', '.rmm-leave-btn', function(e) {
         e.preventDefault();
         const btn = $(this);
         const uuid = btn.data('uuid');

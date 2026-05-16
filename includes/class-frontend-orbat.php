@@ -157,6 +157,34 @@ class RMM_Frontend_ORBAT {
 			<?php endforeach; ?>
 		</div>
 
+		<style>
+		.rmm-orbat-wrapper { display: flex; flex-direction: column; gap: 30px; font-family: var(--e-global-typography-text-font-family), inherit; }
+		.rmm-squad-container { background: rgba(20, 20, 20, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+		.rmm-squad-header { padding: 12px 20px; background: rgba(0,0,0,0.3); border-bottom: 1px solid rgba(255,255,255,0.05); }
+		.rmm-squad-name { margin: 0; font-size: 1.3em; font-weight: 800; color: var(--e-global-color-primary, #fff); text-transform: uppercase; letter-spacing: 1px; }
+
+		.rmm-slots-grid { display: flex; flex-wrap: wrap; gap: 15px; padding: 20px; align-items: stretch; }
+		.rmm-slot-card { flex: 1 1 200px; max-width: 280px; min-width: 200px; padding: 15px; background: rgba(30, 30, 30, 0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; transition: transform 0.2s, background 0.2s; position: relative; overflow: hidden; }
+		.rmm-slot-card:hover { transform: translateY(-2px); background: rgba(40, 40, 40, 0.8); }
+		.rmm-slot-card.is-occupied { border-left: 4px solid #4CAF50; background: rgba(76, 175, 80, 0.05); }
+		.rmm-slot-card.is-vacant { border-left: 4px solid #FFC107; }
+
+		.rmm-slot-role { font-size: 0.75em; text-transform: uppercase; font-weight: 800; color: #888; letter-spacing: 0.5px; margin-bottom: 5px; }
+		.rmm-slot-user { font-size: 1.1em; font-weight: 600; color: #eee; display: block; margin-bottom: 8px; }
+
+		.rmm-slot-action { display: flex; flex-direction: column; justify-content: flex-end; flex-grow: 1; }
+
+		.rmm-reserve-btn { background-color: #FFC107 !important; color: #000 !important; width: 100%; font-weight: bold !important; transition: all 0.2s !important; border-radius: 4px !important; border: none !important; text-transform: uppercase; font-size: 0.85em; padding: 10px; }
+		.rmm-reserve-btn:hover { background-color: #FFB300 !important; transform: scale(1.02); }
+
+		.rmm-leave-btn { background-color: #dc3232 !important; color: #fff !important; width: 100%; border-radius: 4px !important; border: none !important; font-weight: bold !important; opacity: 0.9; text-transform: uppercase; font-size: 0.75em; padding: 8px; margin-top: auto; }
+		.rmm-leave-btn:hover { opacity: 1; }
+
+		.rmm-locked-btn { background-color: #444 !important; color: #888 !important; width: 100%; border: none !important; border-radius: 4px !important; cursor: not-allowed; padding: 10px; text-transform: uppercase; font-size: 0.85em; }
+		.rmm-missing-medals { font-size: 0.7em; color: #ff5252; margin: 8px 0 0 0; text-align: center; }
+		.rmm-slot-status { font-size: 0.8em; color: #FFC107; font-weight: bold; text-align: center; display: block; padding: 5px; background: rgba(255, 193, 7, 0.1); border-radius: 4px; }
+		</style>
+
 		<?php
 		return ob_get_clean();
 	}
