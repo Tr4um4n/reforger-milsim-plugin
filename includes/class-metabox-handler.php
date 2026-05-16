@@ -143,6 +143,8 @@ class RMM_Metabox_Handler {
 		$workshop_url = get_post_meta( $mission_id, 'workshop_url', true );
 		$addons = get_post_meta( $mission_id, 'addons_requeridos', true );
 		$thumbnail_id = get_post_thumbnail_id( $mission_id );
+		$summary = get_post_meta( $mission_id, 'rmm_summary', true );
+		$description = get_post_meta( $mission_id, 'rmm_description', true );
 
 		wp_send_json_success( array(
 			'title'       => $mission->post_title,
@@ -151,7 +153,9 @@ class RMM_Metabox_Handler {
 			'workshop_id' => $workshop_id,
 			'workshop_url' => $workshop_url,
 			'addons'      => $addons,
-			'thumbnail_id' => $thumbnail_id
+			'thumbnail_id' => $thumbnail_id,
+			'summary'     => $summary,
+			'description' => $description
 		) );
 	}
 
@@ -180,6 +184,8 @@ class RMM_Metabox_Handler {
 			<input type="hidden" name="mission_api_name" id="hidden-api-name" value="<?php echo esc_attr($mission_name); ?>">
 			<input type="hidden" name="workshop_url" id="hidden-api-url" value="<?php echo esc_attr($workshop_url); ?>">
 			<input type="hidden" name="workshop_image_url" id="workshop_image_url" value="">
+			<textarea style="display:none;" name="rmm_summary" id="hidden-summary"><?php echo esc_textarea(get_post_meta($post->ID, 'rmm_summary', true)); ?></textarea>
+			<textarea style="display:none;" name="rmm_description" id="hidden-description"><?php echo esc_textarea(get_post_meta($post->ID, 'rmm_description', true)); ?></textarea>
 			<div style="margin-top:15px;">
 				<label style="display:block; margin-bottom:5px; font-size:11px; color:#aaa;">LISTA DE DEPENDENCIAS</label>
 				<textarea name="addons_requeridos_text" id="addons_requeridos" readonly style="width:100%; background:#111; border:1px solid #333; color:#888; font-family:monospace; font-size:11px;" rows="4"><?php echo esc_textarea($addons_text); ?></textarea>
@@ -201,6 +207,8 @@ class RMM_Metabox_Handler {
 					jQuery('#prev-name, #hidden-api-name').text(res.data.title).val(res.data.title);
 					jQuery('#prev-url, #hidden-api-url').attr('href', res.data.url).text('Ver en Workshop').val(res.data.url);
 					jQuery('#addons_requeridos').val(res.data.dependencies.join("\n"));
+					if(res.data.summary) jQuery('#hidden-summary').val(res.data.summary);
+					if(res.data.description) jQuery('#hidden-description').val(res.data.description);
 					jQuery('#api-preview').slideDown();
 					
 					// Auto-descargar y setear imagen destacada via AJAX
@@ -275,6 +283,8 @@ class RMM_Metabox_Handler {
 			<option value="">-- Elige Misión --</option>
 			<?php foreach($misiones as $m) echo '<option value="'.$m->ID.'" '.selected($mision_id,$m->ID,false).'>'.$m->post_title.'</option>'; ?>
 		</select></p>
+		<textarea style="display:none;" name="rmm_summary" id="hidden-summary"><?php echo esc_textarea(get_post_meta($post->ID, 'rmm_summary', true)); ?></textarea>
+		<textarea style="display:none;" name="rmm_description" id="hidden-description"><?php echo esc_textarea(get_post_meta($post->ID, 'rmm_description', true)); ?></textarea>
 		<script>
 		jQuery('select[name="mision_id"]').on('change', function() {
 			const missionId = jQuery(this).val();
@@ -303,6 +313,8 @@ class RMM_Metabox_Handler {
 					// 3. Workshop & Addons
 					jQuery('#workshop_id').val(res.data.workshop_id);
 					jQuery('#addons_requeridos').val(res.data.addons.join("\n"));
+					if(res.data.summary) jQuery('#hidden-summary').val(res.data.summary);
+					if(res.data.description) jQuery('#hidden-description').val(res.data.description);
 					
 					// 4. Imagen Destacada
 					if(res.data.thumbnail_id && typeof wp !== 'undefined' && wp.data && wp.data.dispatch('core/editor')) {
@@ -506,6 +518,11 @@ class RMM_Metabox_Handler {
 		$fields = array( 'workshop_id', 'mission_api_name', 'workshop_url', 'mision_id', 'fecha_inicio', 'fecha_fin', 'estado', 'condecoracion_premio' );
 		foreach ( $fields as $f ) {
 			if ( isset( $_POST[$f] ) ) update_post_meta( $post_id, $f, sanitize_text_field( $_POST[$f] ) );
+		}
+		
+		$textarea_fields = array( 'rmm_summary', 'rmm_description' );
+		foreach ( $textarea_fields as $f ) {
+			if ( isset( $_POST[$f] ) ) update_post_meta( $post_id, $f, sanitize_textarea_field( $_POST[$f] ) );
 		}
 		
 		// Save Addons (processed as array from text)

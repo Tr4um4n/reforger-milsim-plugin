@@ -9,7 +9,11 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 class RMM_Frontend_ORBAT {
 
 	public function __construct() {
-		add_shortcode( 'clan_orbat', array( $this, 'render_orbat_shortcode' ) );
+		add_shortcode( 'clan_orbat', array( $this, 'render_legacy_orbat_shortcode' ) );
+		add_shortcode( 'rmm_orbat', array( $this, 'render_rmm_orbat_shortcode' ) );
+		add_shortcode( 'rmm_addons_list', array( $this, 'render_addons_list_shortcode' ) );
+		add_shortcode( 'rmm_summary', array( $this, 'render_rmm_summary_shortcode' ) );
+		add_shortcode( 'rmm_description', array( $this, 'render_rmm_description_shortcode' ) );
 		add_shortcode( 'fecha_evento', array( $this, 'render_fecha_evento_shortcode' ) );
 		add_action( 'wp_ajax_reclamar_slot', array( $this, 'handle_slot_reservation' ) );
 		add_action( 'wp_ajax_liberar_slot', array( $this, 'handle_slot_leave' ) );
@@ -34,7 +38,29 @@ class RMM_Frontend_ORBAT {
 		return ucfirst( wp_date( 'l, j \d\e F \a \l\a\s H:i', strtotime( $fecha_inicio ) ) );
 	}
 
-	public function render_orbat_shortcode( $atts ) {
+	public function render_legacy_orbat_shortcode( $atts ) {
+		return $this->render_rmm_orbat_shortcode($atts) . $this->render_addons_list_shortcode($atts);
+	}
+
+	public function render_rmm_summary_shortcode( $atts ) {
+		$post_id = get_the_ID();
+		if ( ! $post_id ) return '';
+		$target_id = get_post_type($post_id) === 'eventos_partidas' ? (get_post_meta($post_id, 'mision_id', true) ?: $post_id) : $post_id;
+		$summary = get_post_meta( $target_id, 'rmm_summary', true );
+		if ( empty( $summary ) ) return '';
+		return '<div class="rmm-summary-box">' . wpautop( esc_html( $summary ) ) . '</div>';
+	}
+
+	public function render_rmm_description_shortcode( $atts ) {
+		$post_id = get_the_ID();
+		if ( ! $post_id ) return '';
+		$target_id = get_post_type($post_id) === 'eventos_partidas' ? (get_post_meta($post_id, 'mision_id', true) ?: $post_id) : $post_id;
+		$description = get_post_meta( $target_id, 'rmm_description', true );
+		if ( empty( $description ) ) return '';
+		return '<div class="rmm-description-box">' . wpautop( esc_html( $description ) ) . '</div>';
+	}
+
+	public function render_rmm_orbat_shortcode( $atts ) {
 		$post_id = get_the_ID();
 		$post_type = get_post_type($post_id);
 		
@@ -107,6 +133,16 @@ class RMM_Frontend_ORBAT {
 		</div>
 
 		<?php
+		return ob_get_clean();
+	}
+
+	public function render_addons_list_shortcode( $atts ) {
+		$post_id = get_the_ID();
+		$post_type = get_post_type($post_id);
+		if ( ! in_array( $post_type, array( 'eventos_partidas', 'misiones' ) ) ) return '';
+
+		ob_start();
+
 		// Addons / Dependencies Section Second (Collapsible)
 		$mission_id = get_post_meta( $post_id, 'mision_id', true );
 		$target_id  = !empty( $mission_id ) ? $mission_id : $post_id;
@@ -114,7 +150,7 @@ class RMM_Frontend_ORBAT {
 		
 		if ( !empty($addons) && is_array($addons) ) :
 		?>
-		<details class="rmm-addons-collapsible" style="margin-top:40px; border-top:1px solid #333; padding-top:20px; cursor:pointer;">
+		<details class="rmm-addons-collapsible" style="margin-top:20px; border-top:1px solid #333; padding-top:20px; cursor:pointer;">
 			<summary style="font-weight:bold; color:#2271b1; font-size:1.1em; list-style:none; outline:none;">
 				📦 VER ADDONS REQUERIDOS (<?php echo count($addons); ?>)
 			</summary>
@@ -126,30 +162,13 @@ class RMM_Frontend_ORBAT {
 				</ul>
 			</div>
 		</details>
-		<?php endif; ?>
-		
-		<style>style>
-			/* CSS Estructural para integración con Elementor */
+		<style>
 			.rmm-addons-box { margin-bottom: 25px; padding: 15px; border-left: 4px solid var(--e-global-color-primary, #2271b1); background-color: rgba(0,0,0,0.03); }
 			.rmm-addons-title { margin: 0 0 10px 0; font-size: 1.1em; color: var(--e-global-color-secondary, inherit); }
 			.rmm-addons-list { margin: 0; padding-left: 20px; list-style-type: disc; font-size: 0.9em; opacity: 0.8; }
-			
-			.rmm-orbat-wrapper { display: flex; flex-direction: column; gap: 20px; font-family: var(--e-global-typography-text-font-family), inherit; }
-			.rmm-squad-container { border: 1px solid rgba(128,128,128,0.2); border-radius: 4px; overflow: hidden; background: transparent; }
-			.rmm-squad-header { padding: 10px 15px; background: rgba(0,0,0,0.05); border-bottom: 1px solid rgba(128,128,128,0.2); }
-			.rmm-squad-name { margin: 0; font-size: 1.2em; font-weight: bold; color: var(--e-global-color-primary, inherit); text-transform: uppercase; }
-			
-			.rmm-slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; padding: 10px; }
-			.rmm-slot-card { padding: 15px; border: 1px solid rgba(128,128,128,0.2); border-radius: 4px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; transition: background 0.2s; }
-			.rmm-slot-card.is-occupied { background: rgba(0,200,0,0.05); border-color: rgba(0,200,0,0.2); }
-			
-			.rmm-slot-role { font-size: 0.85em; text-transform: uppercase; font-weight: 700; opacity: 0.7; border-bottom: 1px solid rgba(128,128,128,0.2); padding-bottom: 5px; }
-			.rmm-slot-user { font-size: 1.1em; font-weight: 600; color: var(--e-global-color-text, inherit); }
-			
-			.rmm-locked-btn { background-color: rgba(128,128,128,0.2) !important; color: inherit !important; opacity: 0.7; cursor: not-allowed; width: 100%; border: none !important; }
-			.rmm-reserve-btn { width: 100%; border-radius: 3px; }
-			.rmm-missing-medals { font-size: 0.75em; color: #dc3232; margin: 5px 0 0 0; text-align: center; }
 		</style>
+		<?php endif; ?>
+		
 		<?php
 		return ob_get_clean();
 	}
