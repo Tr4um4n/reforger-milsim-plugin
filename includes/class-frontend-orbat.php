@@ -14,6 +14,7 @@ class RMM_Frontend_ORBAT {
 		add_shortcode( 'rmm_addons_list', array( $this, 'render_addons_list_shortcode' ) );
 		add_shortcode( 'rmm_summary', array( $this, 'render_rmm_summary_shortcode' ) );
 		add_shortcode( 'rmm_description', array( $this, 'render_rmm_description_shortcode' ) );
+		add_shortcode( 'rmm_workshop_url', array( $this, 'render_rmm_workshop_url_shortcode' ) );
 		add_shortcode( 'fecha_evento', array( $this, 'render_fecha_evento_shortcode' ) );
 		add_action( 'wp_ajax_reclamar_slot', array( $this, 'handle_slot_reservation' ) );
 		add_action( 'wp_ajax_liberar_slot', array( $this, 'handle_slot_leave' ) );
@@ -58,6 +59,22 @@ class RMM_Frontend_ORBAT {
 		$description = get_post_meta( $target_id, 'rmm_description', true );
 		if ( empty( $description ) ) return '';
 		return '<div class="rmm-description-box">' . wpautop( esc_html( $description ) ) . '</div>';
+	}
+
+	public function render_rmm_workshop_url_shortcode( $atts ) {
+		$post_id = get_the_ID();
+		if ( ! $post_id ) return '';
+		$target_id = get_post_type($post_id) === 'eventos_partidas' ? (get_post_meta($post_id, 'mision_id', true) ?: $post_id) : $post_id;
+		$url = get_post_meta( $target_id, 'workshop_url', true );
+		if ( empty( $url ) ) return '';
+		
+		// Optional arguments for button text and CSS classes
+		$a = shortcode_atts( array(
+			'text' => 'Ver en Steam Workshop',
+			'class' => 'rmm-workshop-btn button elementor-button'
+		), $atts );
+
+		return '<a href="' . esc_url( $url ) . '" target="_blank" rel="noopener noreferrer" class="' . esc_attr( $a['class'] ) . '">' . esc_html( $a['text'] ) . '</a>';
 	}
 
 	public function render_rmm_orbat_shortcode( $atts ) {
