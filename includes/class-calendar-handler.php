@@ -59,16 +59,8 @@ class RMM_Calendar_Handler {
 			$fin    = get_post_meta( $post->ID, 'fecha_fin', true );
 			$estado = get_post_meta( $post->ID, 'estado', true );
 
-			// Usar DateTime con la zona horaria de WordPress para evitar que PHP asuma UTC y mueva las horas
-			$start_formatted = null;
-			if ( !empty($inicio) ) {
-				try {
-					$dt = new DateTime( $inicio, wp_timezone() );
-					$start_formatted = $dt->format('c');
-				} catch (Exception $e) {
-					$start_formatted = null;
-				}
-			}
+			// Reemplazar el espacio por T para formato ISO sin zona horaria, así FullCalendar lo interpreta como hora local.
+			$start_formatted = !empty($inicio) ? str_replace(' ', 'T', $inicio) : null;
 
 			// Skip events without start date
 			if ( !$start_formatted ) continue;
