@@ -540,14 +540,14 @@ class RMM_Frontend_ORBAT {
 			<div class="rmm-filter-group">
 				<span>ACE:</span>
 				<label class="rmm-switch">
-					<input type="checkbox" id="rmm-filter-ace">
+					<input type="checkbox" id="rmm-filter-ace" checked>
 					<span class="rmm-slider round"></span>
 				</label>
 			</div>
 			<div class="rmm-filter-group">
 				<span>RHS:</span>
 				<label class="rmm-switch">
-					<input type="checkbox" id="rmm-filter-rhs">
+					<input type="checkbox" id="rmm-filter-rhs" checked>
 					<span class="rmm-slider round"></span>
 				</label>
 			</div>
@@ -733,8 +733,14 @@ class RMM_Frontend_ORBAT {
 						let show = true;
 
 						if (selectedAuthor && author !== selectedAuthor) show = false;
+						
+						// Si el switch está ON, debe tener el addon. Si está OFF, NO debe tenerlo.
 						if (filterAce && !hasAce) show = false;
+						if (!filterAce && hasAce) show = false;
+						
 						if (filterRhs && !hasRhs) show = false;
+						if (!filterRhs && hasRhs) show = false;
+						
 						if (slots < minSlots) show = false;
 						if (addons > maxAddons) show = false;
 
@@ -745,6 +751,9 @@ class RMM_Frontend_ORBAT {
 						}
 					});
 				}
+
+				// Aplicar filtros al cargar para respetar los switches activos por defecto
+				applyFilters();
 
 				authorSelect.on('change', applyFilters);
 				minSlotsInput.on('input', applyFilters);
