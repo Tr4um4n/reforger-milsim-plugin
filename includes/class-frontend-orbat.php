@@ -250,6 +250,7 @@ class RMM_Frontend_ORBAT {
 	 * ORBAT: Modo Evento — Cards interactivas con reservas
 	 */
 	private function render_orbat_event_mode( $orbat, $post_id ) {
+		$post_type = get_post_type( $post_id );
 		$current_user_id = get_current_user_id();
 		$user_medals = $this->get_user_medal_ids( $current_user_id );
 		?>
