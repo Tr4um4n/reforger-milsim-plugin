@@ -358,8 +358,8 @@ class RMM_Metabox_Handler {
 	public function render_orbat_metabox( $post ) {
 		wp_nonce_field( 'rmm_save_metadata', 'rmm_metadata_nonce' );
 		$meta_key = ( $post->post_type === 'misiones' ) ? 'orbat_maestro' : 'orbat_activo';
-		$orbat_json = get_post_meta( $post->ID, $meta_key, true );
-		if ( empty( $orbat_json ) ) $orbat_json = '[]';
+		$orbat_data = get_post_meta( $post->ID, $meta_key, true );
+		$orbat_json = ! empty( $orbat_data ) ? wp_json_encode( $orbat_data ) : '[]';
 
 		?>
 		<div id="rmm-orbat-app" style="padding:10px;">
