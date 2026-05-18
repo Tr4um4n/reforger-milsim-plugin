@@ -192,7 +192,7 @@ class RMM_Calendar_Handler {
 				if (!calendarEl) return;
 
 				var calendar = new FullCalendar.Calendar(calendarEl, {
-					initialView: 'dayGridMonth', // Volvemos a mes por defecto en móvil a petición del usuario
+					initialView: window.innerWidth < 768 ? 'listWeek' : 'dayGridMonth',
 					locale: 'es',
 					firstDay: 1, // Lunes
 					headerToolbar: {
