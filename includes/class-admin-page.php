@@ -10,11 +10,23 @@ class RMM_Admin_Page {
 
 	public function __construct() {
 		add_action( 'admin_menu', array( $this, 'register_admin_menu' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		add_action( 'wp_ajax_rmm_get_server_presets', array( $this, 'ajax_get_server_presets' ) );
 		add_action( 'wp_ajax_rmm_get_preset_details', array( $this, 'ajax_get_preset_details' ) );
 		add_action( 'wp_ajax_rmm_load_preset', array( $this, 'ajax_load_preset' ) );
 		add_action( 'wp_ajax_rmm_save_server_preset', array( $this, 'ajax_save_server_preset' ) );
 	}
+
+	/**
+	 * Enqueue WP Media Library on settings page
+	 */
+	public function enqueue_admin_assets( $hook ) {
+		if ( strpos( $hook, 'rmm-settings' ) === false ) {
+			return;
+		}
+		wp_enqueue_media();
+	}
+
 
 	/**
 	 * Register top-level menu and subpages
@@ -408,6 +420,40 @@ class RMM_Admin_Page {
 			update_option( 'rmm_telegram_role_user', $role_user );
 			update_option( 'rmm_telegram_role_viewer', $role_viewer );
 
+			// Process dynamic ORBAT roles & image uploads
+			if ( isset( $_POST['rmm_roles_names'] ) ) {
+				$submitted_names     = $_POST['rmm_roles_names'];
+				$submitted_old_names = $_POST['rmm_roles_old_names'];
+				$submitted_image_ids = $_POST['rmm_roles_image_ids'];
+				$submitted_image_urls = $_POST['rmm_roles_image_urls'];
+				
+				$old_roles_list = rmm_get_orbat_roles();
+				$new_roles_list = array();
+				
+				for ( $i = 0; $i < count( $submitted_names ); $i++ ) {
+					$name = sanitize_text_field( trim( $submitted_names[$i] ) );
+					if ( empty( $name ) ) {
+						continue;
+					}
+					
+					$old_name  = sanitize_text_field( trim( $submitted_old_names[$i] ) );
+					$image_id  = intval( $submitted_image_ids[$i] );
+					$image_url = esc_url_raw( $submitted_image_urls[$i] );
+					
+					$new_roles_list[$name] = array(
+						'image_id'  => $image_id,
+						'image_url' => $image_url,
+					);
+					
+					// If renamed, run propagation across all missions/events ORBATs
+					if ( ! empty( $old_name ) && $old_name !== $name && isset( $old_roles_list[$old_name] ) ) {
+						$this->propagate_role_rename( $old_name, $name );
+					}
+				}
+				
+				update_option( 'rmm_orbat_roles', $new_roles_list );
+			}
+
 			$message = __( 'Ajustes guardados correctamente.', 'reforger-milsim' );
 
 			// Sync config.php to bot path if configured
@@ -482,8 +528,15 @@ class RMM_Admin_Page {
 			<form method="post" action="">
 				<?php wp_nonce_field( 'rmm_save_settings_action', 'rmm_settings_nonce' ); ?>
 
-				<!-- Section: Pterodactyl -->
-				<div class="rmm-section">
+				<!-- Nav Tabs -->
+				<ul class="rmm-nav-tabs" style="margin-bottom: 30px;">
+					<li class="active"><a href="#integrations-pane">🦕 Integraciones y Claves</a></li>
+					<li><a href="#roles-pane">🪖 Tipos de Slot (ORBAT)</a></li>
+				</ul>
+
+				<div id="integrations-pane" class="rmm-tab-pane active">
+					<!-- Section: Pterodactyl -->
+					<div class="rmm-section">
 					<h2>🦕 Integración con Pterodactyl</h2>
 					<p class="rmm-section-desc">Configuración de credenciales de API para gestionar servidores y ficheros de configuración.</p>
 
@@ -601,12 +654,169 @@ class RMM_Admin_Page {
 					</div>
 				</div>
 
+				</div> <!-- Closing integrations-pane -->
+
+				<!-- Tab 2: Roles (Tipos de Slot) -->
+				<div id="roles-pane" class="rmm-tab-pane">
+					<div class="rmm-section">
+						<h2>🪖 Tipos de Slot (Roles del ORBAT)</h2>
+						<p class="rmm-section-desc">Gestiona los nombres e iconos PNG personalizados (250x250px recomendados) de los slots en el ORBAT de misiones y eventos.</p>
+
+						<table class="rmm-roles-table">
+							<thead>
+								<tr>
+									<th>Nombre del Rol</th>
+									<th>Icono PNG (250x250)</th>
+									<th style="width: 100px;">Acciones</th>
+								</tr>
+							</thead>
+							<tbody id="rmm-roles-tbody">
+								<?php
+								$roles_list = rmm_get_orbat_roles();
+								foreach ( $roles_list as $role_name => $role_data ) :
+									$image_id  = isset( $role_data['image_id'] ) ? intval( $role_data['image_id'] ) : 0;
+									$image_url = isset( $role_data['image_url'] ) ? $role_data['image_url'] : '';
+								?>
+									<tr class="rmm-role-row">
+										<td>
+											<input type="text" name="rmm_roles_names[]" value="<?php echo esc_attr( $role_name ); ?>" class="regular-text" style="width: 100%; max-width: 350px;" placeholder="Ej. Fusilero de Asalto" required>
+											<input type="hidden" name="rmm_roles_old_names[]" value="<?php echo esc_attr( $role_name ); ?>">
+										</td>
+										<td>
+											<div style="display:flex; align-items:center; gap:10px;">
+												<div class="rmm-role-icon-preview">
+													<?php if ( ! empty( $image_url ) ) : ?>
+														<img src="<?php echo esc_url( $image_url ); ?>" style="width:24px; height:24px; object-fit:contain;" />
+													<?php else : ?>
+														<span class="rmm-role-icon-placeholder" style="font-size:18px;">👤</span>
+													<?php endif; ?>
+												</div>
+												<input type="hidden" class="rmm-role-image-id" name="rmm_roles_image_ids[]" value="<?php echo esc_attr( $image_id ); ?>">
+												<input type="hidden" class="rmm-role-image-url" name="rmm_roles_image_urls[]" value="<?php echo esc_url( $image_url ); ?>">
+												<button type="button" class="button rmm-upload-role-image">🖼️ Seleccionar PNG</button>
+												<button type="button" class="button rmm-remove-role-image">Quitar</button>
+											</div>
+										</td>
+										<td>
+											<button type="button" class="button button-link-delete rmm-delete-role-row">🗑️ Eliminar</button>
+										</td>
+									</tr>
+								<?php endforeach; ?>
+							</tbody>
+						</table>
+
+						<div style="margin-top: 25px;">
+							<button type="button" id="rmm-add-role-row" class="button button-secondary">➕ Añadir Nuevo Tipo de Slot</button>
+						</div>
+					</div>
+				</div>
+
 				<!-- Submit Button -->
-				<div class="rmm-submit-row">
+				<div class="rmm-submit-row" style="margin-top: 30px;">
 					<button type="submit" name="rmm_save_settings" class="button button-primary button-large">💾 Guardar Configuración</button>
 				</div>
 			</form>
 		</div>
+
+		<!-- JAVASCRIPT LOGIC FOR SETTINGS PAGE -->
+		<script>
+		jQuery(document).ready(function($) {
+			// === TABS SYSTEM ===
+			$('.rmm-nav-tabs a').on('click', function(e) {
+				e.preventDefault();
+				const target = $(this).attr('href');
+				$('.rmm-nav-tabs li').removeClass('active');
+				$(this).parent().addClass('active');
+				$('.rmm-tab-pane').removeClass('active');
+				$(target).addClass('active');
+			});
+
+			// === WP MEDIA UPLOADER FOR ROLES ===
+			let mediaUploader = null;
+			let activeRow = null;
+
+			$(document).on('click', '.rmm-upload-role-image', function(e) {
+				e.preventDefault();
+				activeRow = $(this).closest('.rmm-role-row');
+
+				// Reopen if already created
+				if (mediaUploader) {
+					mediaUploader.open();
+					return;
+				}
+
+				// Create frame
+				mediaUploader = wp.media({
+					title: 'Seleccionar Icono PNG para Rol (250x250)',
+					button: {
+						text: 'Usar esta imagen'
+					},
+					multiple: false,
+					library: {
+						type: 'image'
+					}
+				});
+
+				mediaUploader.on('select', function() {
+					const attachment = mediaUploader.state().get('selection').first().toJSON();
+					activeRow.find('.rmm-role-image-id').val(attachment.id);
+					
+					const imageUrl = (attachment.sizes && attachment.sizes.thumbnail) ? attachment.sizes.thumbnail.url : attachment.url;
+					activeRow.find('.rmm-role-image-url').val(imageUrl);
+
+					activeRow.find('.rmm-role-icon-preview').html(
+						'<img src="' + imageUrl + '" style="width:24px; height:24px; object-fit:contain;" />'
+					);
+				});
+
+				mediaUploader.open();
+			});
+
+			$(document).on('click', '.rmm-remove-role-image', function(e) {
+				e.preventDefault();
+				const row = $(this).closest('.rmm-role-row');
+				row.find('.rmm-role-image-id').val(0);
+				row.find('.rmm-role-image-url').val('');
+				row.find('.rmm-role-icon-preview').html('<span class="rmm-role-icon-placeholder" style="font-size:18px;">👤</span>');
+			});
+
+			// === ADD/DELETE ROWS ===
+			$('#rmm-add-role-row').on('click', function(e) {
+				e.preventDefault();
+				const tbody = $('#rmm-roles-tbody');
+				const rowHtml = `
+					<tr class="rmm-role-row">
+						<td>
+							<input type="text" name="rmm_roles_names[]" class="regular-text" style="width:100%; max-width: 350px;" placeholder="Ej. Fusilero de Asalto" required>
+							<input type="hidden" name="rmm_roles_old_names[]" value="">
+						</td>
+						<td>
+							<div style="display:flex; align-items:center; gap:10px;">
+								<div class="rmm-role-icon-preview">
+									<span class="rmm-role-icon-placeholder" style="font-size:18px;">👤</span>
+								</div>
+								<input type="hidden" class="rmm-role-image-id" name="rmm_roles_image_ids[]" value="0">
+								<input type="hidden" class="rmm-role-image-url" name="rmm_roles_image_urls[]" value="">
+								<button type="button" class="button rmm-upload-role-image">🖼️ Seleccionar PNG</button>
+								<button type="button" class="button rmm-remove-role-image">Quitar</button>
+							</div>
+						</td>
+						<td>
+							<button type="button" class="button button-link-delete rmm-delete-role-row">🗑️ Eliminar</button>
+						</td>
+					</tr>
+				`;
+				tbody.append(rowHtml);
+			});
+
+			$(document).on('click', '.rmm-delete-role-row', function(e) {
+				e.preventDefault();
+				if (confirm('¿Estás seguro de que deseas eliminar este tipo de slot? Las misiones existentes conservarán el rol escrito pero no podrás seleccionarlo en nuevos slots.')) {
+					$(this).closest('tr').remove();
+				}
+			});
+		});
+		</script>
 
 		<style>
 		.rmm-admin-wrap { max-width: 1100px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding-top: 10px; }
@@ -624,6 +834,22 @@ class RMM_Admin_Page {
 
 		.rmm-form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px 25px; }
 		.rmm-grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+		/* Tabs System */
+		.rmm-nav-tabs { list-style: none; padding: 0; margin: 0 0 30px 0; display: flex; border-bottom: 2px solid #cbd5e1; }
+		.rmm-nav-tabs li { margin: 0; }
+		.rmm-nav-tabs li a { display: block; padding: 12px 24px; color: #64748b; text-decoration: none; border-bottom: 2px solid transparent; font-weight: 600; font-size: 1.05em; transition: all 0.2s; margin-bottom: -2px; }
+		.rmm-nav-tabs li.active a, .rmm-nav-tabs li a:hover { color: #10b981; border-bottom-color: #10b981; }
+
+		.rmm-tab-pane { display: none; }
+		.rmm-tab-pane.active { display: block; }
+
+		/* Roles Table */
+		.rmm-roles-table { width: 100%; border-collapse: collapse; margin-top: 15px; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
+		.rmm-roles-table th, .rmm-roles-table td { padding: 15px; text-align: left; border-bottom: 1px solid #cbd5e1; vertical-align: middle; }
+		.rmm-roles-table th { background: #f1f5f9; font-weight: 700; color: #1e293b; font-size: 0.9em; text-transform: uppercase; letter-spacing: 0.5px; }
+		.rmm-roles-table tr:hover td { background: #f8fafc; }
+		.rmm-role-icon-preview { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: #e2e8f0; border-radius: 6px; border: 1px solid #cbd5e1; overflow: hidden; }
 		.rmm-form-group { display: flex; flex-direction: column; }
 		.rmm-form-group.span-2 { grid-column: span 2; }
 		.rmm-form-group label { font-weight: 600; color: #334155; margin-bottom: 8px; font-size: 0.9em; }
@@ -1742,6 +1968,50 @@ class RMM_Admin_Page {
 			wp_send_json_success();
 		} catch ( Exception $e ) {
 			wp_send_json_error( array( 'error' => $e->getMessage() ) );
+		}
+	}
+
+	/**
+	 * Propagate role name change in all saved ORBATs of missions and events.
+	 */
+	private function propagate_role_rename( $old_name, $new_name ) {
+		$posts = get_posts( array(
+			'post_type'   => array( 'misiones', 'eventos_partidas' ),
+			'numberposts' => -1,
+			'post_status' => 'any',
+		) );
+
+		foreach ( $posts as $post ) {
+			$meta_keys = array( 'orbat_maestro', 'orbat_activo' );
+			foreach ( $meta_keys as $key ) {
+				$orbat_json = get_post_meta( $post->ID, $key, true );
+				
+				$orbat = $orbat_json;
+				if ( is_string( $orbat_json ) ) {
+					$orbat = json_decode( $orbat_json, true );
+				}
+				
+				if ( ! empty( $orbat ) && is_array( $orbat ) ) {
+					$changed = false;
+					foreach ( $orbat as &$escuadra ) {
+						if ( isset( $escuadra['slots'] ) && is_array( $escuadra['slots'] ) ) {
+							foreach ( $escuadra['slots'] as &$slot ) {
+								if ( isset( $slot['rol'] ) && $slot['rol'] === $old_name ) {
+									$slot['rol'] = $new_name;
+									$changed = true;
+								}
+							}
+						}
+					}
+					if ( $changed ) {
+						if ( is_string( $orbat_json ) ) {
+							update_post_meta( $post->ID, $key, json_encode( $orbat, JSON_UNESCAPED_UNICODE ) );
+						} else {
+							update_post_meta( $post->ID, $key, $orbat );
+						}
+					}
+				}
+			}
 		}
 	}
 }

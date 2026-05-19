@@ -49,13 +49,15 @@ class RMM_Metabox_Handler {
 			$users_data[] = array( 'id' => $u->ID, 'text' => $u->display_name );
 		}
 
+		$roles_data = rmm_get_orbat_roles();
 		wp_localize_script( 'jquery', 'rmmAdminData', array(
-			'ajax_url' => admin_url( 'admin-ajax.php' ),
-			'nonce'    => wp_create_nonce( 'rmm_admin_nonce' ),
-			'roles'    => array( 'Líder de Escuadra', 'Médico', 'Fusilero', 'Fusilero Automático', 'Granadero', 'Antitanque', 'RTM', 'Piloto' ),
-			'medals'   => $medals_data,
-			'users'    => $users_data,
-			'is_event' => ( $post_type === 'eventos_partidas' )
+			'ajax_url'   => admin_url( 'admin-ajax.php' ),
+			'nonce'      => wp_create_nonce( 'rmm_admin_nonce' ),
+			'roles'      => array_keys( $roles_data ),
+			'roles_imgs' => $roles_data,
+			'medals'     => $medals_data,
+			'users'      => $users_data,
+			'is_event'   => ( $post_type === 'eventos_partidas' )
 		) );
 	}
 
@@ -621,16 +623,30 @@ class RMM_Metabox_Handler {
 					});
 
 					squad.slots.forEach((slot, rIdx) => {
-						const row = $(`<div class="rmm-slot-row">
-							<select class="slot-role-sel"></select>
+						const row = $(`<div class="rmm-slot-row" style="display:flex; align-items:center; gap:10px;">
+							<div class="rmm-slot-icon-preview" style="width:24px; height:24px; display:flex; align-items:center; justify-content:center; background:#444; border-radius:4px; overflow:hidden;"></div>
+							<select class="slot-role-sel" style="flex:1;"></select>
 							<select class="orbat-medals-select" multiple style="width:100%"></select>
 							<div class="rmm-slot-status">
-								${rmmAdminData.is_event ? `<select class="slot-user-sel" style="width:100%;"><option value="">VACANTE</option></select>` : `<span style="color:#666; font-size:10px;">VACANTE</span>`}
+								${rmmAdminData.is_event ? `<select class="slot-user-sel" style="width:100%;"><option value="">VACANTE</option></select>` : `<span style="color:#aaa; font-size:10px;">VACANTE</span>`}
 							</div>
 							<span class="rmm-remove-btn dashicons dashicons-no-alt" title="Quitar Rol"></span>
 						</div>`);
 
+						const iconPreview = row.find('.rmm-slot-icon-preview');
+						function updateIconPreview(roleName) {
+							const roleInfo = rmmAdminData.roles_imgs[roleName];
+							if (roleInfo && roleInfo.image_url) {
+								iconPreview.html('<img src="' + roleInfo.image_url + '" style="width:100%; height:100%; object-fit:contain;" />');
+							} else {
+								iconPreview.html('<span style="font-size:14px; color:#fff;">👤</span>');
+							}
+						}
+
 						rmmAdminData.roles.forEach(r => row.find('.slot-role-sel').append(new Option(r, r, r===slot.rol, r===slot.rol)));
+						
+						updateIconPreview(slot.rol || rmmAdminData.roles[0]);
+
 						rmmAdminData.medals.forEach(m => {
 							const selected = (slot.condecoraciones_requeridas || []).includes(m.id);
 							row.find('.orbat-medals-select').append(new Option(m.text, m.id, selected, selected));
@@ -647,7 +663,13 @@ class RMM_Metabox_Handler {
 							});
 						}
 
-						row.find('.slot-role-sel').on('change', function() { data[sIdx].slots[rIdx].rol = $(this).val(); updateInput(); });
+						row.find('.slot-role-sel').on('change', function() {
+							const val = $(this).val();
+							data[sIdx].slots[rIdx].rol = val;
+							updateIconPreview(val);
+							updateInput();
+						});
+
 						row.find('.orbat-medals-select').select2({ placeholder: "Requisitos" }).on('change', function() {
 							data[sIdx].slots[rIdx].condecoraciones_requeridas = $(this).val().map(Number);
 							updateInput();

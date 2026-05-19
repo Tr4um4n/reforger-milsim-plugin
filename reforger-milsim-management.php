@@ -37,6 +37,55 @@ foreach ( $rmm_includes as $file ) {
 	require_once RMM_PLUGIN_DIR . 'includes/' . $file;
 }
 
+// Global Helper Functions for ORBAT Roles & PNG Icons
+function rmm_get_orbat_roles() {
+	$roles = get_option( 'rmm_orbat_roles' );
+	if ( $roles === false ) {
+		$roles = array(
+			'Líder de Escuadra'   => array( 'image_id' => 0, 'image_url' => '' ),
+			'Médico'              => array( 'image_id' => 0, 'image_url' => '' ),
+			'Fusilero'            => array( 'image_id' => 0, 'image_url' => '' ),
+			'Fusilero Automático' => array( 'image_id' => 0, 'image_url' => '' ),
+			'Granadero'           => array( 'image_id' => 0, 'image_url' => '' ),
+			'Antitanque'          => array( 'image_id' => 0, 'image_url' => '' ),
+			'RTO'                 => array( 'image_id' => 0, 'image_url' => '' ),
+			'Piloto'              => array( 'image_id' => 0, 'image_url' => '' ),
+			'Tirador'             => array( 'image_id' => 0, 'image_url' => '' ),
+			'Spotter'             => array( 'image_id' => 0, 'image_url' => '' ),
+		);
+		update_option( 'rmm_orbat_roles', $roles );
+	}
+	return $roles;
+}
+
+function rmm_get_role_icon_html( $role_name ) {
+	$roles = rmm_get_orbat_roles();
+	$url = '';
+	
+	if ( isset( $roles[$role_name] ) ) {
+		if ( ! empty( $roles[$role_name]['image_id'] ) ) {
+			$src = wp_get_attachment_image_src( $roles[$role_name]['image_id'], 'thumbnail' );
+			if ( $src ) {
+				$url = $src[0];
+			}
+		}
+		if ( empty( $url ) && ! empty( $roles[$role_name]['image_url'] ) ) {
+			$url = $roles[$role_name]['image_url'];
+		}
+	}
+	
+	if ( empty( $url ) ) {
+		return '<span class="rmm-role-icon-placeholder" style="font-size:18px; margin-right:6px; vertical-align:middle; display:inline-block;">👤</span>';
+	}
+	
+	return sprintf(
+		'<img src="%s" alt="%s" class="rmm-role-icon-img" style="width:24px; height:24px; object-fit:contain; vertical-align:middle; display:inline-block; margin-right:6px;" />',
+		esc_url( $url ),
+		esc_attr( $role_name )
+	);
+}
+
+
 /**
  * Main Plugin Class
  */

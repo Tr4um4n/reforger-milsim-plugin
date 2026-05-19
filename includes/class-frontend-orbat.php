@@ -185,7 +185,7 @@ class RMM_Frontend_ORBAT {
 					?>
 					<?php foreach ( $roles_count as $role => $count ) : ?>
 					<div class="rmm-tac-role-row">
-						<span class="rmm-tac-role-icon"><?php echo $this->get_role_icon($role); ?></span>
+						<span class="rmm-tac-role-icon"><?php echo rmm_get_role_icon_html($role); ?></span>
 						<span class="rmm-tac-role-name"><?php echo esc_html($role); ?></span>
 						<span class="rmm-tac-role-qty">×<?php echo $count; ?></span>
 					</div>
@@ -280,8 +280,9 @@ class RMM_Frontend_ORBAT {
 								$can_reserve = empty($missing) && current_user_can('reserve_orbat_slot');
 							?>
 							<div class="rmm-slot-card <?php echo $occupied ? 'is-occupied' : 'is-vacant'; ?>">
-								<div class="rmm-slot-role">
-									<?php echo esc_html(strtoupper($slot['rol'] ?: 'Líder de Escuadra')); ?>
+								<div class="rmm-slot-header" style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+									<span class="rmm-slot-icon"><?php echo rmm_get_role_icon_html($slot['rol'] ?: 'Líder de Escuadra'); ?></span>
+									<span class="rmm-slot-role" style="margin-bottom:0; flex-grow:1;"><?php echo esc_html(strtoupper($slot['rol'] ?: 'Líder de Escuadra')); ?></span>
 								</div>
 								<div class="rmm-slot-action">
 								<?php if ($occupied) : ?>
