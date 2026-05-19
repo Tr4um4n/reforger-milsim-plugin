@@ -1,10 +1,10 @@
 <?php
 /**
- * Plugin Name: Arma Reforger MILSIM Management
+ * Plugin Name: Arma Reforger MILSIM Management [=TFR=] by TRAUMAN
  * Plugin URI:  https://gure.party
  * Description: Gestión integral para comunidades de Arma Reforger: Misiones, Eventos, ORBAT y Condecoraciones.
  * Version:     1.0.0
- * Author:      Antigravity
+ * Author:      Antigravity & TRAUMAN
  * Author URI:  https://gure.party
  * Text Domain: reforger-milsim
  * License:     GPL2

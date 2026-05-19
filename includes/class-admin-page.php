@@ -293,7 +293,7 @@ class RMM_Admin_Page {
 		.rmm-admin-wrap { max-width: 1200px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
 		.rmm-admin-header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: #fff; padding: 30px 35px; border-radius: 12px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-		.rmm-admin-header h1 { margin: 0; font-size: 1.8em; font-weight: 800; letter-spacing: -0.5px; }
+		.rmm-admin-header h1 { margin: 0; font-size: 1.8em; font-weight: 800; letter-spacing: -0.5px; color: #ffffff !important; }
 		.rmm-version { background: rgba(255,255,255,0.15); padding: 5px 14px; border-radius: 20px; font-size: 0.85em; font-weight: 600; }
 
 		.rmm-stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
@@ -611,7 +611,7 @@ class RMM_Admin_Page {
 		<style>
 		.rmm-admin-wrap { max-width: 1100px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding-top: 10px; }
 		.rmm-admin-header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #fff; padding: 25px 35px; border-radius: 12px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 20px rgba(0,0,0,0.15); border: 1px solid rgba(255, 255, 255, 0.05); }
-		.rmm-admin-header h1 { margin: 0; font-size: 1.8em; font-weight: 800; }
+		.rmm-admin-header h1 { margin: 0; font-size: 1.8em; font-weight: 800; color: #ffffff !important; }
 		.rmm-version { background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 20px; font-size: 0.85em; font-weight: 600; border: 1px solid rgba(255,255,255,0.1); }
 		
 		.rmm-alert { padding: 15px 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid; font-weight: 500; }
