@@ -13,8 +13,24 @@
 
 header('Content-Type: application/json; charset=utf-8');
 
+// 🚀 Carga dinámica de WordPress para acceder a get_option
+$wp_root = __DIR__;
+for ($i = 0; $i < 6; $i++) {
+    if (file_exists($wp_root . '/wp-load.php')) {
+        require_once($wp_root . '/wp-load.php');
+        break;
+    }
+    $wp_root = dirname($wp_root);
+}
+
 // 🔐 Steam Web API Key (https://steamcommunity.com/dev/apikey)
 $STEAM_API_KEY = "TU_API_KEY_AQUI";
+if (function_exists('get_option')) {
+    $db_key = get_option('rmm_steam_api_key');
+    if (!empty($db_key)) {
+        $STEAM_API_KEY = $db_key;
+    }
+}
 
 // 🐞 Debug mode
 $DEBUG = isset($_GET['debug']) && $_GET['debug'] == '1';

@@ -10,6 +10,10 @@ class RMM_Admin_Page {
 
 	public function __construct() {
 		add_action( 'admin_menu', array( $this, 'register_admin_menu' ) );
+		add_action( 'wp_ajax_rmm_get_server_presets', array( $this, 'ajax_get_server_presets' ) );
+		add_action( 'wp_ajax_rmm_get_preset_details', array( $this, 'ajax_get_preset_details' ) );
+		add_action( 'wp_ajax_rmm_load_preset', array( $this, 'ajax_load_preset' ) );
+		add_action( 'wp_ajax_rmm_save_server_preset', array( $this, 'ajax_save_server_preset' ) );
 	}
 
 	/**
@@ -37,7 +41,17 @@ class RMM_Admin_Page {
 			array( $this, 'render_manual_page' )
 		);
 
-		// Sub: Configuración (placeholder for future settings)
+		// Sub: Gestión de Servidor
+		add_submenu_page(
+			'rmm-dashboard',
+			__( 'Gestión de Servidor', 'reforger-milsim' ),
+			__( '🎮 Gestión de Servidor', 'reforger-milsim' ),
+			'manage_options',
+			'rmm-server-management',
+			array( $this, 'render_server_management_page' )
+		);
+
+		// Sub: Configuración
 		add_submenu_page(
 			'rmm-dashboard',
 			__( 'Configuración', 'reforger-milsim' ),
@@ -337,80 +351,1397 @@ class RMM_Admin_Page {
 	}
 
 	/**
-	 * Render: Settings Page (placeholder for Pterodactyl, etc.)
+	 * Parse telegram ID mappings from textarea text
+	 */
+	private function parse_telegram_role_text( $text ) {
+		$lines = explode( "\n", str_replace( "\r", "", $text ) );
+		$users = array();
+		foreach ( $lines as $line ) {
+			$line = trim( $line );
+			if ( empty( $line ) ) {
+				continue;
+			}
+			$parts = explode( ':', $line, 2 );
+			if ( count( $parts ) >= 2 ) {
+				$users[] = array(
+					'id'   => intval( trim( $parts[0] ) ),
+					'name' => trim( $parts[1] ),
+				);
+			}
+		}
+		return $users;
+	}
+
+	/**
+	 * Render: Settings Page (Pterodactyl, Telegram, Steam, etc.)
 	 */
 	public function render_settings_page() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( __( 'No tienes permisos suficientes para acceder a esta página.', 'reforger-milsim' ) );
+		}
+
+		$message = '';
+		$status  = 'success';
+
+		// Handle Form Submit
+		if ( isset( $_POST['rmm_save_settings'] ) && check_admin_referer( 'rmm_save_settings_action', 'rmm_settings_nonce' ) ) {
+			update_option( 'rmm_ptero_url', esc_url_raw( trim( $_POST['rmm_ptero_url'] ) ) );
+			update_option( 'rmm_ptero_client_key', sanitize_text_field( trim( $_POST['rmm_ptero_client_key'] ) ) );
+			update_option( 'rmm_ptero_app_key', sanitize_text_field( trim( $_POST['rmm_ptero_app_key'] ) ) );
+			update_option( 'rmm_ptero_stable_server_id', sanitize_text_field( trim( $_POST['rmm_ptero_stable_server_id'] ) ) );
+			update_option( 'rmm_ptero_testing_server_id', sanitize_text_field( trim( $_POST['rmm_ptero_testing_server_id'] ) ) );
+			update_option( 'rmm_server_ip', sanitize_text_field( trim( $_POST['rmm_server_ip'] ) ) );
+			update_option( 'rmm_telegram_token', sanitize_text_field( trim( $_POST['rmm_telegram_token'] ) ) );
+			update_option( 'rmm_telegram_chat_id', sanitize_text_field( trim( $_POST['rmm_telegram_chat_id'] ) ) );
+			update_option( 'rmm_telegram_bot_path', sanitize_text_field( trim( $_POST['rmm_telegram_bot_path'] ) ) );
+			update_option( 'rmm_telegram_log_file', sanitize_text_field( trim( $_POST['rmm_telegram_log_file'] ) ) );
+			update_option( 'rmm_steam_api_key', sanitize_text_field( trim( $_POST['rmm_steam_api_key'] ) ) );
+			update_option( 'rmm_whatsapp_phone', sanitize_text_field( trim( $_POST['rmm_whatsapp_phone'] ) ) );
+			update_option( 'rmm_whatsapp_apikey', sanitize_text_field( trim( $_POST['rmm_whatsapp_apikey'] ) ) );
+
+			// Roles
+			$role_admin  = trim( $_POST['rmm_telegram_role_admin'] );
+			$role_user   = trim( $_POST['rmm_telegram_role_user'] );
+			$role_viewer = trim( $_POST['rmm_telegram_role_viewer'] );
+
+			update_option( 'rmm_telegram_role_admin', $role_admin );
+			update_option( 'rmm_telegram_role_user', $role_user );
+			update_option( 'rmm_telegram_role_viewer', $role_viewer );
+
+			$message = __( 'Ajustes guardados correctamente.', 'reforger-milsim' );
+
+			// Sync config.php to bot path if configured
+			$bot_path = rtrim( sanitize_text_field( trim( $_POST['rmm_telegram_bot_path'] ) ), '/' );
+			if ( ! empty( $bot_path ) && is_dir( $bot_path ) ) {
+				$config_file = $bot_path . '/config.php';
+
+				// Parse Roles
+				$roles = array(
+					'admin'  => $this->parse_telegram_role_text( $role_admin ),
+					'user'   => $this->parse_telegram_role_text( $role_user ),
+					'viewer' => $this->parse_telegram_role_text( $role_viewer ),
+				);
+
+				$config_array = array(
+					'telegram_token'   => sanitize_text_field( trim( $_POST['rmm_telegram_token'] ) ),
+					'ptero_url'        => esc_url_raw( trim( $_POST['rmm_ptero_url'] ) ),
+					'ptero_client_key' => sanitize_text_field( trim( $_POST['rmm_ptero_client_key'] ) ),
+					'ptero_app_key'    => sanitize_text_field( trim( $_POST['rmm_ptero_app_key'] ) ),
+					'stable_servers'   => array_filter( array( sanitize_text_field( trim( $_POST['rmm_ptero_stable_server_id'] ) ) ) ),
+					'testing_servers'  => array_filter( array( sanitize_text_field( trim( $_POST['rmm_ptero_testing_server_id'] ) ) ) ),
+					'roles'            => $roles,
+					'whatsapp'         => array(
+						'phone'  => sanitize_text_field( trim( $_POST['rmm_whatsapp_phone'] ) ),
+						'apikey' => sanitize_text_field( trim( $_POST['rmm_whatsapp_apikey'] ) ),
+					),
+					'log_file'         => sanitize_text_field( trim( $_POST['rmm_telegram_log_file'] ) ?: $bot_path . '/bot.log' ),
+				);
+
+				$config_str = "<?php\n// Generado automaticamente por WordPress Reforger MILSIM Plugin\nreturn " . var_export( $config_array, true ) . ";\n";
+				
+				if ( @file_put_contents( $config_file, $config_str ) !== false ) {
+					$message .= ' ' . __( 'Además, se ha sincronizado y actualizado el archivo config.php del bot de Telegram.', 'reforger-milsim' );
+				} else {
+					$message .= ' ⚠️ ' . __( 'No se pudo escribir en el directorio del bot. Por favor verifica los permisos de escritura.', 'reforger-milsim' );
+					$status = 'error';
+				}
+			}
+		}
+
+		// Retrieve values
+		$ptero_url        = get_option( 'rmm_ptero_url' );
+		$ptero_client_key = get_option( 'rmm_ptero_client_key' );
+		$ptero_app_key    = get_option( 'rmm_ptero_app_key' );
+		$stable_server    = get_option( 'rmm_ptero_stable_server_id' );
+		$testing_server   = get_option( 'rmm_ptero_testing_server_id' );
+		$server_ip        = get_option( 'rmm_server_ip' );
+		$tg_token         = get_option( 'rmm_telegram_token' );
+		$tg_chat_id       = get_option( 'rmm_telegram_chat_id' );
+		$tg_bot_path      = get_option( 'rmm_telegram_bot_path' );
+		$tg_log_file      = get_option( 'rmm_telegram_log_file' );
+		$steam_key        = get_option( 'rmm_steam_api_key' );
+		$wa_phone         = get_option( 'rmm_whatsapp_phone' );
+		$wa_key           = get_option( 'rmm_whatsapp_apikey' );
+
+		$role_admin  = get_option( 'rmm_telegram_role_admin' );
+		$role_user   = get_option( 'rmm_telegram_role_user' );
+		$role_viewer = get_option( 'rmm_telegram_role_viewer' );
 		?>
 		<div class="wrap rmm-admin-wrap">
 			<div class="rmm-admin-header">
-				<h1>⚙️ Configuración</h1>
+				<h1>⚙️ Configuración de Integraciones</h1>
 				<p class="rmm-version">v<?php echo RMM_VERSION; ?></p>
 			</div>
 
-			<div class="rmm-section">
-				<h2>🦕 Integración Pterodactyl</h2>
-				<p class="rmm-section-desc">Conecta con tu panel Pterodactyl para monitorizar servidores de Arma Reforger: estado, jugadores, rendimiento y partidas activas.</p>
-				<div class="rmm-coming-soon">
-					<span class="rmm-coming-icon">🚧</span>
-					<h3>Próximamente</h3>
-					<p>Esta sección está en desarrollo. Se añadirán campos para configurar la URL del panel, API Key, y la selección de servidores a monitorizar.</p>
+			<?php if ( ! empty( $message ) ) : ?>
+				<div class="rmm-alert rmm-alert-<?php echo esc_attr( $status ); ?>">
+					<p><?php echo esc_html( $message ); ?></p>
 				</div>
+			<?php endif; ?>
+
+			<form method="post" action="">
+				<?php wp_nonce_field( 'rmm_save_settings_action', 'rmm_settings_nonce' ); ?>
+
+				<!-- Section: Pterodactyl -->
+				<div class="rmm-section">
+					<h2>🦕 Integración con Pterodactyl</h2>
+					<p class="rmm-section-desc">Configuración de credenciales de API para gestionar servidores y ficheros de configuración.</p>
+
+					<div class="rmm-form-grid">
+						<div class="rmm-form-group">
+							<label for="rmm_ptero_url">URL del Panel Pterodactyl</label>
+							<input type="url" name="rmm_ptero_url" id="rmm_ptero_url" value="<?php echo esc_url( $ptero_url ); ?>" class="regular-text" placeholder="https://pterodactyl.gure.party" required>
+						</div>
+
+						<div class="rmm-form-group">
+							<label for="rmm_ptero_client_key">Client API Key (ptlc_...)</label>
+							<input type="password" name="rmm_ptero_client_key" id="rmm_ptero_client_key" value="<?php echo esc_attr( $ptero_client_key ); ?>" class="regular-text" placeholder="ptlc_..." required>
+						</div>
+
+						<div class="rmm-form-group">
+							<label for="rmm_ptero_app_key">Application API Key (ptla_...) <span class="rmm-optional">(Opcional)</span></label>
+							<input type="password" name="rmm_ptero_app_key" id="rmm_ptero_app_key" value="<?php echo esc_attr( $ptero_app_key ); ?>" class="regular-text" placeholder="ptla_...">
+						</div>
+
+						<div class="rmm-form-group">
+							<label for="rmm_ptero_stable_server_id">ID Servidor Principal (STABLE)</label>
+							<input type="text" name="rmm_ptero_stable_server_id" id="rmm_ptero_stable_server_id" value="<?php echo esc_attr( $stable_server ); ?>" class="regular-text" placeholder="e.g. 5e1fb0a1">
+						</div>
+
+						<div class="rmm-form-group">
+							<label for="rmm_ptero_testing_server_id">ID Servidor de Pruebas (TESTING)</label>
+							<input type="text" name="rmm_ptero_testing_server_id" id="rmm_ptero_testing_server_id" value="<?php echo esc_attr( $testing_server ); ?>" class="regular-text" placeholder="e.g. c831a29f">
+						</div>
+
+						<div class="rmm-form-group">
+							<label for="rmm_server_ip">IP de Conexión del Servidor</label>
+							<input type="text" name="rmm_server_ip" id="rmm_server_ip" value="<?php echo esc_attr( $server_ip ); ?>" class="regular-text" placeholder="e.g. 192.168.1.100">
+						</div>
+					</div>
+				</div>
+
+				<!-- Section: Telegram -->
+				<div class="rmm-section">
+					<h2>📢 Integración con Bot de Telegram</h2>
+					<p class="rmm-section-desc">Permite notificar al grupo de Telegram y sincronizar automáticamente las credenciales del Bot en el servidor.</p>
+
+					<div class="rmm-form-grid">
+						<div class="rmm-form-group">
+							<label for="rmm_telegram_token">Token del Bot de Telegram</label>
+							<input type="password" name="rmm_telegram_token" id="rmm_telegram_token" value="<?php echo esc_attr( $tg_token ); ?>" class="regular-text" placeholder="123456789:ABCdefGhI..." required>
+						</div>
+
+						<div class="rmm-form-group">
+							<label for="rmm_telegram_chat_id">ID de Chat / Grupo para Notificaciones</label>
+							<input type="text" name="rmm_telegram_chat_id" id="rmm_telegram_chat_id" value="<?php echo esc_attr( $tg_chat_id ); ?>" class="regular-text" placeholder="e.g. -100123456789" required>
+						</div>
+
+						<div class="rmm-form-group">
+							<label for="rmm_telegram_bot_path">Ruta Local del Bot en el Servidor (Sincronización)</label>
+							<input type="text" name="rmm_telegram_bot_path" id="rmm_telegram_bot_path" value="<?php echo esc_attr( $tg_bot_path ); ?>" class="large-text" placeholder="e.g. /Volumes/Extreme SSD/Proyectos/gure.party/pterobot/pterobot">
+							<span class="rmm-field-desc">Si se especifica, se actualizará el archivo `config.php` del bot automáticamente al guardar.</span>
+						</div>
+
+						<div class="rmm-form-group">
+							<label for="rmm_telegram_log_file">Ruta de logs del Bot</label>
+							<input type="text" name="rmm_telegram_log_file" id="rmm_telegram_log_file" value="<?php echo esc_attr( $tg_log_file ); ?>" class="large-text" placeholder="e.g. bot.log">
+						</div>
+					</div>
+				</div>
+
+				<!-- Section: Telegram Users & Roles Mappings -->
+				<div class="rmm-section">
+					<h2>👥 Control de Acceso por Telegram</h2>
+					<p class="rmm-section-desc">Introduce las personas autorizadas para interactuar con el bot de Telegram, con formato <code>ID_TELEGRAM:NombreDeUsuario</code> (un usuario por línea).</p>
+
+					<div class="rmm-form-grid rmm-grid-3">
+						<div class="rmm-form-group">
+							<label for="rmm_telegram_role_admin">Administradores (Acceso Completo)</label>
+							<textarea name="rmm_telegram_role_admin" id="rmm_telegram_role_admin" rows="6" class="large-text code" placeholder="123456789:JuanPerez&#10;987654321:SgtBarron"><?php echo esc_textarea( $role_admin ); ?></textarea>
+						</div>
+
+						<div class="rmm-form-group">
+							<label for="rmm_telegram_role_user">Usuarios (Lanzadores)</label>
+							<textarea name="rmm_telegram_role_user" id="rmm_telegram_role_user" rows="6" class="large-text code" placeholder="112233445:CaboGomez"><?php echo esc_textarea( $role_user ); ?></textarea>
+						</div>
+
+						<div class="rmm-form-group">
+							<label for="rmm_telegram_role_viewer">Lectores (Solo Visualizar)</label>
+							<textarea name="rmm_telegram_role_viewer" id="rmm_telegram_role_viewer" rows="6" class="large-text code" placeholder="998877665:ReclutaLopez"><?php echo esc_textarea( $role_viewer ); ?></textarea>
+						</div>
+					</div>
+				</div>
+
+				<!-- Section: CallMeBot WhatsApp -->
+				<div class="rmm-section">
+					<h2>💬 WhatsApp (CallMeBot) <span class="rmm-optional">(Opcional)</span></h2>
+					<p class="rmm-section-desc">Habilita notificaciones del Bot de Telegram opcionalmente por WhatsApp.</p>
+
+					<div class="rmm-form-grid">
+						<div class="rmm-form-group">
+							<label for="rmm_whatsapp_phone">Número de Teléfono (+34...)</label>
+							<input type="text" name="rmm_whatsapp_phone" id="rmm_whatsapp_phone" value="<?php echo esc_attr( $wa_phone ); ?>" class="regular-text" placeholder="e.g. +34600112233">
+						</div>
+
+						<div class="rmm-form-group">
+							<label for="rmm_whatsapp_apikey">CallMeBot API Key</label>
+							<input type="text" name="rmm_whatsapp_apikey" id="rmm_whatsapp_apikey" value="<?php echo esc_attr( $wa_key ); ?>" class="regular-text" placeholder="e.g. 123456">
+						</div>
+					</div>
+				</div>
+
+				<!-- Section: Steam -->
+				<div class="rmm-section">
+					<h2>🔑 Steam Web API Key</h2>
+					<p class="rmm-section-desc">API Key requerida para consultar dependencias y datos del Steam Workshop.</p>
+
+					<div class="rmm-form-group">
+						<label for="rmm_steam_api_key">Steam Web API Key</label>
+						<input type="password" name="rmm_steam_api_key" id="rmm_steam_api_key" value="<?php echo esc_attr( $steam_key ); ?>" class="large-text" placeholder="Clave de API de Steam de 32 caracteres">
+					</div>
+				</div>
+
+				<!-- Submit Button -->
+				<div class="rmm-submit-row">
+					<button type="submit" name="rmm_save_settings" class="button button-primary button-large">💾 Guardar Configuración</button>
+				</div>
+			</form>
+		</div>
+
+		<style>
+		.rmm-admin-wrap { max-width: 1100px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding-top: 10px; }
+		.rmm-admin-header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #fff; padding: 25px 35px; border-radius: 12px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 20px rgba(0,0,0,0.15); border: 1px solid rgba(255, 255, 255, 0.05); }
+		.rmm-admin-header h1 { margin: 0; font-size: 1.8em; font-weight: 800; }
+		.rmm-version { background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 20px; font-size: 0.85em; font-weight: 600; border: 1px solid rgba(255,255,255,0.1); }
+		
+		.rmm-alert { padding: 15px 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid; font-weight: 500; }
+		.rmm-alert-success { background-color: #ecfdf5; border-color: #10b981; color: #065f46; }
+		.rmm-alert-error { background-color: #fef2f2; border-color: #ef4444; color: #991b1b; }
+
+		.rmm-section { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 30px; margin-bottom: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+		.rmm-section h2 { margin: 0 0 5px 0; font-size: 1.4em; color: #0f172a; font-weight: 700; }
+		.rmm-section-desc { margin: 0 0 25px 0; color: #64748b; font-size: 0.95em; }
+
+		.rmm-form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px 25px; }
+		.rmm-grid-3 { grid-template-columns: repeat(3, 1fr); }
+		.rmm-form-group { display: flex; flex-direction: column; }
+		.rmm-form-group.span-2 { grid-column: span 2; }
+		.rmm-form-group label { font-weight: 600; color: #334155; margin-bottom: 8px; font-size: 0.9em; }
+		.rmm-form-group input, .rmm-form-group textarea { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; font-size: 0.95em; transition: all 0.2s; color: #1e293b; }
+		.rmm-form-group input:focus, .rmm-form-group textarea:focus { border-color: #10b981; outline: none; background: #fff; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1); }
+		.rmm-optional { font-weight: normal; color: #94a3b8; font-size: 0.85em; }
+		.rmm-field-desc { margin-top: 5px; font-size: 0.82em; color: #64748b; }
+
+		.rmm-submit-row { margin-top: 20px; display: flex; justify-content: flex-end; }
+		.rmm-submit-row .button-primary { background: #10b981 !important; border-color: #10b981 !important; border-radius: 8px !important; box-shadow: none !important; font-weight: 600 !important; font-size: 1.05em !important; padding: 12px 24px !important; height: auto !important; transition: all 0.2s !important; }
+		.rmm-submit-row .button-primary:hover { background: #059669 !important; border-color: #059669 !important; transform: translateY(-1px); }
+
+		textarea.code { font-family: monospace; font-size: 12px; line-height: 1.5; background: #0f172a !important; color: #38bdf8 !important; border-color: #334155 !important; }
+		textarea.code:focus { border-color: #10b981 !important; }
+
+		@media (max-width: 782px) {
+			.rmm-form-grid { grid-template-columns: 1fr; }
+			.rmm-grid-3 { grid-template-columns: 1fr; }
+		}
+		</style>
+		<?php
+	}
+
+	/**
+	 * Render: Server Management Tools Page
+	 */
+	public function render_server_management_page() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( __( 'No tienes permisos suficientes para acceder a esta página.', 'reforger-milsim' ) );
+		}
+
+		$ptero = new RMM_Pterodactyl_Handler();
+		$servers = $ptero->get_servers();
+		$api_url = plugins_url( 'api.php', __FILE__ );
+		?>
+		<div class="wrap rmm-admin-wrap rmm-dark-theme">
+			<div class="rmm-admin-header">
+				<h1>🎮 Gestión de Servidor Reforger</h1>
+				<p class="rmm-version">v<?php echo RMM_VERSION; ?></p>
 			</div>
 
-			<div class="rmm-section">
-				<h2>🔗 Integraciones Futuras</h2>
-				<div class="rmm-roadmap-grid">
-					<div class="rmm-roadmap-card">
-						<span class="rmm-roadmap-status planned">Planificado</span>
-						<h4>Pterodactyl Server Monitor</h4>
-						<p>Estado del servidor, jugadores online, rendimiento CPU/RAM, logs de partidas.</p>
+			<!-- Nav Tabs -->
+			<ul class="rmm-nav-tabs">
+				<li class="active"><a href="#launcher-pane" data-tab="launcher">🚀 Lanzar Partida</a></li>
+				<li><a href="#generator-pane" data-tab="generator">🛠️ Generador JSON</a></li>
+			</ul>
+
+			<div class="rmm-tab-content">
+				<!-- Tab 1: Lanzador -->
+				<div class="rmm-tab-pane active" id="launcher-pane">
+					<div class="rmm-section">
+						<h2>🚀 Lanzador y Cargador de Presets</h2>
+						<p class="rmm-section-desc">Selecciona un servidor Reforger y carga una configuración guardada. Esto aplicará los mods, escenario y reiniciará el servidor de forma automatizada.</p>
+
+						<div class="rmm-form-grid">
+							<div class="rmm-form-group">
+								<label for="ptero_server_select">Servidor de Destino</label>
+								<select id="ptero_server_select" class="rmm-select">
+									<option value="">-- Seleccionar Servidor --</option>
+									<?php foreach ( $servers as $srv ) : ?>
+										<option value="<?php echo esc_attr( $srv['id'] ); ?>"><?php echo esc_html( $srv['name'] ); ?> (<?php echo esc_html( $srv['id'] ); ?>)</option>
+									<?php endforeach; ?>
+								</select>
+							</div>
+
+							<div class="rmm-form-group">
+								<label for="ptero_preset_select">Partida / Preset Guardado</label>
+								<select id="ptero_preset_select" class="rmm-select" disabled>
+									<option value="">-- Selecciona Servidor Primero --</option>
+								</select>
+							</div>
+						</div>
+
+						<!-- Preset Details Visualizer -->
+						<div id="ptero_preset_details" class="rmm-preset-details-box d-none">
+							<h3 id="ptero_detail_name">--</h3>
+							<p id="ptero_detail_desc" class="desc">--</p>
+							<div class="meta-row">
+								<span class="meta-item">🗺️ Escenario: <code id="ptero_detail_scenario">--</code></span>
+								<span class="meta-item">💾 Persistencia: <span id="ptero_detail_persist" class="badge">--</span></span>
+								<span class="meta-item">🧩 Addons: <span id="ptero_detail_mods_count">0</span></span>
+							</div>
+
+							<div class="mods-section">
+								<h4>Lista de Mods Activa</h4>
+								<div class="mods-scroll" id="ptero_detail_mods_list"></div>
+							</div>
+
+							<div class="launcher-actions">
+								<button id="btn_launch_server" class="button-launch">🚀 Lanzar Partida en Servidor</button>
+							</div>
+						</div>
+
+						<!-- Live Console Status Output -->
+						<div id="launcher_console_box" class="rmm-console-box d-none">
+							<div class="console-header">
+								<span>📟 Consola de Operaciones</span>
+								<button class="btn-console-clear" onclick="jQuery('#launcher_console_output').empty();">Clear</button>
+							</div>
+							<div class="console-output" id="launcher_console_output"></div>
+						</div>
 					</div>
-					<div class="rmm-roadmap-card">
-						<span class="rmm-roadmap-status planned">Planificado</span>
-						<h4>Discord Webhooks</h4>
-						<p>Notificaciones automáticas a canales de Discord cuando se crean eventos o cambian estados.</p>
-					</div>
-					<div class="rmm-roadmap-card">
-						<span class="rmm-roadmap-status idea">Idea</span>
-						<h4>Estadísticas de Jugador</h4>
-						<p>Asistencia a eventos, historial de roles, progresión en condecoraciones.</p>
-					</div>
-					<div class="rmm-roadmap-card">
-						<span class="rmm-roadmap-status idea">Idea</span>
-						<h4>Exportación de ORBATs</h4>
-						<p>Descargar ORBATs en formato PDF o imagen para briefings offline.</p>
+				</div>
+
+				<!-- Tab 2: Generador JSON -->
+				<div class="rmm-tab-pane" id="generator-pane">
+					<div class="rmm-section">
+						<div class="d-flex justify-content-between align-items-center mb-3">
+							<h2>🛠️ Crear y Guardar Configuración (JSON)</h2>
+							<div>
+								<button type="button" class="rmm-btn btn-outline-info" id="btnLoadPreset">📂 Cargar de LocalStorage</button>
+								<button type="button" class="rmm-btn btn-outline-success" id="btnSavePreset">💾 Guardar en LocalStorage</button>
+							</div>
+						</div>
+						<p class="rmm-section-desc">Genera la estructura de configuración requerida para partidas de Reforger. Permite importar dependencias desde Steam Workshop de forma directa y subir la partida resultante como preset al servidor Pterodactyl.</p>
+
+						<form id="rmm_json_form" onsubmit="return false;">
+							<div class="rmm-form-grid mb-4">
+								<div class="rmm-form-group">
+									<label>Nombre del Fichero (.json)</label>
+									<div class="input-group">
+										<input type="text" id="jsonFilename" value="OPERACION_VERSION_AUTOR" required>
+										<span class="input-group-text">.json</span>
+									</div>
+								</div>
+								<div class="rmm-form-group">
+									<label>Nombre del Escenario / Preset</label>
+									<input type="text" id="jsonName" placeholder="Cargando nombre automáticamente..." required>
+								</div>
+							</div>
+
+							<div class="rmm-form-group mb-4">
+								<label>Descripción de la Partida</label>
+								<input type="text" id="jsonDesc" placeholder="Ej: Operación cooperativa PVE contra IA..." required>
+							</div>
+
+							<div class="rmm-form-group mb-4">
+								<label>Scenario ID</label>
+								<div class="input-group">
+									<select id="scenarioSelect" style="max-width: 200px;">
+										<option value="">-- Escenarios Prefijados --</option>
+										<option value="{ED7583D38AC6E02D}Missions/GM_Helmand.conf">Helmand (Phoenix Studios)</option>
+										<option value="{1A07351573BDF963}Missions/GM_Anizay.conf">Anizay</option>
+										<option value="{03D2E1730A11E50C}Missions/GameMaster_Kunar.conf">KUNAR</option>
+										<option value="{33FEAA1AF3A99AF2}Missions/GM_Zarichne.conf">Zarichne</option>
+									</select>
+									<input type="text" id="jsonScenarioId" placeholder="Ej: {E2BAD09BDB9F96AB}Missions/ZARICHNE_ULTIMATE.conf" required>
+								</div>
+							</div>
+
+							<!-- Persistence block -->
+							<div class="rmm-persistence-box mb-4">
+								<div class="form-check-switch">
+									<input type="checkbox" id="jsonPersistence">
+									<label for="jsonPersistence"><strong>Habilitar Persistencia</strong></label>
+								</div>
+								<div id="persistenceOptions" class="d-none mt-3">
+									<div class="rmm-form-grid rmm-grid-3">
+										<div class="rmm-form-group">
+											<label>Auto-save Intervalo (minutos)</label>
+											<input type="number" id="persistInterval" value="5" min="1">
+										</div>
+										<div class="rmm-form-group">
+											<label>Hive ID</label>
+											<input type="number" id="persistHive" value="0">
+										</div>
+										<div class="rmm-form-group">
+											<label>Base de Datos (Session)</label>
+											<input type="text" id="persistDb" value="main">
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<hr class="rmm-divider">
+
+							<!-- Addons Section -->
+							<h3>🧩 Añadir Mods y Dependencias</h3>
+							<div class="addon-quick-buttons mb-4">
+								<button type="button" id="btnAddBase" class="rmm-btn btn-primary">📦 Añadir Base Addons</button>
+								<button type="button" id="btnAddACE" class="rmm-btn btn-danger">🚑 Añadir todo ACE</button>
+								<button type="button" id="btnAddRHS" class="rmm-btn btn-success">🪖 Añadir todo RHS</button>
+							</div>
+
+							<div class="mb-4">
+								<label class="rmm-label-bold">Mods Frecuentes (Haz clic para añadir rápido)</label>
+								<div id="friendlyContainer" class="friendly-buttons-flow"></div>
+							</div>
+
+							<hr class="rmm-divider">
+
+							<!-- Active mods table and editor -->
+							<div class="rmm-editor-layout">
+								<div class="layout-left">
+									<h4>Lista de Mods Activa (<span id="modCount">0</span>)</h4>
+									<div class="table-container">
+										<table class="rmm-mods-table" id="addedModsTable">
+											<thead>
+												<tr>
+													<th>Mod ID</th>
+													<th>Nombre del Mod</th>
+													<th style="width:50px;"></th>
+												</tr>
+											</thead>
+											<tbody></tbody>
+										</table>
+										<div id="emptyModsMsg" class="table-empty">No hay mods añadidos a la lista.</div>
+									</div>
+
+									<div class="input-row mt-3">
+										<input type="text" id="manualModId" placeholder="Mod ID (32 bytes)" style="max-width: 200px;">
+										<input type="text" id="manualModName" placeholder="Nombre descriptivo">
+										<button type="button" id="btnAddManual" class="rmm-btn btn-secondary">Añadir Manual</button>
+									</div>
+
+									<div class="input-row mt-2">
+										<input type="text" id="autoFetchId" placeholder="ID del Mod o Escenario del Workshop" style="flex:1;">
+										<button type="button" id="btnAutoFetch" class="rmm-btn btn-primary">🔍 Extraer e Insertar Dependencias</button>
+									</div>
+								</div>
+
+								<div class="layout-right">
+									<label>📝 Live JSON (Editable a mano)</label>
+									<textarea id="liveJson" rows="12"></textarea>
+									<button type="button" id="btnApplyLive" class="rmm-btn btn-warning mt-2 w-100">Aplicar Cambios JSON al Formulario</button>
+								</div>
+							</div>
+
+							<!-- Action Buttons -->
+							<div class="form-final-actions mt-4">
+								<button type="button" id="btnDownloadJson" class="rmm-btn btn-large btn-success">💾 Descargar Fichero .JSON</button>
+								<button type="button" id="btnSaveToPtero" class="rmm-btn btn-large btn-primary">⬆️ Guardar como Preset en Panel Pterodactyl</button>
+							</div>
+						</form>
 					</div>
 				</div>
 			</div>
 		</div>
 
+		<!-- LocalStorage Presets Load Modal -->
+		<div class="rmm-modal" id="loadModal">
+			<div class="rmm-modal-content">
+				<div class="modal-header">
+					<h3>Cargar Preset de LocalStorage</h3>
+					<span class="modal-close" onclick="jQuery('#loadModal').fadeOut();">&times;</span>
+				</div>
+				<div class="modal-body">
+					<div class="list-group" id="presetList"></div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Save to Pterodactyl Modal -->
+		<div class="rmm-modal" id="savePteroModal">
+			<div class="rmm-modal-content">
+				<div class="modal-header">
+					<h3>Guardar en Servidor Pterodactyl</h3>
+					<span class="modal-close" onclick="jQuery('#savePteroModal').fadeOut();">&times;</span>
+				</div>
+				<div class="modal-body">
+					<div class="rmm-form-group mb-3">
+						<label>Selecciona Servidor Pterodactyl</label>
+						<select id="save_ptero_server_select" class="rmm-select" style="background:#1e293b; color:#fff; border-color:#475569;">
+							<?php foreach ( $servers as $srv ) : ?>
+								<option value="<?php echo esc_attr( $srv['id'] ); ?>"><?php echo esc_html( $srv['name'] ); ?></option>
+							<?php endforeach; ?>
+						</select>
+					</div>
+					<div class="rmm-form-group mb-3">
+						<label>Nombre del Preset (.json)</label>
+						<input type="text" id="save_ptero_filename" style="background:#1e293b; color:#fff; border-color:#475569;">
+					</div>
+					<div class="d-flex justify-content-end mt-4">
+						<button type="button" class="rmm-btn btn-secondary me-2" onclick="jQuery('#savePteroModal').fadeOut();">Cancelar</button>
+						<button type="button" id="btnConfirmSavePtero" class="rmm-btn btn-success">Subir Preset</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- STYLES -->
 		<style>
-		.rmm-admin-wrap { max-width: 1200px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+		.rmm-dark-theme { background: #0f172a; color: #f8fafc; padding: 20px; border-radius: 12px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+		.rmm-dark-theme h1, .rmm-dark-theme h2, .rmm-dark-theme h3, .rmm-dark-theme h4 { color: #f8fafc; }
+		.rmm-dark-theme .rmm-admin-header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-color: #334155; }
+		
+		.rmm-nav-tabs { list-style: none; padding: 0; margin: 0 0 20px 0; display: flex; border-bottom: 2px solid #334155; }
+		.rmm-nav-tabs li { margin: 0; }
+		.rmm-nav-tabs li a { display: block; padding: 12px 24px; color: #94a3b8; text-decoration: none; border-bottom: 2px solid transparent; font-weight: 600; font-size: 1.05em; transition: all 0.2s; margin-bottom: -2px; }
+		.rmm-nav-tabs li.active a, .rmm-nav-tabs li a:hover { color: #10b981; border-bottom-color: #10b981; }
 
-		.rmm-admin-header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: #fff; padding: 30px 35px; border-radius: 12px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-		.rmm-admin-header h1 { margin: 0; font-size: 1.8em; font-weight: 800; }
-		.rmm-version { background: rgba(255,255,255,0.15); padding: 5px 14px; border-radius: 20px; font-size: 0.85em; font-weight: 600; }
+		.rmm-tab-pane { display: none; }
+		.rmm-tab-pane.active { display: block; }
 
-		.rmm-section { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 25px 30px; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
-		.rmm-section h2 { margin: 0 0 5px 0; font-size: 1.3em; color: #1a1a2e; }
-		.rmm-section-desc { margin: 0 0 20px 0; color: #666; font-size: 0.95em; }
+		.rmm-dark-theme .rmm-section { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 30px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+		.rmm-dark-theme .rmm-section-desc { color: #94a3b8; }
+		
+		.rmm-dark-theme .rmm-form-group label { color: #cbd5e1; font-weight: 600; font-size: 0.9em; margin-bottom: 8px; }
+		.rmm-dark-theme .rmm-form-group input, 
+		.rmm-dark-theme .rmm-form-group select, 
+		.rmm-dark-theme .rmm-form-group textarea { background: #0f172a; border: 1px solid #475569; color: #f8fafc; border-radius: 8px; padding: 10px 14px; transition: all 0.2s; font-size: 0.95em; }
+		.rmm-dark-theme .rmm-form-group input:focus, 
+		.rmm-dark-theme .rmm-form-group select:focus, 
+		.rmm-dark-theme .rmm-form-group textarea:focus { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); outline: none; }
 
-		.rmm-coming-soon { text-align: center; padding: 40px 20px; background: #f8f9ff; border: 2px dashed #c5cae9; border-radius: 12px; }
-		.rmm-coming-icon { font-size: 3em; display: block; margin-bottom: 10px; }
-		.rmm-coming-soon h3 { margin: 0 0 8px 0; color: #1a1a2e; font-size: 1.4em; }
-		.rmm-coming-soon p { margin: 0; color: #777; max-width: 500px; margin: 0 auto; }
+		/* Input group */
+		.input-group { display: flex; align-items: stretch; width: 100%; }
+		.input-group input, .input-group select { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; flex: 1; }
+		.input-group-text { background: #334155; border: 1px solid #475569; border-left: 0; color: #94a3b8; display: flex; align-items: center; padding: 0 16px; border-top-right-radius: 8px; border-bottom-right-radius: 8px; font-weight: 600; }
 
-		.rmm-roadmap-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-		.rmm-roadmap-card { background: #f8f9fa; border: 1px solid #e8eaf6; border-radius: 8px; padding: 20px; position: relative; }
-		.rmm-roadmap-card h4 { margin: 8px 0 6px 0; font-size: 1em; color: #1a1a2e; }
-		.rmm-roadmap-card p { margin: 0; font-size: 0.88em; color: #666; line-height: 1.5; }
-		.rmm-roadmap-status { font-size: 0.7em; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; padding: 3px 10px; border-radius: 10px; }
-		.rmm-roadmap-status.planned { background: #e3f2fd; color: #1565c0; }
-		.rmm-roadmap-status.idea { background: #fff3e0; color: #e65100; }
-		.rmm-roadmap-status.done { background: #e8f5e9; color: #2e7d32; }
+		.rmm-select { width: 100%; height: 42px; cursor: pointer; }
 
-		@media (max-width: 960px) { .rmm-roadmap-grid { grid-template-columns: 1fr; } }
+		/* Preset visualizer box */
+		.rmm-preset-details-box { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 25px; margin-top: 30px; }
+		.rmm-preset-details-box h3 { margin-top: 0; font-size: 1.5em; color: #10b981; }
+		.rmm-preset-details-box .desc { color: #94a3b8; font-size: 0.95em; margin-bottom: 20px; }
+		.meta-row { display: flex; gap: 30px; font-size: 0.9em; padding-bottom: 15px; border-bottom: 1px solid #334155; margin-bottom: 20px; }
+		.meta-item code { background: #334155; color: #cbd5e1; padding: 3px 8px; border-radius: 4px; font-size: 0.95em; }
+		.badge { background: #10b981; color: #fff; padding: 3px 10px; border-radius: 12px; font-size: 0.85em; font-weight: 600; }
+		.badge.disabled { background: #ef4444; }
+
+		.mods-section h4 { font-size: 1.1em; color: #f8fafc; margin-bottom: 12px; }
+		.mods-scroll { max-height: 250px; overflow-y: auto; background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 12px; }
+		.mod-pill { background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 8px 12px; display: inline-flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 6px; box-sizing: border-box; }
+		.mod-pill:last-child { margin-bottom: 0; }
+		.mod-pill code { color: #38bdf8; font-weight: 600; font-size: 0.9em; margin-right: 15px; }
+		.mod-pill span { color: #cbd5e1; font-size: 0.9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+		.launcher-actions { margin-top: 25px; display: flex; justify-content: flex-end; }
+		.button-launch { background: #10b981; color: #fff; border: 0; padding: 14px 28px; border-radius: 8px; font-size: 1.1em; font-weight: bold; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3); }
+		.button-launch:hover { background: #059669; transform: translateY(-1px); }
+
+		/* Console */
+		.rmm-console-box { margin-top: 30px; background: #000; border: 1px solid #334155; border-radius: 8px; overflow: hidden; font-family: monospace; }
+		.console-header { background: #1e293b; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 0.85em; border-bottom: 1px solid #334155; }
+		.btn-console-clear { background: transparent; border: 1px solid #475569; color: #cbd5e1; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+		.btn-console-clear:hover { background: #334155; color: #fff; }
+		.console-output { padding: 15px; max-height: 250px; overflow-y: auto; color: #00ff95; font-size: 0.9em; line-height: 1.5; white-space: pre-wrap; }
+
+		/* Generator specific */
+		.rmm-persistence-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 20px; }
+		.form-check-switch { display: flex; align-items: center; gap: 10px; }
+		.form-check-switch input { width: 18px; height: 18px; cursor: pointer; }
+		.form-check-switch label { cursor: pointer; color: #f8fafc; font-size: 1em; }
+		.rmm-divider { border: 0; border-top: 1px solid #334155; margin: 30px 0; }
+
+		.addon-quick-buttons { display: flex; gap: 15px; }
+		.rmm-btn { background: #334155; border: 1px solid #475569; color: #f8fafc; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; }
+		.rmm-btn:hover { background: #475569; border-color: #64748b; }
+		.rmm-btn.btn-primary { background: #2563eb; border-color: #2563eb; }
+		.rmm-btn.btn-primary:hover { background: #1d4ed8; }
+		.rmm-btn.btn-danger { background: #dc2626; border-color: #dc2626; }
+		.rmm-btn.btn-danger:hover { background: #b91c1c; }
+		.rmm-btn.btn-success { background: #16a34a; border-color: #16a34a; }
+		.rmm-btn.btn-success:hover { background: #15803d; }
+		.rmm-btn.btn-warning { background: #ca8a04; border-color: #ca8a04; color: #fff; }
+		.rmm-btn.btn-warning:hover { background: #a16207; }
+		.rmm-btn.btn-secondary { background: #475569; border-color: #475569; }
+		.rmm-btn.btn-secondary:hover { background: #334155; }
+		.rmm-btn.btn-outline-info { background: transparent; border-color: #0ea5e9; color: #0ea5e9; }
+		.rmm-btn.btn-outline-info:hover { background: #0ea5e9; color: #fff; }
+		.rmm-btn.btn-outline-success { background: transparent; border-color: #10b981; color: #10b981; }
+		.rmm-btn.btn-outline-success:hover { background: #10b981; color: #fff; }
+		.rmm-btn.btn-large { padding: 12px 24px; font-size: 1.05em; border-radius: 8px; }
+
+		.friendly-buttons-flow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+		.friendly-buttons-flow button { background: #1e293b; border: 1px solid #334155; color: #cbd5e1; border-radius: 4px; padding: 6px 12px; font-size: 0.85em; cursor: pointer; transition: all 0.2s; }
+		.friendly-buttons-flow button:hover { background: #334155; border-color: #475569; color: #fff; transform: translateY(-1px); }
+
+		.rmm-editor-layout { display: grid; grid-template-columns: 1.5fr 1fr; gap: 30px; }
+		.table-container { background: #0f172a; border: 1px solid #334155; border-radius: 8px; max-height: 350px; overflow-y: auto; padding: 10px; }
+		.rmm-mods-table { width: 100%; border-collapse: collapse; text-align: left; }
+		.rmm-mods-table th { border-bottom: 2px solid #334155; padding: 10px; font-size: 0.85em; text-transform: uppercase; color: #94a3b8; }
+		.rmm-mods-table td { padding: 10px; border-bottom: 1px solid #1e293b; font-size: 0.9em; color: #cbd5e1; }
+		.rmm-mods-table tr:hover td { background: #1e293b; }
+		.rmm-mods-table code { color: #38bdf8; font-weight: 600; }
+		.table-empty { text-align: center; color: #64748b; padding: 30px 10px; font-size: 0.95em; }
+		
+		.input-row { display: flex; gap: 10px; }
+		.input-row input { background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 6px; padding: 8px 12px; font-size: 0.9em; flex: 1; }
+		.input-row input:focus { border-color: #10b981; outline: none; }
+
+		.layout-right textarea { width: 100%; height: 350px; background: #0f172a; border: 1px solid #334155; color: #00ff95; font-family: monospace; border-radius: 8px; padding: 15px; font-size: 11px; line-height: 1.5; box-sizing: border-box; }
+		.layout-right textarea:focus { border-color: #10b981; outline: none; }
+
+		.form-final-actions { display: flex; gap: 20px; justify-content: flex-end; }
+
+		/* Modals */
+		.rmm-modal { display: none; position: fixed; z-index: 99999; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8); backdrop-filter: blur(4px); }
+		.rmm-modal-content { background-color: #1e293b; margin: 10% auto; padding: 25px; border: 1px solid #334155; width: 500px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); color: #f8fafc; }
+		.modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; margin-bottom: 20px; padding-bottom: 10px; }
+		.modal-header h3 { margin: 0; font-size: 1.3em; color: #f8fafc; }
+		.modal-close { font-size: 1.8em; font-weight: bold; cursor: pointer; color: #94a3b8; }
+		.modal-close:hover { color: #f8fafc; }
+		
+		.list-group { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
+		.list-group-item { background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 12px 18px; color: #f8fafc; cursor: pointer; text-decoration: none; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
+		.list-group-item:hover { background: #334155; border-color: #475569; }
+
+		.d-none { display: none !important; }
+		.me-2 { margin-right: 8px; }
+		.mt-2 { margin-top: 8px; }
+		.mt-3 { margin-top: 15px; }
+		.mt-4 { margin-top: 20px; }
+		.mb-3 { margin-bottom: 15px; }
+		.mb-4 { margin-bottom: 20px; }
+		.w-100 { width: 100%; }
+		.d-flex { display: flex; }
+		.justify-content-between { justify-content: space-between; }
+		.justify-content-end { justify-content: flex-end; }
+		.align-items-center { align-items: center; }
 		</style>
+
+		<!-- JAVASCRIPT LOGIC -->
+		<script>
+		jQuery(document).ready(function($) {
+			
+			// === TABS SYSTEM ===
+			$('.rmm-nav-tabs a').on('click', function(e) {
+				e.preventDefault();
+				const target = $(this).attr('href');
+				$('.rmm-nav-tabs li').removeClass('active');
+				$(this).parent().addClass('active');
+				$('.rmm-tab-pane').removeClass('active');
+				$(target).addClass('active');
+			});
+
+			// === LANZADOR DE PARTIDAS (TAB 1) ===
+			const serverSelect = $('#ptero_server_select');
+			const presetSelect = $('#ptero_preset_select');
+			const detailBox = $('#ptero_preset_details');
+			const btnLaunch = $('#btn_launch_server');
+			const consoleBox = $('#launcher_console_box');
+			const consoleOutput = $('#launcher_console_output');
+
+			function logConsole(msg, isError = false) {
+				const timestamp = new Date().toLocaleTimeString();
+				const color = isError ? 'red' : '#00ff95';
+				consoleOutput.append(`<div style="color:${color}">[${timestamp}] ${msg}</div>`);
+				consoleOutput.scrollTop(consoleOutput[0].scrollHeight);
+			}
+
+			serverSelect.on('change', function() {
+				const serverId = $(this).val();
+				presetSelect.empty().prop('disabled', true);
+				detailBox.addClass('d-none');
+
+				if (!serverId) {
+					presetSelect.append('<option value="">-- Selecciona Servidor Primero --</option>');
+					return;
+				}
+
+				presetSelect.append('<option value="">⏳ Cargando partidas...</option>');
+				
+				$.post(ajaxurl, {
+					action: 'rmm_get_server_presets',
+					server_id: serverId
+				}, function(res) {
+					presetSelect.empty();
+					if (res.success && res.data && res.data.length > 0) {
+						presetSelect.append('<option value="">-- Seleccionar Partida (Preset) --</option>');
+						res.data.forEach(function(file) {
+							presetSelect.append(`<option value="${file}">${file}</option>`);
+						});
+						presetSelect.prop('disabled', false);
+					} else {
+						presetSelect.append('<option value="">⚠️ No hay JSONs en /partidas</option>');
+					}
+				}).fail(function() {
+					presetSelect.empty().append('<option value="">❌ Error al conectar con Pterodactyl</option>');
+				});
+			});
+
+			presetSelect.on('change', function() {
+				const serverId = serverSelect.val();
+				const filename = $(this).val();
+				detailBox.addClass('d-none');
+
+				if (!serverId || !filename) return;
+
+				$.post(ajaxurl, {
+					action: 'rmm_get_preset_details',
+					server_id: serverId,
+					filename: filename
+				}, function(res) {
+					if (res.success && res.data) {
+						const data = res.data;
+						const exportObj = data.ptero_export || data;
+
+						$('#ptero_detail_name').text(data.name || filename);
+						$('#ptero_detail_desc').text(data.description || 'Sin descripción.');
+						$('#ptero_detail_scenario').text(exportObj.scenarioId || '--');
+						
+						const hasPersist = exportObj.persistence ? 'Habilitada' : 'Deshabilitada';
+						const badge = $('#ptero_detail_persist');
+						badge.text(hasPersist);
+						if (exportObj.persistence) {
+							badge.removeClass('disabled');
+						} else {
+							badge.addClass('disabled');
+						}
+
+						const mods = exportObj.mods || [];
+						$('#ptero_detail_mods_count').text(mods.length);
+
+						const listDiv = $('#ptero_detail_mods_list').empty();
+						if (mods.length === 0) {
+							listDiv.append('<div class="text-muted p-2">Sin mods requeridos.</div>');
+						} else {
+							mods.forEach(function(m) {
+								listDiv.append(`
+									<div class="mod-pill">
+										<code>${m.modId}</code>
+										<span>${m.name || m.modId}</span>
+									</div>
+								`);
+							});
+						}
+
+						detailBox.removeClass('d-none');
+					} else {
+						alert('Error al leer el archivo JSON de partida.');
+					}
+				});
+			});
+
+			btnLaunch.on('click', function() {
+				const serverId = serverSelect.val();
+				const filename = presetSelect.val();
+
+				if (!serverId || !filename) return;
+
+				if (!confirm('¿Seguro que quieres cargar esta partida y reiniciar el servidor?')) return;
+
+				consoleBox.removeClass('d-none');
+				consoleOutput.empty();
+				logConsole('🚀 Iniciando secuencia de despliegue de partida...');
+				btnLaunch.prop('disabled', true);
+
+				$.post(ajaxurl, {
+					action: 'rmm_load_preset',
+					server_id: serverId,
+					filename: filename
+				}, function(res) {
+					if (res.data && res.data.progress) {
+						res.data.progress.forEach(function(step) {
+							logConsole(step);
+						});
+					}
+
+					if (res.success) {
+						logConsole('✅ ¡OPERACIÓN COMPLETADA CON ÉXITO! El servidor está reiniciándose.');
+					} else {
+						logConsole('❌ ERROR EN LA OPERACIÓN: ' + (res.data.error || 'Desconocido'), true);
+					}
+					btnLaunch.prop('disabled', false);
+				}).fail(function(xhr) {
+					logConsole('❌ Error de red o tiempo de espera agotado al conectar.', true);
+					btnLaunch.prop('disabled', false);
+				});
+			});
+
+			// === GENERADOR JSON (TAB 2) ===
+			const BASE_ADDONS = [
+				{ name: "ACE Compass", id: "60C53A9372ED3964" },
+				{ name: "ACE Carrying", id: "5DBD560C5148E1DA" },
+				{ name: "ACE Chopping", id: "5EB744C5F42E0800" },
+				{ name: "ACE Trenches", id: "60EAEA0389DB3CC2" },
+				{ name: "ACE Core", id: "60C4CE4888FF4621" },
+				{ name: "ACE Magazine Repack", id: "611CB1D409001EB0" },
+				{ name: "ACE Radio", id: "64475DC102F2BDA4" },
+				{ name: "ACE Finger", id: "606C369BAC3F6CC3" },
+				{ name: "ACE Medical Core", id: "60C4C12DAE90727B" },
+				{ name: "ACE Captives", id: "646D52AF8BB3FF15" },
+				{ name: "ACE Backblast", id: "60E573C9B04CC408" },
+				{ name: "ACE Explosives", id: "61B7763A8AEB53B7" },
+				{ name: "CRX Enfusion A.I.", id: "5F268647F8A1A1F4" },
+				{ name: "Keep Abandoned Vehicles", id: "60E2D7E5A20FABEB" },
+				{ name: "Keep Inventory and Bodies", id: "6470B20217F190A4" },
+				{ name: "Keep Ragdoll Pose", id: "62113AA293414DBA" },
+				{ name: "Map Drawing", id: "656AC01634459D8D" },
+				{ name: "Wirecutters 2", id: "62F364B35E9B51B0" },
+				{ name: "2-7 Vehicle Mirrors", "id": "661949530F712567" },
+				{ name: "TacticalAnimationOverhaul TEST", "id": "61ECB5EFAA346151" },
+				{ name: "BetterSounds 4.0 Alpha", id: "597C0CF3A7AA8A99" }
+			];
+
+			const FRIENDLY_ADDONS = [
+				{ name: "ACE Tactical Periscope", id: "62F802951CC8A37E" },
+				{ name: "ACE Tactical Ladder", id: "61226BB18D360BDD" },
+				{ name: "RHS - Content Pack 01", id: "1337C0DE5DABBEEF" },
+				{ name: "RHS - Content Pack 02", id: "BADC0DEDABBEDA5E" },
+				{ name: "RHS - Status Quo", id: "595F2BF2F44836FB" },
+				{ name: "RHS to Arsenal", id: "65B03287FEB20404" },
+				{ name: "Bacon Loadout Editor", id: "606B100247F5C709" },
+				{ name: "Bacon Suppressors", id: "5AB301290317994A" },
+				{ name: "Realistic Combat Drones", id: "65AD60E204191D37" },
+				{ name: "Realistic Combat Drones RHS", id: "65D0FE5B02FEC2D2" },
+				{ name: "Immersive Head Movement", id: "6622D3D1E5A3809D" },
+				{ name: "Night Vision System", id: "59A30ACC02650E71" },
+				{ name: "FORTEX Gear Core", id: "66C2ED22F25B05C9" },
+				{ name: "FORTEX Kalashnikov Collection", id: "650EAAF7FBE7D583" },
+				{ name: "FORTEX - Russian Tactical Gear", id: "647CB046E0EDE0D9" },
+				{ name: "Russian Spetsnaz Patches", id: "65D3358D0A9CE99D" },
+				{ name: "Configurable Artillery for PVE", id: "6505032389D88D1E" },
+				{ name: "Game Master FX", id: "5994AD5A9F33BE57" },
+				{ name: "Zarichne Navmesh FIX", id: "66C8E1E5489E5EC3" },
+				{ name: "ConflictPVERemixedVanilla2.0", id: "61B514B96692C049" },
+				{ name: "TFR PATCH", id: "66CB5108446AA184" },
+				{ name: "TFR US LOADOUTS", id: "684221F8B344391E" },
+				{ name: "More scopes to RU side RHS", id: "61E0CB462120AE1C" }
+			];
+
+			FRIENDLY_ADDONS.sort((a, b) => a.name.localeCompare(b.name));
+
+			// Fields
+			const filenameInput = $('#jsonFilename');
+			const nameInput = $('#jsonName');
+			const descInput = $('#jsonDesc');
+			const scenarioInput = $('#jsonScenarioId');
+			const scenarioSelect = $('#scenarioSelect');
+			const persistenceCheck = $('#jsonPersistence');
+			const persistenceOptions = $('#persistenceOptions');
+			const inputAutoSave = $('#persistInterval');
+			const inputHive = $('#persistHive');
+			const inputDb = $('#persistDb');
+			
+			const friendlyContainer = $('#friendlyContainer');
+			const addedModsTable = $('#addedModsTable').find('tbody');
+			const emptyModsMsg = $('#emptyModsMsg');
+			const modCountSpan = $('#modCount');
+			const liveJson = $('#liveJson');
+
+			let currentMods = [];
+
+			// Filename Sanitization
+			filenameInput.on('input', function() {
+				let val = $(this).val();
+				val = val.replace(/ /g, '_');
+				val = val.replace(/[^a-zA-Z0-9_]/g, '#');
+				if ($(this).val() !== val) $(this).val(val);
+				
+				nameInput.val(val.replace(/_/g, ' '));
+				updateLiveJson();
+			});
+
+			[inputAutoSave, inputHive, inputDb, nameInput, descInput, scenarioInput].forEach(function(el) {
+				el.on('input', updateLiveJson);
+			});
+
+			scenarioSelect.on('change', function() {
+				if ($(this).val()) {
+					scenarioInput.val($(this).val());
+					updateLiveJson();
+				}
+			});
+
+			persistenceCheck.on('change', function() {
+				if ($(this).is(':checked')) {
+					persistenceOptions.removeClass('d-none');
+				} else {
+					persistenceOptions.addClass('d-none');
+				}
+				updateLiveJson();
+			});
+
+			// Render friendly buttons
+			FRIENDLY_ADDONS.forEach(function(m) {
+				friendlyContainer.append(`
+					<button type="button" class="rmm-friendly-btn" title="ID: ${m.id}" data-id="${m.id}" data-name="${m.name}">${m.name}</button>
+				`);
+			});
+
+			friendlyContainer.on('click', 'button', function() {
+				const id = $(this).data('id');
+				const name = $(this).data('name');
+				addModToList(id, name);
+			});
+
+			// Quick inserts
+			$('#btnAddBase').on('click', function() {
+				BASE_ADDONS.forEach(function(m) {
+					addModToList(m.id, m.name, false);
+				});
+				renderMods();
+			});
+
+			$('#btnAddACE').on('click', function() {
+				const all = [...BASE_ADDONS, ...FRIENDLY_ADDONS];
+				let count = 0;
+				all.forEach(function(m) {
+					if (/\bACE\b/i.test(m.name)) {
+						if (addModToList(m.id, m.name, false)) count++;
+					}
+				});
+				renderMods();
+				if (count > 0) alert(`✅ Añadidos ${count} mods ACE.`);
+			});
+
+			$('#btnAddRHS').on('click', function() {
+				const all = [...BASE_ADDONS, ...FRIENDLY_ADDONS];
+				let count = 0;
+				all.forEach(function(m) {
+					if (/\bRHS\b/i.test(m.name)) {
+						if (addModToList(m.id, m.name, false)) count++;
+					}
+				});
+				renderMods();
+				if (count > 0) alert(`✅ Añadidos ${count} mods RHS.`);
+			});
+
+			// Manual Insert
+			$('#btnAddManual').on('click', function() {
+				const id = $('#manualModId').val().trim();
+				const name = $('#manualModName').val().trim();
+				if (id) {
+					addModToList(id, name || id);
+					$('#manualModId').val('');
+					$('#manualModName').val('');
+				}
+			});
+
+			// Steam auto-fetch API
+			$('#btnAutoFetch').on('click', function() {
+				const id = $('#autoFetchId').val().trim();
+				if (!id) return;
+
+				const btn = $(this);
+				btn.prop('disabled', true).text('⏳ Extrayendo dependencias...');
+
+				// Llamamos a api.php de forma asíncrona pasándole la acción
+				$.getJSON('<?php echo esc_url( $api_url ); ?>', {
+					action: 'dependencies',
+					id: id
+				}, function(res) {
+					if (res.error) {
+						alert('Error de Steam API: ' + res.error);
+					} else {
+						let count = 0;
+						if (res.item && res.item.id) {
+							if (addModToList(res.item.id, res.item.title || res.item.id, false)) count++;
+						}
+						if (res.dependencies && Array.isArray(res.dependencies)) {
+							res.dependencies.forEach(function(dep) {
+								if (addModToList(dep.modId, dep.name || dep.modId, false)) count++;
+							});
+						}
+						renderMods();
+						alert(`✅ Se han insertado/actualizado ${count} mods.`);
+						$('#autoFetchId').val('');
+					}
+					btn.prop('disabled', false).text('🔍 Extraer e Insertar Dependencias');
+				}).fail(function() {
+					alert('No se pudo conectar con api.php de Steam.');
+					btn.prop('disabled', false).text('🔍 Extraer e Insertar Dependencias');
+				});
+			});
+
+			function addModToList(id, name, autoRender = true) {
+				if (currentMods.some(m => m.modId === id)) return false;
+				currentMods.push({ modId: id, name: name });
+				if (autoRender) renderMods();
+				return true;
+			}
+
+			window.removeMod = function(id) {
+				currentMods = currentMods.filter(m => m.modId !== id);
+				renderMods();
+			};
+
+			function renderMods() {
+				addedModsTable.empty();
+				if (currentMods.length === 0) {
+					emptyModsMsg.removeClass('d-none');
+				} else {
+					emptyModsMsg.addClass('d-none');
+					currentMods.forEach(function(m) {
+						addedModsTable.append(`
+							<tr>
+								<td><code>${m.modId}</code></td>
+								<td>${m.name}</td>
+								<td><button type="button" class="rmm-btn btn-danger" style="padding: 2px 6px; font-size: 11px;" onclick="removeMod('${m.modId}')">&times;</button></td>
+							</tr>
+						`);
+					});
+				}
+				modCountSpan.text(currentMods.length);
+				updateLiveJson();
+			}
+
+			function buildConfigObject() {
+				const config = {
+					name: nameInput.val(),
+					description: descInput.val(),
+					ptero_export: {
+						mods: currentMods.map(m => ({ modId: m.modId, name: m.name })),
+						scenarioId: scenarioInput.val()
+					}
+				};
+
+				if (persistenceCheck.is(':checked')) {
+					config.ptero_export.persistence = {
+						autoSaveInterval: parseInt(inputAutoSave.val()) || 5,
+						databases: {},
+						hiveId: parseInt(inputHive.val()) || 0,
+						storages: {
+							session: { database: inputDb.val() || "main" }
+						}
+					};
+				}
+				return config;
+			}
+
+			function updateLiveJson() {
+				const obj = buildConfigObject();
+				liveJson.val(JSON.stringify(obj, null, 2));
+			}
+
+			// Apply manually modified JSON from textarea
+			$('#btnApplyLive').on('click', function() {
+				try {
+					const obj = JSON.parse(liveJson.val());
+					nameInput.val(obj.name || '');
+					descInput.val(obj.description || '');
+
+					if (obj.ptero_export) {
+						scenarioInput.val(obj.ptero_export.scenarioId || '');
+
+						if (Array.isArray(obj.ptero_export.mods)) {
+							currentMods = obj.ptero_export.mods.map(m => ({
+								modId: m.modId,
+								name: m.name
+							}));
+							renderMods();
+						}
+
+						if (obj.ptero_export.persistence) {
+							persistenceCheck.prop('checked', true);
+							persistenceOptions.removeClass('d-none');
+							const p = obj.ptero_export.persistence;
+							inputAutoSave.val(p.autoSaveInterval ?? 5);
+							inputHive.val(p.hiveId ?? 0);
+							if (p.storages?.session?.database) {
+								inputDb.val(p.storages.session.database);
+							}
+						} else {
+							persistenceCheck.prop('checked', false);
+							persistenceOptions.addClass('d-none');
+						}
+					}
+					alert('✅ Campos del formulario actualizados con el contenido del JSON.');
+				} catch (e) {
+					alert('❌ JSON Inválido: ' + e.message);
+				}
+			});
+
+			// Download json
+			$('#btnDownloadJson').on('click', function() {
+				const content = liveJson.val();
+				const filename = (filenameInput.val() || 'reforger_partida') + '.json';
+				const blob = new Blob([content], { type: 'application/json' });
+				const url = URL.createObjectURL(blob);
+
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = filename;
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				URL.revokeObjectURL(url);
+			});
+
+			// Save to localStorage
+			$('#btnSavePreset').on('click', function() {
+				const name = prompt('Introduce un nombre para el preset (LocalStorage):', filenameInput.val());
+				if (!name) return;
+
+				const presets = JSON.parse(localStorage.getItem('rmm_presets') || '{}');
+				presets[name] = {
+					filename: filenameInput.val(),
+					config: buildConfigObject()
+				};
+				localStorage.setItem('rmm_presets', JSON.stringify(presets));
+				alert('✅ Preset guardado en LocalStorage.');
+			});
+
+			// Load from localStorage
+			$('#btnLoadPreset').on('click', function() {
+				const list = $('#presetList').empty();
+				const presets = JSON.parse(localStorage.getItem('rmm_presets') || '{}');
+				const keys = Object.keys(presets);
+
+				if (keys.length === 0) {
+					list.append('<div class="list-group-item">No hay presets guardados en LocalStorage.</div>');
+				} else {
+					keys.forEach(function(k) {
+						list.append(`
+							<div class="list-group-item">
+								<span class="load-click" style="flex:1; font-weight:600;">📁 ${k}</span>
+								<button class="rmm-btn btn-danger btn-delete-preset" style="padding:4px 8px; font-size:11px;">🗑️</button>
+							</div>
+						`);
+					});
+
+					list.find('.load-click').on('click', function() {
+						const k = $(this).parent().text().replace('📁 ', '').replace('🗑️', '').trim();
+						const data = presets[k];
+						if (data) {
+							filenameInput.val(data.filename || '');
+							liveJson.val(JSON.stringify(data.config, null, 2));
+							$('#btnApplyLive').click();
+							$('#loadModal').fadeOut();
+						}
+					});
+
+					list.find('.btn-delete-preset').on('click', function(e) {
+						e.stopPropagation();
+						const k = $(this).parent().find('.load-click').text().replace('📁 ', '').trim();
+						if (confirm(`¿Borrar preset "${k}"?`)) {
+							delete presets[k];
+							localStorage.setItem('rmm_presets', JSON.stringify(presets));
+							$('#btnLoadPreset').click();
+						}
+					});
+				}
+
+				$('#loadModal').fadeIn();
+			});
+
+			// Save preset directly to Pterodactyl server
+			$('#btnSaveToPtero').on('click', function() {
+				const filename = filenameInput.val() + '.json';
+				$('#save_ptero_filename').val(filename);
+				$('#savePteroModal').fadeIn();
+			});
+
+			$('#btnConfirmSavePtero').on('click', function() {
+				const serverId = $('#save_ptero_server_select').val();
+				const filename = $('#save_ptero_filename').val().trim();
+				const content = liveJson.val();
+
+				if (!serverId || !filename) {
+					alert('Por favor selecciona el servidor e indica el nombre del fichero.');
+					return;
+				}
+
+				const btn = $(this);
+				btn.prop('disabled', true).text('⏳ Subiendo preset...');
+
+				$.post(ajaxurl, {
+					action: 'rmm_save_server_preset',
+					server_id: serverId,
+					filename: filename,
+					content: content
+				}, function(res) {
+					btn.prop('disabled', false).text('Subir Preset');
+					if (res.success) {
+						alert('✅ Preset guardado correctamente en la carpeta /partidas/ del servidor.');
+						$('#savePteroModal').fadeOut();
+						// Recargar select del lanzador si coincide
+						if (serverSelect.val() === serverId) {
+							serverSelect.trigger('change');
+						}
+					} else {
+						alert('Error al guardar preset: ' + (res.data?.error || 'Desconocido'));
+					}
+				}).fail(function() {
+					btn.prop('disabled', false).text('Subir Preset');
+					alert('Error de red al conectar con el servidor.');
+				});
+			});
+
+			// Inicialización
+			updateLiveJson();
+		});
+		</script>
 		<?php
+	}
+
+	/**
+	 * AJAX: Get server presets list
+	 */
+	public function ajax_get_server_presets() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( __( 'Acceso denegado', 'reforger-milsim' ) );
+		}
+
+		$server_id = sanitize_text_field( $_POST['server_id'] );
+		if ( empty( $server_id ) ) {
+			wp_send_json_error( __( 'ID de servidor no válido', 'reforger-milsim' ) );
+		}
+
+		try {
+			$ptero = new RMM_Pterodactyl_Handler();
+			$files = $ptero->list_server_files( $server_id, '/partidas' );
+			$files = isset( $files['data'] ) ? $files['data'] : ( isset( $files['attributes'] ) ? $files['attributes'] : $files );
+			
+			$presets = array();
+			if ( is_array( $files ) ) {
+				foreach ( $files as $file ) {
+					$attrs = isset( $file['attributes'] ) ? $file['attributes'] : $file;
+					$name  = isset( $attrs['name'] ) ? $attrs['name'] : '';
+					if ( ( isset( $attrs['is_file'] ) && $attrs['is_file'] ) && str_ends_with( $name, '.json' ) ) {
+						$presets[] = $name;
+					}
+				}
+			}
+
+			wp_send_json_success( $presets );
+		} catch ( Exception $e ) {
+			wp_send_json_error( $e->getMessage() );
+		}
+	}
+
+	/**
+	 * AJAX: Get preset file content details
+	 */
+	public function ajax_get_preset_details() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( __( 'Acceso denegado', 'reforger-milsim' ) );
+		}
+
+		$server_id = sanitize_text_field( $_POST['server_id'] );
+		$filename  = sanitize_text_field( $_POST['filename'] );
+
+		if ( empty( $server_id ) || empty( $filename ) ) {
+			wp_send_json_error( __( 'Parámetros no válidos', 'reforger-milsim' ) );
+		}
+
+		try {
+			$ptero = new RMM_Pterodactyl_Handler();
+			$path  = str_ends_with( $filename, '.json' ) ? '/partidas/' . $filename : '/partidas/' . $filename . '.json';
+			$content = $ptero->get_file_contents( $server_id, $path );
+			
+			// Clean NBSP, BOM etc
+			$content = preg_replace( '/[\xC2\xA0]/', ' ', $content );
+			$content = preg_replace( '/^\xEF\xBB\xBF/', '', $content );
+			$data = json_decode( $content, true );
+
+			if ( ! $data ) {
+				throw new Exception( __( 'JSON inválido o malformado en el preset.', 'reforger-milsim' ) );
+			}
+
+			wp_send_json_success( $data );
+		} catch ( Exception $e ) {
+			wp_send_json_error( $e->getMessage() );
+		}
+	}
+
+	/**
+	 * AJAX: Run preset load sequence
+	 */
+	public function ajax_load_preset() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( __( 'Acceso denegado', 'reforger-milsim' ) );
+		}
+
+		$server_id = sanitize_text_field( $_POST['server_id'] );
+		$filename  = sanitize_text_field( $_POST['filename'] );
+
+		if ( empty( $server_id ) || empty( $filename ) ) {
+			wp_send_json_error( __( 'Parámetros no válidos', 'reforger-milsim' ) );
+		}
+
+		$progress = array();
+		try {
+			$ptero = new RMM_Pterodactyl_Handler();
+			$ptero->load_preset( $server_id, $filename, $progress );
+			wp_send_json_success( array( 'progress' => $progress ) );
+		} catch ( Exception $e ) {
+			$progress[] = '❌ Error: ' . $e->getMessage();
+			wp_send_json_error( array(
+				'error'    => $e->getMessage(),
+				'progress' => $progress,
+			) );
+		}
+	}
+
+	/**
+	 * AJAX: Save preset to server /partidas folder
+	 */
+	public function ajax_save_server_preset() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( __( 'Acceso denegado', 'reforger-milsim' ) );
+		}
+
+		$server_id = sanitize_text_field( $_POST['server_id'] );
+		$filename  = sanitize_text_field( $_POST['filename'] );
+		$content   = wp_unslash( $_POST['content'] );
+
+		if ( empty( $server_id ) || empty( $filename ) || empty( $content ) ) {
+			wp_send_json_error( __( 'Parámetros obligatorios vacíos', 'reforger-milsim' ) );
+		}
+
+		// Sanitize filename to comply with RHS rule (alphanumeric, underscores, ending with .json)
+		$filename = str_replace( ' ', '_', $filename );
+		$filename = preg_replace( '/[^a-zA-Z0-9_\.]/', '', $filename );
+		if ( ! str_ends_with( strtolower( $filename ), '.json' ) ) {
+			$filename .= '.json';
+		}
+
+		try {
+			// Validate JSON structure
+			$data = json_decode( $content, true );
+			if ( ! $data ) {
+				throw new Exception( __( 'El contenido enviado no es un JSON válido.', 'reforger-milsim' ) );
+			}
+
+			$ptero = new RMM_Pterodactyl_Handler();
+			$path  = '/partidas/' . $filename;
+			
+			// Pretty print JSON content
+			$pretty_content = json_encode( $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+
+			$ptero->upload_file( $server_id, $path, $pretty_content );
+			wp_send_json_success();
+		} catch ( Exception $e ) {
+			wp_send_json_error( array( 'error' => $e->getMessage() ) );
+		}
 	}
 }

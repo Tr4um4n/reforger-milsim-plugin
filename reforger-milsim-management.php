@@ -24,6 +24,7 @@ $rmm_includes = array(
 	'class-db-handler.php',
 	'class-cpt-handler.php',
 	'class-roles-handler.php',
+	'class-pterodactyl-handler.php',
 	'class-metabox-handler.php',
 	'class-medals-handler.php',
 	'class-frontend-orbat.php',

@@ -1,0 +1,336 @@
+<?php
+/**
+ * Pterodactyl and Telegram API Handler Class
+ *
+ * Handles API integration with Pterodactyl Panel and Telegram Notifications.
+ *
+ * @package ReforgerMilsimManagement
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+class RMM_Pterodactyl_Handler {
+
+	private $ptero_url;
+	private $client_key;
+	private $app_key;
+	private $telegram_token;
+	private $telegram_chat_id;
+
+	public function __construct() {
+		$this->ptero_url        = rtrim( get_option( 'rmm_ptero_url', '' ), '/' );
+		$this->client_key       = trim( get_option( 'rmm_ptero_client_key', '' ) );
+		$this->app_key          = trim( get_option( 'rmm_ptero_app_key', '' ) );
+		$this->telegram_token   = trim( get_option( 'rmm_telegram_token', '' ) );
+		$this->telegram_chat_id = trim( get_option( 'rmm_telegram_chat_id', '' ) );
+	}
+
+	/**
+	 * Generic Pterodactyl API call
+	 */
+	private function call_api( $endpoint, $method = 'GET', $data = null, $use_app = false ) {
+		$base = $use_app ? '/api/application' : '/api/client';
+		$url  = $this->ptero_url . $base . $endpoint;
+		$key  = ( $use_app && ! empty( $this->app_key ) ) ? $this->app_key : $this->client_key;
+
+		if ( empty( $this->ptero_url ) || empty( $key ) ) {
+			throw new Exception( __( 'La URL o API Key de Pterodactyl no están configuradas.', 'reforger-milsim' ) );
+		}
+
+		$headers = array(
+			'Authorization' => 'Bearer ' . $key,
+			'Accept'        => 'application/json',
+		);
+
+		$args = array(
+			'method'    => $method,
+			'headers'   => $headers,
+			'timeout'   => 30,
+			'sslverify' => false,
+		);
+
+		if ( $data !== null ) {
+			if ( is_string( $data ) ) {
+				$args['headers']['Content-Type'] = 'text/plain';
+				$args['body']                    = $data;
+			} else {
+				$args['headers']['Content-Type'] = 'application/json';
+				$args['body']                    = wp_json_encode( $data );
+			}
+		}
+
+		$response = wp_remote_request( $url, $args );
+
+		if ( is_wp_error( $response ) ) {
+			throw new Exception( $response->get_error_message() );
+		}
+
+		$code = wp_remote_retrieve_response_code( $response );
+		$body = wp_remote_retrieve_body( $response );
+
+		if ( $code === 204 ) {
+			return true;
+		}
+
+		if ( $code < 200 || $code >= 300 ) {
+			$error_data = json_decode( $body, true );
+			$msg = isset( $error_data['errors'][0]['detail'] ) ? $error_data['errors'][0]['detail'] : 'HTTP ' . $code;
+			throw new Exception( __( 'Error del Panel Pterodactyl: ', 'reforger-milsim' ) . $msg );
+		}
+
+		return json_decode( $body, true );
+	}
+
+	/**
+	 * Get configured servers (Stable and Testing)
+	 */
+	public function get_servers() {
+		$servers = array();
+		$stable  = get_option( 'rmm_ptero_stable_server_id' );
+		$testing = get_option( 'rmm_ptero_testing_server_id' );
+
+		if ( ! empty( $stable ) ) {
+			$servers[] = array(
+				'id'   => $stable,
+				'name' => __( 'Servidor Principal (STABLE)', 'reforger-milsim' ),
+			);
+		}
+		if ( ! empty( $testing ) ) {
+			$servers[] = array(
+				'id'   => $testing,
+				'name' => __( 'Servidor de Pruebas (TESTING)', 'reforger-milsim' ),
+			);
+		}
+
+		// Fallback to fetch from API if nothing is configured
+		if ( empty( $servers ) ) {
+			try {
+				$endpoint = '/servers';
+				$response = $this->call_api( $endpoint, 'GET', null, ! empty( $this->app_key ) );
+				if ( isset( $response['data'] ) && is_array( $response['data'] ) ) {
+					foreach ( $response['data'] as $srv ) {
+						$attr = isset( $srv['attributes'] ) ? $srv['attributes'] : $srv;
+						$servers[] = array(
+							'id'   => isset( $attr['identifier'] ) ? $attr['identifier'] : ( isset( $attr['uuidShort'] ) ? $attr['uuidShort'] : $attr['id'] ),
+							'name' => isset( $attr['name'] ) ? $attr['name'] : 'Reforger Server',
+						);
+					}
+				}
+			} catch ( Exception $e ) {
+				// No servers found or configuration missing
+			}
+		}
+
+		return $servers;
+	}
+
+	/**
+	 * List files in directory
+	 */
+	public function list_server_files( $server_id, $directory = '/' ) {
+		$endpoint = "/servers/{$server_id}/files/list?directory=" . rawurlencode( $directory );
+		return $this->call_api( $endpoint, 'GET', null, false );
+	}
+
+	/**
+	 * Get file contents
+	 */
+	public function get_file_contents( $server_id, $path ) {
+		$endpoint = "/servers/{$server_id}/files/contents?file=" . rawurlencode( $path );
+		$url  = $this->ptero_url . '/api/client' . $endpoint;
+
+		$headers = array(
+			'Authorization' => 'Bearer ' . $this->client_key,
+			'Accept'        => 'application/json',
+		);
+
+		$args = array(
+			'headers'   => $headers,
+			'timeout'   => 30,
+			'sslverify' => false,
+		);
+
+		$response = wp_remote_get( $url, $args );
+
+		if ( is_wp_error( $response ) ) {
+			throw new Exception( $response->get_error_message() );
+		}
+
+		$code = wp_remote_retrieve_response_code( $response );
+		$body = wp_remote_retrieve_body( $response );
+
+		if ( $code !== 200 ) {
+			throw new Exception( __( 'No se pudo obtener el archivo: ', 'reforger-milsim' ) . $path . ' (HTTP ' . $code . ')' );
+		}
+
+		return $body;
+	}
+
+	/**
+	 * Upload file content
+	 */
+	public function upload_file( $server_id, $path, $contents ) {
+		$endpoint = "/servers/{$server_id}/files/write?file=" . rawurlencode( $path );
+		return $this->call_api( $endpoint, 'POST', $contents, false );
+	}
+
+	/**
+	 * Update Startup Variable
+	 */
+	public function update_startup_variable( $server_id, $variable, $value ) {
+		$endpoint = "/servers/{$server_id}/startup/variable";
+		$data     = array(
+			'key'   => $variable,
+			'value' => $value,
+		);
+		return $this->call_api( $endpoint, 'PUT', $data, false );
+	}
+
+	/**
+	 * Send power action (start, stop, restart, kill)
+	 */
+	public function send_power_action( $server_id, $signal ) {
+		$endpoint = "/servers/{$server_id}/power";
+		$data     = array(
+			'signal' => $signal,
+		);
+		return $this->call_api( $endpoint, 'POST', $data, false );
+	}
+
+	/**
+	 * Send notification message to Telegram channel/group
+	 */
+	public function notify_telegram( $text ) {
+		if ( empty( $this->telegram_token ) || empty( $this->telegram_chat_id ) ) {
+			return false;
+		}
+
+		// Escape Markdown for safety
+		$chars = array( '_' );
+		foreach ( $chars as $c ) {
+			$text = str_replace( $c, '\\' . $c, $text );
+		}
+
+		$url = "https://api.telegram.org/bot{$this->telegram_token}/sendMessage";
+		$args = array(
+			'method'    => 'POST',
+			'timeout'   => 15,
+			'sslverify' => false,
+			'body'      => array(
+				'chat_id'    => $this->telegram_chat_id,
+				'text'       => $text,
+				'parse_mode' => 'Markdown',
+			),
+		);
+
+		$response = wp_remote_post( $url, $args );
+
+		if ( is_wp_error( $response ) ) {
+			error_log( '❌ Telegram API Error: ' . $response->get_error_message() );
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Performs the complete server preset loading sequence
+	 */
+	public function load_preset( $server_id, $filename, &$progress = array() ) {
+		$progress[] = __( '🔹 Iniciando proceso de carga de partida...', 'reforger-milsim' );
+
+		// Paso 1: Descargar config.json original
+		$progress[] = __( '🔹 Descargando config.json original...', 'reforger-milsim' );
+		$config_json = $this->get_file_contents( $server_id, '/config.json' );
+		if ( ! $config_json ) {
+			throw new Exception( __( 'No se pudo obtener el config.json del servidor.', 'reforger-milsim' ) );
+		}
+
+		// Paso 2: Cargar JSON de la partida seleccionada
+		$progress[] = sprintf( __( '🔹 Leyendo preset de partida: %s...', 'reforger-milsim' ), $filename );
+		$partida_path = str_ends_with( $filename, '.json' ) ? '/partidas/' . $filename : '/partidas/' . $filename . '.json';
+		$partida_json = $this->get_file_contents( $server_id, $partida_path );
+		if ( ! $partida_json ) {
+			throw new Exception( sprintf( __( 'No se encontró el archivo de partida: %s', 'reforger-milsim' ), $partida_path ) );
+		}
+
+		// Limpieza de JSON
+		$partida_json = preg_replace( '/[\xC2\xA0]/', ' ', $partida_json ); // NBSP
+		$partida_json = preg_replace( '/^\xEF\xBB\xBF/', '', $partida_json ); // BOM
+		$partida_data = json_decode( $partida_json, true );
+		if ( ! $partida_data ) {
+			throw new Exception( __( 'Error al decodificar el archivo de partida (JSON inválido).', 'reforger-milsim' ) );
+		}
+
+		// Paso 3: Modificar config.json
+		$progress[] = __( '🔹 Combinando configuraciones...', 'reforger-milsim' );
+		$config_data = json_decode( $config_json, true );
+		if ( ! $config_data ) {
+			throw new Exception( __( 'Error al decodificar config.json original.', 'reforger-milsim' ) );
+		}
+
+		$export      = isset( $partida_data['ptero_export'] ) ? $partida_data['ptero_export'] : $partida_data;
+		$mods        = isset( $export['mods'] ) ? $export['mods'] : array();
+		$scenario    = isset( $export['scenarioId'] ) ? $export['scenarioId'] : null;
+		$persistence = isset( $export['persistence'] ) ? $export['persistence'] : null;
+		$name        = isset( $partida_data['name'] ) ? $partida_data['name'] : $filename;
+
+		if ( empty( $scenario ) ) {
+			throw new Exception( __( 'El preset no contiene un "scenarioId" válido.', 'reforger-milsim' ) );
+		}
+
+		$config_data['game']['mods']       = $mods;
+		$config_data['game']['scenarioId'] = $scenario;
+
+		// Persistencia
+		if ( $persistence && is_array( $persistence ) ) {
+			if ( isset( $persistence['databases'] ) && is_array( $persistence['databases'] ) && empty( $persistence['databases'] ) ) {
+				$persistence['databases'] = new stdClass(); // Convertir [] vacío a {} objeto
+			}
+
+			if ( ! isset( $config_data['game']['gameProperties'] ) ) {
+				$config_data['game']['gameProperties'] = array();
+			}
+			$config_data['game']['gameProperties']['persistence'] = $persistence;
+			$progress[] = __( '🔹 Persistencia habilitada y configurada.', 'reforger-milsim' );
+		} else {
+			if ( isset( $config_data['game']['gameProperties']['persistence'] ) ) {
+				unset( $config_data['game']['gameProperties']['persistence'] );
+			}
+			$progress[] = __( '🔹 Persistencia deshabilitada.', 'reforger-milsim' );
+		}
+
+		// Paso 4: Subir config.json actualizado
+		$progress[] = __( '🔹 Subiendo nuevo config.json...', 'reforger-milsim' );
+		$new_config_json = json_encode( $config_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+		$this->upload_file( $server_id, '/config.json', $new_config_json );
+
+		// Paso 5: Actualizar variable startup SCENARIO_ID
+		$progress[] = __( '🔹 Actualizando variable startup SCENARIO_ID...', 'reforger-milsim' );
+		$this->update_startup_variable( $server_id, 'SCENARIO_ID', $scenario );
+
+		// Paso 6: Reiniciar Servidor
+		$progress[] = __( '♻️ Reiniciando servidor Pterodactyl...', 'reforger-milsim' );
+		$this->send_power_action( $server_id, 'restart' );
+
+		// Paso 7: Notificar a Telegram
+		$progress[] = __( '📢 Enviando notificación a Telegram...', 'reforger-milsim' );
+		
+		$num_mods = count( $mods );
+		$has_persist = ( $persistence && is_array( $persistence ) ) ? '✅ Sí' : '❌ No';
+		
+		$msg  = "📢 *Servidor Reforger Actualizado desde la Web*\n\n";
+		$msg .= "🎮 Partida: *{$name}*\n";
+		$msg .= "🗺️ Escenario: `{$scenario}`\n";
+		$msg .= "🧩 Mods activos: *{$num_mods}*\n";
+		$msg .= "💾 Persistencia: *{$has_persist}*\n\n";
+		$msg .= "♻️ *Servidor reiniciado y aplicando la nueva configuración.*";
+		
+		$this->notify_telegram( $msg );
+
+		$progress[] = __( '✅ ¡Servidor configurado y reiniciado con éxito!', 'reforger-milsim' );
+		return true;
+	}
+}
