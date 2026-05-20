@@ -84,17 +84,19 @@ class RMM_Server_Status_Handler {
                     'show_uptime'   => '1',
                     'show_scenario' => '1',
                     'fill'          => '0',
-                ), $atts );
+                                    ), $atts );
 
-                $fill = ( $atts['fill'] === '1' );
-                $fill_style = $fill ? 'height:100%; display:flex; flex-direction:column;' : '';
+                                    $fill = ( $atts['fill'] === '1' );
+                                    $fill_class = $fill ? ' rmm-fill' : '';
+                                    $fill_style = $fill ? 'min-height:100%; height:auto; display:flex; flex-direction:column; flex:1 1 auto; align-self:stretch;' : '';
+                                    $fill_css = $fill ? '<style>.rmm-fill{min-height:100%!important;height:auto!important;display:flex!important;flex-direction:column!important;flex:1 1 auto!important;align-self:stretch!important}.elementor-widget-container:has(>.rmm-fill),.elementor-widget-shortcode .elementor-widget-container:has(.rmm-fill){height:100%!important;display:flex!important;flex-direction:column!important}.elementor-widget-wrap:has(.rmm-fill){height:100%!important}</style>' : '';
 
-        $data = $this->get_server_data( $atts['server_id'] );
-        if ( ! $data ) {
-            return '<div class="rmm-server-widget rmm-server-error"><i class="fa-solid fa-triangle-exclamation"></i> ' . __( 'Servidor no configurado.', 'reforger-milsim' ) . '</div>';
-        }
+                            $data = $this->get_server_data( $atts['server_id'] );
+                            if ( ! $data ) {
+                                return '<div class="rmm-server-widget rmm-server-error"><i class="fa-solid fa-triangle-exclamation"></i> ' . __( 'Servidor no configurado.', 'reforger-milsim' ) . '</div>';
+                            }
 
-        $is_online = ( $data['state'] === 'running' );
+                            $is_online = ( $data['state'] === 'running' );
         $status_text = $is_online ? __( 'EN LÍNEA', 'reforger-milsim' ) : __( 'FUERA DE LÍNEA', 'reforger-milsim' );
         $status_icon = $is_online ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark';
         $status_color = $is_online ? '#22c55e' : '#ef4444';
@@ -102,7 +104,7 @@ class RMM_Server_Status_Handler {
 
         ob_start();
         ?>
-        <div class="rmm-server-widget rmm-server-status-widget" style="background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 20px; font-family: 'Inter', sans-serif; color: #c9d1d9; <?php echo $fill_style; ?>">
+        <div class="rmm-server-widget rmm-server-status-widget<?php echo $fill_class; ?>" style="background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 20px; font-family: 'Inter', sans-serif; color: #c9d1d9; <?php echo $fill_style; ?>">
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
                 <span class="<?php echo $pulse_class; ?>" style="display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: <?php echo $status_color; ?>; box-shadow: 0 0 12px <?php echo $status_color; ?>80;"></span>
                 <i class="<?php echo $status_icon; ?>" style="color: <?php echo $status_color; ?>; font-size: 1.5rem;"></i>
@@ -132,9 +134,10 @@ class RMM_Server_Status_Handler {
                 50% { opacity: 0.5; }
             }
             .rmm-pulse-online {
-                animation: rmmPulseOnline 2s ease-in-out infinite;
-            }
-        </style>
+                            animation: rmmPulseOnline 2s ease-in-out infinite;
+                        }
+                    </style>
+                    <?php echo $fill_css; ?>
         <?php
         return ob_get_clean();
     }
@@ -144,18 +147,20 @@ class RMM_Server_Status_Handler {
      * Params: server_id="", show_cpu="1", show_ram="1", show_disk="1"
      */
     public function render_server_resources( $atts ) {
-        $atts = shortcode_atts( array(
-                    'server_id' => '',
-                    'show_cpu'  => '1',
-                    'show_ram'  => '1',
-                    'show_disk' => '1',
-                    'fill'      => '0',
-                ), $atts );
+            $atts = shortcode_atts( array(
+                        'server_id' => '',
+                        'show_cpu'  => '1',
+                        'show_ram'  => '1',
+                        'show_disk' => '1',
+                        'fill'      => '0',
+                    ), $atts );
 
-                $fill = ( $atts['fill'] === '1' );
-                $fill_style = $fill ? 'height:100%; display:flex; flex-direction:column;' : '';
+                    $fill = ( $atts['fill'] === '1' );
+                    $fill_class = $fill ? ' rmm-fill' : '';
+                    $fill_style = $fill ? 'min-height:100%; height:auto; display:flex; flex-direction:column; flex:1 1 auto; align-self:stretch;' : '';
+                    $fill_css = $fill ? '<style>.rmm-fill{min-height:100%!important;height:auto!important;display:flex!important;flex-direction:column!important;flex:1 1 auto!important;align-self:stretch!important}.elementor-widget-container:has(>.rmm-fill),.elementor-widget-shortcode .elementor-widget-container:has(.rmm-fill){height:100%!important;display:flex!important;flex-direction:column!important}.elementor-widget-wrap:has(.rmm-fill){height:100%!important}</style>' : '';
 
-        $data = $this->get_server_data( $atts['server_id'] );
+            $data = $this->get_server_data( $atts['server_id'] );
         if ( ! $data ) {
             return '<div class="rmm-server-widget rmm-server-error"><i class="fa-solid fa-triangle-exclamation"></i> ' . __( 'Servidor no configurado.', 'reforger-milsim' ) . '</div>';
         }
@@ -178,7 +183,7 @@ class RMM_Server_Status_Handler {
 
         ob_start();
         ?>
-        <div class="rmm-server-widget rmm-server-resources-widget" style="background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 20px; font-family: 'Inter', sans-serif; color: #c9d1d9; <?php echo $fill_style; ?>">
+        <div class="rmm-server-widget rmm-server-resources-widget<?php echo $fill_class; ?>" style="background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 20px; font-family: 'Inter', sans-serif; color: #c9d1d9; <?php echo $fill_style; ?>">
             <h4 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #8b949e; margin: 0 0 16px; display: flex; align-items: center; gap: 8px;">
                 <i class="fa-solid fa-chart-bar" style="color: #58a6ff;"></i> <?php _e( 'Recursos del Servidor', 'reforger-milsim' ); ?>
             </h4>
@@ -223,8 +228,8 @@ class RMM_Server_Status_Handler {
                 <p style="font-size: 0.65rem; color: #484f58; text-align: center; margin: 10px 0 0; font-style: italic;"><?php _e( 'El servidor está actualmente fuera de línea.', 'reforger-milsim' ); ?></p>
             <?php endif; ?>
         </div>
-        <?php
-        return ob_get_clean();
+        <?php echo $fill_css; ?>
+        <?php return ob_get_clean();
     }
 
     /**
@@ -235,23 +240,25 @@ class RMM_Server_Status_Handler {
         $atts = shortcode_atts( array(
                     'server_id' => '',
                     'fill'      => '0',
-                ), $atts );
+                                    ), $atts );
 
-                $fill = ( $atts['fill'] === '1' );
-                $fill_style = $fill ? 'height:100%; display:flex; flex-direction:column;' : '';
+                                    $fill = ( $atts['fill'] === '1' );
+                                    $fill_class = $fill ? ' rmm-fill' : '';
+                                    $fill_style = $fill ? 'min-height:100%; height:auto; display:flex; flex-direction:column; flex:1 1 auto; align-self:stretch;' : '';
+                                    $fill_css = $fill ? '<style>.rmm-fill{min-height:100%!important;height:auto!important;display:flex!important;flex-direction:column!important;flex:1 1 auto!important;align-self:stretch!important}.elementor-widget-container:has(>.rmm-fill),.elementor-widget-shortcode .elementor-widget-container:has(.rmm-fill){height:100%!important;display:flex!important;flex-direction:column!important}.elementor-widget-wrap:has(.rmm-fill){height:100%!important}</style>' : '';
 
-        $data = $this->get_server_data( $atts['server_id'] );
-        if ( ! $data ) {
-            return '<div class="rmm-server-widget rmm-server-error"><i class="fa-solid fa-triangle-exclamation"></i> ' . __( 'Servidor no configurado.', 'reforger-milsim' ) . '</div>';
-        }
+                            $data = $this->get_server_data( $atts['server_id'] );
+                            if ( ! $data ) {
+                                return '<div class="rmm-server-widget rmm-server-error"><i class="fa-solid fa-triangle-exclamation"></i> ' . __( 'Servidor no configurado.', 'reforger-milsim' ) . '</div>';
+                            }
 
-        $is_online = ( $data['state'] === 'running' );
+                            $is_online = ( $data['state'] === 'running' );
                 $server_ip = get_option( 'rmm_server_ip', '' );
                 $server_port = get_option( 'rmm_server_port', 2001 );
 
                 ob_start();
         ?>
-        <div class="rmm-server-widget rmm-server-info-widget" style="background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 20px; font-family: 'Inter', sans-serif; color: #c9d1d9; <?php echo $fill_style; ?>">
+        <div class="rmm-server-widget rmm-server-info-widget<?php echo $fill_class; ?>" style="background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 20px; font-family: 'Inter', sans-serif; color: #c9d1d9; <?php echo $fill_style; ?>">
             <h4 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #8b949e; margin: 0 0 16px; display: flex; align-items: center; gap: 8px;">
                 <i class="fa-solid fa-circle-info" style="color: #58a6ff;"></i> <?php _e( 'Información de Partida', 'reforger-milsim' ); ?>
             </h4>
@@ -291,8 +298,8 @@ class RMM_Server_Status_Handler {
                 <p style="font-size: 0.65rem; color: #484f58; text-align: center; margin: 12px 0 0; font-style: italic;"><?php _e( 'El servidor está actualmente fuera de línea.', 'reforger-milsim' ); ?></p>
             <?php endif; ?>
         </div>
-        <?php
-        return ob_get_clean();
+        <?php echo $fill_css; ?>
+        <?php return ob_get_clean();
     }
 
     /**
