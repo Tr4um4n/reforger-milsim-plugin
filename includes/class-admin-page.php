@@ -15,7 +15,9 @@ class RMM_Admin_Page {
 		add_action( 'wp_ajax_rmm_get_preset_details', array( $this, 'ajax_get_preset_details' ) );
 		add_action( 'wp_ajax_rmm_load_preset', array( $this, 'ajax_load_preset' ) );
 		add_action( 'wp_ajax_rmm_save_server_preset', array( $this, 'ajax_save_server_preset' ) );
-	}
+		add_action( 'wp_ajax_rmm_send_telegram_aviso', array( $this, 'ajax_send_telegram_aviso' ) );
+		add_action( 'wp_ajax_rmm_server_power_action', array( $this, 'ajax_server_power_action' ) );
+		}
 
 	/**
 	 * Enqueue WP Media Library on settings page
@@ -905,8 +907,10 @@ class RMM_Admin_Page {
 
 			<!-- Nav Tabs -->
 			<ul class="rmm-nav-tabs">
-				<li class="active"><a href="#launcher-pane" data-tab="launcher">🚀 Lanzar Partida</a></li>
-				<li><a href="#generator-pane" data-tab="generator">🛠️ Generador JSON</a></li>
+				<li class="active"><a href="#launcher-pane" data-tab="launcher"><i class="fa-solid fa-rocket"></i> Lanzar Partida</a></li>
+				<li><a href="#generator-pane" data-tab="generator"><i class="fa-solid fa-file-code"></i> Generador JSON</a></li>
+				<li><a href="#avisos-pane" data-tab="avisos"><i class="fa-solid fa-bullhorn"></i> Avisos</a></li>
+				<li><a href="#monitor-pane" data-tab="monitor"><i class="fa-solid fa-gauge-high"></i> Monitor</a></li>
 			</ul>
 
 			<div class="rmm-tab-content">
@@ -1099,7 +1103,111 @@ class RMM_Admin_Page {
 					</div>
 				</div>
 			</div>
+
+<!-- Tab 3: Avisos Telegram -->
+<div class="rmm-tab-pane" id="avisos-pane">
+	<div class="rmm-section">
+		<h2><i class="fa-solid fa-bullhorn"></i> Enviar Aviso al Chat de Telegram</h2>
+		<p class="rmm-section-desc">Redacta y envía mensajes de aviso al grupo/canal de Telegram configurado. Útil para notificar a la unidad de eventos, cambios de servidor u operaciones.</p>
+		
+		<div class="rmm-form-group mb-3">
+			<label for="aviso_title">Título del Aviso</label>
+			<input type="text" id="aviso_title" class="rmm-input" placeholder="Ej: OPERACIÓN HELMAND - VIERNES 20:00" style="width:100%; max-width:600px;">
 		</div>
+		
+		<div class="rmm-form-group mb-3">
+			<label for="aviso_message">Mensaje</label>
+			<textarea id="aviso_message" class="rmm-textarea" rows="6" placeholder="Escribe aquí el mensaje que se enviará al chat de Telegram. Puedes usar Markdown básico." style="width:100%; max-width:600px;"></textarea>
+		</div>
+		
+		<div class="rmm-form-group mb-3">
+			<label>Formato Rápido</label>
+			<div class="rmm-quick-buttons" style="display:flex; gap:8px; flex-wrap:wrap;">
+				<button type="button" class="rmm-btn btn-outline-info btn-sm" onclick="insertTemplate('reunion')"><i class="fa-solid fa-users"></i> Reunión</button>
+				<button type="button" class="rmm-btn btn-outline-warning btn-sm" onclick="insertTemplate('operacion')"><i class="fa-solid fa-shield-halved"></i> Operación</button>
+				<button type="button" class="rmm-btn btn-outline-success btn-sm" onclick="insertTemplate('servidor')"><i class="fa-solid fa-server"></i> Servidor</button>
+				<button type="button" class="rmm-btn btn-outline-danger btn-sm" onclick="insertTemplate('urgente')"><i class="fa-solid fa-triangle-exclamation"></i> Urgente</button>
+				<button type="button" class="rmm-btn btn-outline-info btn-sm" onclick="insertTemplate('recordatorio')"><i class="fa-solid fa-clock"></i> Recordatorio</button>
+			</div>
+		</div>
+		
+		<div class="rmm-actions mt-4">
+			<button type="button" id="btn_send_aviso" class="rmm-btn btn-primary btn-large"><i class="fa-solid fa-paper-plane"></i> Enviar Aviso a Telegram</button>
+			<span id="aviso_status" style="margin-left: 12px; font-size: 0.85rem;"></span>
+		</div>
+		
+		<div class="rmm-aviso-preview mt-4" id="aviso_preview" style="display:none;">
+			<h4 style="color:#8b949e; margin-bottom:8px;"><i class="fa-solid fa-eye"></i> Vista Previa</h4>
+			<div id="aviso_preview_content" style="background:#161b22; border:1px solid #21262d; border-radius:6px; padding:16px; font-family:monospace; font-size:0.8rem; color:#c9d1d9; white-space:pre-wrap;"></div>
+		</div>
+	</div>
+</div>
+
+<!-- Tab 4: Monitor del Servidor -->
+<div class="rmm-tab-pane" id="monitor-pane">
+	<div class="rmm-section">
+		<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+			<h2 style="margin:0;"><i class="fa-solid fa-gauge-high"></i> Monitor del Servidor en Vivo</h2>
+			<button type="button" id="btn_refresh_monitor" class="rmm-btn btn-outline-info btn-sm"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+		</div>
+		<p class="rmm-section-desc">Estado en tiempo real del servidor Reforger. Se actualiza automáticamente cada 30 segundos.</p>
+		
+		<div id="monitor_content" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:20px;">
+			<!-- Status Card -->
+			<div class="rmm-monitor-card" style="background:#161b22; border:1px solid #21262d; border-radius:8px; padding:20px;">
+				<h4 style="margin:0 0 14px; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em; color:#8b949e;"><i class="fa-solid fa-power-off"></i> Estado</h4>
+				<div id="monitor_status">
+					<span style="color:#484f58;">Cargando...</span>
+				</div>
+			</div>
+			
+			<!-- CPU Card -->
+			<div class="rmm-monitor-card" style="background:#161b22; border:1px solid #21262d; border-radius:8px; padding:20px;">
+				<h4 style="margin:0 0 14px; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em; color:#8b949e;"><i class="fa-solid fa-microchip"></i> CPU</h4>
+				<div id="monitor_cpu">
+					<span style="color:#484f58;">Cargando...</span>
+				</div>
+			</div>
+			
+			<!-- RAM Card -->
+			<div class="rmm-monitor-card" style="background:#161b22; border:1px solid #21262d; border-radius:8px; padding:20px;">
+				<h4 style="margin:0 0 14px; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em; color:#8b949e;"><i class="fa-solid fa-memory"></i> RAM</h4>
+				<div id="monitor_ram">
+					<span style="color:#484f58;">Cargando...</span>
+				</div>
+			</div>
+			
+			<!-- Disco Card -->
+			<div class="rmm-monitor-card" style="background:#161b22; border:1px solid #21262d; border-radius:8px; padding:20px;">
+				<h4 style="margin:0 0 14px; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em; color:#8b949e;"><i class="fa-solid fa-hard-drive"></i> Disco</h4>
+				<div id="monitor_disk">
+					<span style="color:#484f58;">Cargando...</span>
+				</div>
+			</div>
+			
+			<!-- Partida Card -->
+			<div class="rmm-monitor-card" style="background:#161b22; border:1px solid #21262d; border-radius:8px; padding:20px;">
+				<h4 style="margin:0 0 14px; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em; color:#8b949e;"><i class="fa-solid fa-gamepad"></i> Partida Actual</h4>
+				<div id="monitor_game">
+					<span style="color:#484f58;">Cargando...</span>
+				</div>
+			</div>
+			
+			<!-- Acciones Card -->
+			<div class="rmm-monitor-card" style="background:#161b22; border:1px solid #21262d; border-radius:8px; padding:20px;">
+				<h4 style="margin:0 0 14px; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em; color:#8b949e;"><i class="fa-solid fa-play"></i> Acciones Rápidas</h4>
+				<div style="display:flex; flex-direction:column; gap:8px;">
+					<button type="button" id="btn_monitor_start" class="rmm-btn btn-success btn-sm w-100"><i class="fa-solid fa-play"></i> Iniciar Servidor</button>
+					<button type="button" id="btn_monitor_restart" class="rmm-btn btn-warning btn-sm w-100"><i class="fa-solid fa-rotate"></i> Reiniciar Servidor</button>
+					<button type="button" id="btn_monitor_stop" class="rmm-btn btn-danger btn-sm w-100"><i class="fa-solid fa-stop"></i> Detener Servidor</button>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+		</div>
+	</div>
 
 		<!-- LocalStorage Presets Load Modal -->
 		<div class="rmm-modal" id="loadModal">
@@ -1273,6 +1381,45 @@ class RMM_Admin_Page {
 		.justify-content-between { justify-content: space-between; }
 		.justify-content-end { justify-content: flex-end; }
 		.align-items-center { align-items: center; }
+		@keyframes rmmPulseOnline {
+			0%, 100% { opacity: 1; }
+			50% { opacity: 0.5; }
+		}
+		.rmm-pulse-online {
+			animation: rmmPulseOnline 2s ease-in-out infinite;
+		}
+		.rmm-monitor-card {
+			transition: border-color 0.3s ease, box-shadow 0.3s ease;
+		}
+		.rmm-monitor-card:hover {
+			border-color: #22c55e40;
+			box-shadow: 0 0 20px rgba(34,197,94,0.08);
+		}
+		.rmm-aviso-preview {
+			animation: rmmFadeIn 0.3s ease;
+		}
+		@keyframes rmmFadeIn {
+			from { opacity: 0; transform: translateY(-10px); }
+			to { opacity: 1; transform: translateY(0); }
+		}
+		.rmm-input, .rmm-textarea {
+			background: #161b22 !important;
+			border: 1px solid #30363d !important;
+			color: #c9d1d9 !important;
+			border-radius: 6px !important;
+			padding: 8px 12px !important;
+			font-family: 'Inter', sans-serif;
+		}
+		.rmm-input:focus, .rmm-textarea:focus {
+			border-color: #22c55e !important;
+			outline: none !important;
+			box-shadow: 0 0 0 2px rgba(34,197,94,0.15) !important;
+		}
+		.rmm-textarea {
+			resize: vertical;
+			min-height: 140px;
+		}
+		.w-100 { width: 100% !important; }
 		</style>
 
 		<!-- JAVASCRIPT LOGIC -->
@@ -1838,8 +1985,212 @@ class RMM_Admin_Page {
 			updateLiveJson();
 		});
 		</script>
-		<?php
+
+	<script>
+	// ─────────────────────────────────────────────
+	// FUNCIONES DE AVISOS
+	// ─────────────────────────────────────────────
+
+	var avisoTemplates = {
+		reunion: {
+			title: '📋 REUNIÓN DE UNIDAD',
+			message: '*REUNIÓN DE UNIDAD*\n\n📅 Fecha: [PENDIENTE]\n🕐 Hora: [PENDIENTE]\n📍 Lugar: Canal de Discord / TeamSpeak\n\n*Orden del día:*\n• \n• \n• \n\nConfirma tu asistencia en la web.\n\nAtte. Estado Mayor [=TFR=]'
+		},
+		operacion: {
+			title: '🎯 OPERACIÓN [NOMBRE]',
+			message: '*OPERACIÓN PROGRAMADA*\n\n🎮 Misión: [NOMBRE]\n📅 Fecha: [PENDIENTE]\n🕐 Hora: [PENDIENTE]\n🗺️ Mapa: [PENDIENTE]\n\n*Requisitos:*\n• Mods actualizados\n• Asistencia y puntualidad\n\nReserva tu slot en la web. ¡No faltes!\n\nAtte. Estado Mayor [=TFR=]'
+		},
+		servidor: {
+			title: '🖥️ ACTUALIZACIÓN DE SERVIDOR',
+			message: '*SERVIDOR ACTUALIZADO*\n\n♻️ El servidor ha sido actualizado.\n\n🎮 Nueva partida: [NOMBRE]\n🗺️ Escenario: [SCENARIO]\n🧩 Mods: [NÚMERO] addons cargados\n\nConecta y verifica que todo funcione correctamente.\n\nAtte. Estado Mayor [=TFR=]'
+		},
+		urgente: {
+			title: '⚠️ AVISO URGENTE',
+			message: '*⚠️ AVISO URGENTE*\n\n[MENSAJE]\n\nPor favor, atiende este mensaje lo antes posible.\n\nAtte. Estado Mayor [=TFR=]'
+		},
+		recordatorio: {
+			title: '⏰ RECORDATORIO',
+			message: '*RECORDATORIO*\n\n📝 [MENSAJE]\n\nNo olvides revisar la web para más detalles.\n\nAtte. Estado Mayor [=TFR=]'
+		}
+	};
+
+	function insertTemplate(type) {
+		if (avisoTemplates[type]) {
+			jQuery('#aviso_title').val(avisoTemplates[type].title);
+			jQuery('#aviso_message').val(avisoTemplates[type].message);
+			updatePreview();
+			jQuery('#aviso_preview').show();
+		}
 	}
+
+	jQuery('#aviso_title, #aviso_message').on('input', function() {
+		updatePreview();
+		if (jQuery('#aviso_message').val().trim() !== '') {
+			jQuery('#aviso_preview').show();
+		}
+	});
+
+	function updatePreview() {
+		var title = jQuery('#aviso_title').val().trim();
+		var msg = jQuery('#aviso_message').val().trim();
+		var preview = '';
+		if (title) preview += '📢 *' + title + '*\n\n';
+		preview += msg;
+		jQuery('#aviso_preview_content').text(preview);
+	}
+
+	jQuery('#btn_send_aviso').on('click', function() {
+		var title = jQuery('#aviso_title').val().trim();
+		var message = jQuery('#aviso_message').val().trim();
+	
+		if (!message) {
+			alert('Por favor, escribe un mensaje.');
+			return;
+		}
+	
+		var btn = jQuery(this);
+		var status = jQuery('#aviso_status');
+		btn.prop('disabled', true).text('Enviando...');
+		status.html('<span style="color:#f59e0b;"><i class="fa-solid fa-spinner fa-spin"></i> Enviando...</span>');
+	
+		var fullMessage = '';
+		if (title) fullMessage += '📢 *' + title + '*\n\n';
+		fullMessage += message;
+	
+		jQuery.post(ajaxurl, {
+			action: 'rmm_send_telegram_aviso',
+			message: fullMessage,
+			_ajax_nonce: '<?php echo wp_create_nonce( "rmm_send_aviso" ); ?>'
+		}, function(response) {
+			btn.prop('disabled', false).html('<i class="fa-solid fa-paper-plane"></i> Enviar Aviso a Telegram');
+			if (response.success) {
+				status.html('<span style="color:#22c55e;"><i class="fa-solid fa-circle-check"></i> ' + response.data + '</span>');
+			} else {
+				status.html('<span style="color:#ef4444;"><i class="fa-solid fa-circle-xmark"></i> ' + (response.data || 'Error') + '</span>');
+			}
+		}).fail(function() {
+			btn.prop('disabled', false).html('<i class="fa-solid fa-paper-plane"></i> Enviar Aviso a Telegram');
+			status.html('<span style="color:#ef4444;"><i class="fa-solid fa-circle-xmark"></i> Error de conexión</span>');
+		});
+	});
+
+	// ─────────────────────────────────────────────
+	// FUNCIONES DE MONITOR
+	// ─────────────────────────────────────────────
+
+	var monitorTimer = null;
+
+	function refreshMonitor() {
+		jQuery.post(ajaxurl, {
+			action: 'rmm_live_server_data',
+			_ajax_nonce: '<?php echo wp_create_nonce( "rmm_monitor" ); ?>'
+		}, function(response) {
+			if (response.success && response.data) {
+				var d = response.data;
+				var isOnline = d.is_online;
+				var statusColor = isOnline ? '#22c55e' : '#ef4444';
+				var statusText = isOnline ? 'EN LÍNEA' : 'FUERA DE LÍNEA';
+				var pulseClass = isOnline ? 'rmm-pulse-online' : '';
+			
+				// Status
+				jQuery('#monitor_status').html(
+					'<div style="display:flex; align-items:center; gap:10px;">' +
+					'<span class="' + pulseClass + '" style="display:inline-block; width:12px; height:12px; border-radius:50%; background:' + statusColor + '; box-shadow: 0 0 10px ' + statusColor + '80;"></span>' +
+					'<span style="font-weight:700; font-size:1rem; color:' + statusColor + ';">' + statusText + '</span>' +
+					'</div>' +
+					(d.uptime_formatted ? '<div style="margin-top:8px; font-size:0.65rem; color:#484f58;"><i class="fa-solid fa-clock"></i> ' + d.uptime_formatted + '</div>' : '')
+				);
+			
+				// CPU
+				var cpuPct = parseFloat(d.cpu_absolute) || 0;
+				var cpuColor = cpuPct > 80 ? '#ef4444' : (cpuPct > 50 ? '#f59e0b' : '#22c55e');
+				jQuery('#monitor_cpu').html(
+					'<div style="font-size:1.8rem; font-weight:800; color:' + cpuColor + '; font-family:monospace; margin-bottom:8px;">' + cpuPct.toFixed(1) + '%</div>' +
+					'<div style="background:#0d1117; border-radius:3px; height:6px;"><div style="width:' + Math.min(cpuPct,100) + '%; height:100%; background:' + cpuColor + '; border-radius:3px;"></div></div>'
+				);
+			
+				// RAM
+				var memBytes = parseInt(d.memory_bytes) || 0;
+				var memLimit = parseInt(d.memory_limit) || 1;
+				var memPct = Math.round((memBytes / memLimit) * 1000) / 10;
+				var memColor = memPct > 80 ? '#ef4444' : (memPct > 50 ? '#f59e0b' : '#22c55e');
+				jQuery('#monitor_ram').html(
+					'<div style="font-size:1.2rem; font-weight:700; color:' + memColor + '; font-family:monospace; margin-bottom:4px;">' + (d.memory_formatted || '—') + ' / ' + (d.memory_limit_formatted || '—') + '</div>' +
+					'<div style="background:#0d1117; border-radius:3px; height:6px;"><div style="width:' + Math.min(memPct,100) + '%; height:100%; background:' + memColor + '; border-radius:3px;"></div></div>'
+				);
+			
+				// Disco
+				var diskBytes = parseInt(d.disk_bytes) || 0;
+				var diskLimit = parseInt(d.disk_limit) || 1;
+				var diskPct = Math.round((diskBytes / diskLimit) * 1000) / 10;
+				var diskColor = diskPct > 80 ? '#ef4444' : (diskPct > 50 ? '#f59e0b' : '#22c55e');
+				jQuery('#monitor_disk').html(
+					'<div style="font-size:1.2rem; font-weight:700; color:' + diskColor + '; font-family:monospace; margin-bottom:4px;">' + (d.disk_formatted || '—') + ' / ' + (d.disk_limit_formatted || '—') + '</div>' +
+					'<div style="background:#0d1117; border-radius:3px; height:6px;"><div style="width:' + Math.min(diskPct,100) + '%; height:100%; background:' + diskColor + '; border-radius:3px;"></div></div>'
+				);
+			
+				// Partida
+				jQuery('#monitor_game').html(
+					'<div style="font-size:0.7rem; font-weight:600; color:#e5e7eb; margin-bottom:4px;">' + (d.scenario_name || '—') + '</div>' +
+					'<div style="font-size:0.6rem; color:#484f58;">' +
+					'<span><i class="fa-solid fa-puzzle-piece"></i> ' + (d.mods_count || 0) + ' mods</span> ' +
+					'<span style="margin-left:8px;"><i class="fa-solid fa-database"></i> ' + (d.persistence ? 'Persistencia' : 'Sin persistencia') + '</span>' +
+					'</div>'
+				);
+			
+			} else {
+				jQuery('#monitor_status, #monitor_cpu, #monitor_ram, #monitor_disk, #monitor_game').html('<span style="color:#ef4444;">Error al cargar datos</span>');
+			}
+		}).fail(function() {
+			// Silent fail
+		});
+	}
+
+	jQuery('#btn_refresh_monitor').on('click', function() {
+		refreshMonitor();
+	});
+
+	// Acciones rápidas del monitor
+	function sendPowerAction(signal) {
+		if (!confirm('¿Estás seguro de que quieres ' + signal + ' el servidor?')) return;
+	
+		var serverId = jQuery('#ptero_server_select').val() || '<?php echo esc_js( get_option( "rmm_ptero_stable_server_id", "" ) ); ?>';
+		jQuery.post(ajaxurl, {
+			action: 'rmm_server_power_action',
+			server_id: serverId,
+			signal: signal,
+			_ajax_nonce: '<?php echo wp_create_nonce( "rmm_monitor" ); ?>'
+		}, function(response) {
+			if (response.success) {
+				setTimeout(refreshMonitor, 3000);
+			}
+			alert(response.data || 'Comando enviado');
+		});
+	}
+
+	jQuery('#btn_monitor_start').on('click', function() { sendPowerAction('start'); });
+	jQuery('#btn_monitor_restart').on('click', function() { sendPowerAction('restart'); });
+	jQuery('#btn_monitor_stop').on('click', function() { sendPowerAction('stop'); });
+
+	// Auto-refresh cada 30s cuando la pestaña Monitor está activa
+	jQuery('[data-tab="monitor"]').on('click', function() {
+		refreshMonitor();
+		if (monitorTimer) clearInterval(monitorTimer);
+		monitorTimer = setInterval(refreshMonitor, 30000);
+	});
+
+	// Limpiar timer al cambiar de pestaña
+	jQuery('[data-tab]').not('[data-tab="monitor"]').on('click', function() {
+		if (monitorTimer) clearInterval(monitorTimer);
+	});
+
+	// Cargar monitor si la URL tiene hash #monitor-pane
+	if (window.location.hash === '#monitor-pane') {
+		jQuery('[data-tab="monitor"]').click();
+	}
+	</script>
+		<?php
+		}
 
 	/**
 	 * AJAX: Get server presets list
@@ -1980,6 +2331,75 @@ class RMM_Admin_Page {
 			wp_send_json_success();
 		} catch ( Exception $e ) {
 			wp_send_json_error( array( 'error' => $e->getMessage() ) );
+		}
+	}
+
+	/**
+	 * AJAX: Send Telegram aviso from admin panel
+	 */
+	public function ajax_send_telegram_aviso() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( __( 'Acceso denegado', 'reforger-milsim' ) );
+		}
+		
+		check_ajax_referer( 'rmm_send_aviso' );
+		
+		$message = isset( $_POST['message'] ) ? wp_kses_post( stripslashes( $_POST['message'] ) ) : '';
+		if ( empty( $message ) ) {
+			wp_send_json_error( __( 'El mensaje está vacío.', 'reforger-milsim' ) );
+		}
+		
+		try {
+			$ptero = new RMM_Pterodactyl_Handler();
+			// Remove HTML tags and convert to plain text for Telegram
+			$text = wp_strip_all_tags( $message );
+			$result = $ptero->notify_telegram( $text );
+			
+			if ( $result ) {
+				wp_send_json_success( __( 'Mensaje enviado correctamente al canal de Telegram.', 'reforger-milsim' ) );
+			} else {
+				wp_send_json_error( __( 'No se pudo enviar el mensaje. Verifica las credenciales de Telegram en Configuración.', 'reforger-milsim' ) );
+			}
+		} catch ( Exception $e ) {
+			wp_send_json_error( $e->getMessage() );
+		}
+	}
+
+	/**
+	 * AJAX: Server power action from monitor panel
+	 */
+	public function ajax_server_power_action() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( __( 'Acceso denegado', 'reforger-milsim' ) );
+		}
+		
+		check_ajax_referer( 'rmm_monitor' );
+		
+		$server_id = isset( $_POST['server_id'] ) ? sanitize_text_field( $_POST['server_id'] ) : '';
+		$signal = isset( $_POST['signal'] ) ? sanitize_text_field( $_POST['signal'] ) : '';
+		
+		if ( empty( $server_id ) || empty( $signal ) ) {
+			wp_send_json_error( __( 'Faltan parámetros.', 'reforger-milsim' ) );
+		}
+		
+		if ( ! in_array( $signal, array( 'start', 'stop', 'restart', 'kill' ) ) ) {
+			wp_send_json_error( __( 'Señal no válida.', 'reforger-milsim' ) );
+		}
+		
+		try {
+			$ptero = new RMM_Pterodactyl_Handler();
+			$ptero->send_power_action( $server_id, $signal );
+			
+			$labels = array(
+				'start'   => __( 'Servidor iniciado correctamente.', 'reforger-milsim' ),
+				'stop'    => __( 'Servidor detenido correctamente.', 'reforger-milsim' ),
+				'restart' => __( 'Servidor reiniciado correctamente.', 'reforger-milsim' ),
+				'kill'    => __( 'Servidor forzado a detenerse.', 'reforger-milsim' ),
+			);
+			
+			wp_send_json_success( $labels[ $signal ] ?? __( 'Comando ejecutado.', 'reforger-milsim' ) );
+		} catch ( Exception $e ) {
+			wp_send_json_error( $e->getMessage() );
 		}
 	}
 

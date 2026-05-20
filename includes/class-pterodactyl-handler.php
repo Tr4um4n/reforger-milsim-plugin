@@ -200,6 +200,93 @@ class RMM_Pterodactyl_Handler {
 	}
 
 	/**
+	 * Get server resource usage (CPU, RAM, Disk, Uptime, Network)
+	 */
+	public function get_server_resources( $server_id ) {
+		$endpoint = "/servers/{$server_id}/resources";
+		return $this->call_api( $endpoint, 'GET', null, false );
+	}
+
+	/**
+	 * Get server details (name, status, limits, etc.)
+	 */
+	public function get_server_details( $server_id ) {
+		$endpoint = "/servers/{$server_id}";
+		$response = $this->call_api( $endpoint, 'GET', null, false );
+		return isset( $response['attributes'] ) ? $response['attributes'] : $response;
+	}
+
+	/**
+	 * Get and parse the server's config.json for current game info
+	 * Returns array with scenario name, mods count, etc.
+	 */
+	public function get_current_game_info( $server_id ) {
+		try {
+			$resources = $this->get_server_resources( $server_id );
+			$current_state = isset( $resources['attributes']['current_state'] ) ? $resources['attributes']['current_state'] : 'unknown';
+
+			$info = array(
+				'state'      => $current_state,
+				'uptime_ms'  => isset( $resources['attributes']['resources']['uptime'] ) ? $resources['attributes']['resources']['uptime'] : 0,
+				'cpu_absolute' => isset( $resources['attributes']['resources']['cpu_absolute'] ) ? $resources['attributes']['resources']['cpu_absolute'] : 0,
+				'memory_bytes' => isset( $resources['attributes']['resources']['memory_bytes'] ) ? $resources['attributes']['resources']['memory_bytes'] : 0,
+				'disk_bytes'   => isset( $resources['attributes']['resources']['disk_bytes'] ) ? $resources['attributes']['resources']['disk_bytes'] : 0,
+				'network_rx'   => isset( $resources['attributes']['resources']['network_rx_bytes'] ) ? $resources['attributes']['resources']['network_rx_bytes'] : 0,
+				'network_tx'   => isset( $resources['attributes']['resources']['network_tx_bytes'] ) ? $resources['attributes']['resources']['network_tx_bytes'] : 0,
+			);
+
+			// Try to get config.json for scenario info
+			try {
+				$config_raw = $this->get_file_contents( $server_id, '/config.json' );
+				$config = json_decode( $config_raw, true );
+				if ( $config ) {
+					$info['scenario_id'] = isset( $config['game']['scenarioId'] ) ? $config['game']['scenarioId'] : '';
+					$info['mods_count'] = isset( $config['game']['mods'] ) ? count( $config['game']['mods'] ) : 0;
+					$info['mods'] = isset( $config['game']['mods'] ) ? $config['game']['mods'] : array();
+
+					// Extract scenario display name from path
+					$scenario = $info['scenario_id'];
+					if ( preg_match( '#([^/\\\\]+)\\.conf$#', $scenario, $m ) ) {
+						$info['scenario_name'] = str_replace( '_', ' ', $m[1] );
+					} elseif ( $scenario ) {
+						$info['scenario_name'] = basename( $scenario );
+					} else {
+						$info['scenario_name'] = __( 'Desconocido', 'reforger-milsim' );
+					}
+
+					// Check for persistence
+					$info['persistence'] = isset( $config['game']['gameProperties']['persistence'] ) ? true : false;
+				}
+			} catch ( Exception $e ) {
+				$info['scenario_name'] = __( 'No disponible', 'reforger-milsim' );
+				$info['mods_count'] = 0;
+				$info['mods'] = array();
+			}
+
+			// Get server details for limits
+			try {
+				$details = $this->get_server_details( $server_id );
+				$info['server_name'] = isset( $details['name'] ) ? $details['name'] : '';
+				$info['memory_limit'] = isset( $details['limits']['memory'] ) ? $details['limits']['memory'] : 0;
+				$info['disk_limit'] = isset( $details['limits']['disk'] ) ? $details['limits']['disk'] : 0;
+				$info['cpu_limit'] = isset( $details['limits']['cpu'] ) ? $details['limits']['cpu'] : 0;
+			} catch ( Exception $e ) {
+				$info['server_name'] = '';
+				$info['memory_limit'] = 0;
+				$info['disk_limit'] = 0;
+				$info['cpu_limit'] = 0;
+			}
+
+			return $info;
+		} catch ( Exception $e ) {
+			return array(
+				'state' => 'error',
+				'error' => $e->getMessage(),
+			);
+		}
+	}
+
+	/**
 	 * Send notification message to Telegram channel/group
 	 */
 	public function notify_telegram( $text ) {
