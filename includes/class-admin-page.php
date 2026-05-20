@@ -417,6 +417,7 @@ class RMM_Admin_Page {
 			update_option( 'rmm_ptero_stable_server_id', sanitize_text_field( trim( $_POST['rmm_ptero_stable_server_id'] ) ) );
 			update_option( 'rmm_ptero_testing_server_id', sanitize_text_field( trim( $_POST['rmm_ptero_testing_server_id'] ) ) );
 			update_option( 'rmm_server_ip', sanitize_text_field( trim( $_POST['rmm_server_ip'] ) ) );
+						update_option( 'rmm_server_port', intval( $_POST['rmm_server_port'] ) ?: 2001 );
 			update_option( 'rmm_telegram_token', sanitize_text_field( trim( $_POST['rmm_telegram_token'] ) ) );
 			update_option( 'rmm_telegram_chat_id', sanitize_text_field( trim( $_POST['rmm_telegram_chat_id'] ) ) );
 			update_option( 'rmm_telegram_bot_path', sanitize_text_field( trim( $_POST['rmm_telegram_bot_path'] ) ) );
@@ -515,6 +516,7 @@ class RMM_Admin_Page {
 		$stable_server    = get_option( 'rmm_ptero_stable_server_id' );
 		$testing_server   = get_option( 'rmm_ptero_testing_server_id' );
 		$server_ip        = get_option( 'rmm_server_ip' );
+				$server_port      = get_option( 'rmm_server_port', 2001 );
 		$tg_token         = get_option( 'rmm_telegram_token' );
 		$tg_chat_id       = get_option( 'rmm_telegram_chat_id' );
 		$tg_bot_path      = get_option( 'rmm_telegram_bot_path' );
@@ -582,8 +584,14 @@ class RMM_Admin_Page {
 
 						<div class="rmm-form-group">
 							<label for="rmm_server_ip">IP de Conexión del Servidor</label>
-							<input type="text" name="rmm_server_ip" id="rmm_server_ip" value="<?php echo esc_attr( $server_ip ); ?>" class="regular-text" placeholder="e.g. 192.168.1.100">
-						</div>
+														<input type="text" name="rmm_server_ip" id="rmm_server_ip" value="<?php echo esc_attr( $server_ip ); ?>" class="regular-text" placeholder="e.g. 192.168.1.100">
+													</div>
+
+													<div class="rmm-form-group">
+														<label for="rmm_server_port">Puerto del Juego</label>
+														<input type="number" name="rmm_server_port" id="rmm_server_port" value="<?php echo esc_attr( $server_port ); ?>" class="small-text" min="1" max="65535" placeholder="2001">
+														<p class="description">Por defecto en Arma Reforger es <strong>2001</strong>. Se muestra como <code>IP:PUERTO</code> en los shortcodes de conexión.</p>
+													</div>
 					</div>
 				</div>
 

@@ -234,9 +234,10 @@ class RMM_Server_Status_Handler {
         }
 
         $is_online = ( $data['state'] === 'running' );
-        $server_ip = get_option( 'rmm_server_ip', '' );
+                $server_ip = get_option( 'rmm_server_ip', '' );
+                $server_port = get_option( 'rmm_server_port', 2001 );
 
-        ob_start();
+                ob_start();
         ?>
         <div class="rmm-server-widget rmm-server-info-widget" style="background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 20px; font-family: 'Inter', sans-serif; color: #c9d1d9;">
             <h4 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #8b949e; margin: 0 0 16px; display: flex; align-items: center; gap: 8px;">
@@ -268,8 +269,8 @@ class RMM_Server_Status_Handler {
                 
                 <?php if ( ! empty( $server_ip ) ) : ?>
                 <div style="background: #161b22; border: 1px solid #21262d; border-radius: 6px; padding: 10px 12px; grid-column: span 2;">
-                    <span style="display: block; font-size: 0.5rem; text-transform: uppercase; letter-spacing: 0.06em; color: #484f58; margin-bottom: 4px;"><i class="fa-solid fa-network-wired"></i> IP de Conexión</span>
-                    <span style="font-size: 0.7rem; font-weight: 600; color: #58a6ff; font-family: monospace;"><?php echo esc_html( $server_ip ); ?></span>
+                    <span style="display: block; font-size: 0.5rem; text-transform: uppercase; letter-spacing: 0.06em; color: #484f58; margin-bottom: 4px;"><i class="fa-solid fa-network-wired"></i> Conexión Directa</span>
+                                        <span style="font-size: 0.8rem; font-weight: 700; color: #58a6ff; font-family: monospace; user-select: all; cursor: copy;" title="Clic para copiar"><?php echo esc_html( $server_ip . ':' . $server_port ); ?></span>
                 </div>
                 <?php endif; ?>
             </div>
