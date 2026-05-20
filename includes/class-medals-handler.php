@@ -261,13 +261,13 @@ class RMM_Medals_Handler {
 
 		ob_start();
 		?>
-		<div class="rmm-operators-grid-wrapper rmm-dark-theme" style="font-family: 'Inter', sans-serif;">
-			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+		<div class="rmm-operators-grid-wrapper" style="font-family: 'Inter', system-ui, sans-serif;">
+			<div class="rmm-members-grid">
 				<?php foreach ( $users as $user ) : 
 					$uid = $user->ID;
 					$medals = isset( $all_user_medals[$uid] ) ? $all_user_medals[$uid] : array();
 					
-					// Estadísticas para el overlay
+					// Estadísticas
 					$kills        = intval( get_user_meta( $uid, 'rmm_kills', true ) ?: 0 );
 					$deaths       = intval( get_user_meta( $uid, 'rmm_deaths', true ) ?: 0 );
 					$hours        = intval( get_user_meta( $uid, 'rmm_hours', true ) ?: 0 );
@@ -277,8 +277,8 @@ class RMM_Medals_Handler {
 					$attendance   = isset( $all_user_attendance[$uid] ) ? intval( $all_user_attendance[$uid] ) : 0;
 					$pref_role    = isset( $all_user_pref_roles[$uid] ) ? $all_user_pref_roles[$uid] : __( 'No definido', 'reforger-milsim' );
 					
-					$kd_ratio     = number_format( $kills / ( $deaths > 0 ? $deaths : 1 ), 2 );
-					$accuracy     = $shots_fired > 0 ? number_format( ($shots_hit / $shots_fired) * 100, 1 ) . '%' : '0%';
+					$kd_ratio     = $deaths > 0 ? number_format( $kills / $deaths, 2 ) : number_format( $kills, 2 );
+					$accuracy     = $shots_fired > 0 ? number_format( ($shots_hit / $shots_fired) * 100, 1 ) . '%' : '—';
 					$enrol_date   = get_user_meta( $uid, 'rmm_enrolment_date', true );
 					$enrol_date_f = !empty( $enrol_date ) ? date('d/m/Y', strtotime($enrol_date)) : __( 'No registrada', 'reforger-milsim' );
 
@@ -295,103 +295,433 @@ class RMM_Medals_Handler {
 					
 					// Configurar enlace del perfil
 					$profile_link = !empty($a['profile_url']) ? esc_url( add_query_arg( 'operator_id', $uid, $a['profile_url'] ) ) : esc_url( add_query_arg( 'operator_id', $uid ) );
+					
+					// Color del borde según rol
+					$border_color = '#849b4c'; // verde oliva táctico por defecto
+					if ( $main_role === 'fundador' || $main_role === 'administrator' ) {
+						$border_color = '#d97706'; // dorado/ámbar para mando
+					} elseif ( $main_role === 'veterano' ) {
+						$border_color = '#7c3aed'; // púrpura para veteranos
+					}
 					?>
 					
 					<!-- Card de Operador -->
-					<a href="<?php echo $profile_link; ?>" class="rmm-operator-card group relative block overflow-hidden rounded-lg bg-gray-900 border border-gray-800 p-5 shadow-lg transition-all duration-300 hover:border-green-600/50 hover:shadow-green-950/20" style="text-decoration:none; color:inherit; min-height: 250px;">
-						<div class="flex flex-col items-center text-center h-full justify-between">
+					<a href="<?php echo $profile_link; ?>" 
+					   class="rmm-operator-card" 
+					   style="--card-accent: <?php echo $border_color; ?>; text-decoration: none; color: inherit;">
+						
+						<!-- Barra de acento superior -->
+						<div class="rmm-card-accent"></div>
+						
+						<!-- Cuerpo de la tarjeta -->
+						<div class="rmm-card-body">
 							
-							<!-- Avatar, Nombre y Rango -->
-							<div class="w-full flex flex-col items-center">
-								<div class="relative mb-3">
-									<?php echo get_avatar( $uid, 80, '', '', array( 'class' => 'rounded-full border-2 border-green-700 object-cover shadow-md w-20 h-20' ) ); ?>
-									<span class="absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-gray-900 bg-green-500" title="Activo"></span>
+							<!-- Cabecera: Avatar + Nombre + Rango -->
+							<div class="rmm-card-header">
+								<div class="rmm-avatar-wrap">
+									<?php echo get_avatar( $uid, 90, '', '', array( 'class' => 'rmm-avatar-img' ) ); ?>
+									<div class="rmm-status-dot" title="Activo"></div>
 								</div>
-								<h3 class="text-lg font-bold text-gray-100 group-hover:text-green-400 transition-colors uppercase tracking-wide mb-0 mt-1"><?php echo esc_html( $user->display_name ); ?></h3>
-								<span class="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1 mb-3" style="color: #849b4c;"><?php echo esc_html( $role_name ); ?></span>
+								<h3 class="rmm-card-name"><?php echo esc_html( $user->display_name ); ?></h3>
+								<span class="rmm-card-rank"><?php echo esc_html( $role_name ); ?></span>
 							</div>
 
-							<!-- Pasador de Medallas (Ribbons) -->
-							<div class="mt-auto w-full flex justify-center">
+							<!-- Stats rápidos visibles siempre -->
+							<div class="rmm-card-stats">
+								<div class="rmm-stat">
+									<span class="rmm-stat-value"><?php echo $attendance; ?></span>
+									<span class="rmm-stat-label">Misiones</span>
+								</div>
+								<div class="rmm-stat">
+									<span class="rmm-stat-value"><?php echo $kd_ratio; ?></span>
+									<span class="rmm-stat-label">K/D</span>
+								</div>
+								<div class="rmm-stat">
+									<span class="rmm-stat-value"><?php echo $hours; ?>h</span>
+									<span class="rmm-stat-label">Horas</span>
+								</div>
+							</div>
+
+							<!-- Pasador de Medallas -->
+							<div class="rmm-card-ribbons">
 								<?php if ( ! empty($medals) ) : ?>
-									<div class="grid grid-cols-3 gap-0.5 max-w-fit bg-gray-950 border border-gray-950 p-0.5 shadow-sm">
+									<div class="rmm-ribbons-grid">
 										<?php 
 										$count = 0;
 										foreach ( $medals as $m ) {
-											if ( $count >= 6 ) break; // Mostrar max 6 en la tarjeta
+											if ( $count >= 6 ) break;
 											$thumb_url = get_the_post_thumbnail_url( $m->medal_id, 'metopa-militar' );
-											if ( !$thumb_url ) $thumb_url = 'https://via.placeholder.com/120x35?text=Medalla';
+											if ( !$thumb_url ) $thumb_url = 'https://via.placeholder.com/120x35/1a1a1a/555?text=Medalla';
 											?>
-											<img src="<?php echo esc_url($thumb_url); ?>" class="w-[60px] h-[17px] block object-cover" title="<?php echo esc_attr( $m->post_title ); ?>">
+											<img src="<?php echo esc_url($thumb_url); ?>" 
+												 class="rmm-ribbon" 
+												 title="<?php echo esc_attr( $m->post_title ); ?>"
+												 loading="lazy">
 											<?php
 											$count++;
 										}
-										?>
+										if ( count($medals) > 6 ) : ?>
+											<span class="rmm-ribbons-more">+<?php echo count($medals) - 6; ?></span>
+										<?php endif; ?>
 									</div>
 								<?php else : ?>
-									<span class="text-[10px] uppercase font-bold text-gray-700 tracking-wider"><?php _e( 'Sin condecoraciones', 'reforger-milsim' ); ?></span>
+									<span class="rmm-no-medals"><?php _e( 'Sin condecoraciones', 'reforger-milsim' ); ?></span>
 								<?php endif; ?>
 							</div>
+
 						</div>
 
-						<!-- Overlay Táctico en Hover -->
-						<div class="absolute inset-0 flex flex-col justify-between bg-gray-950/95 p-5 opacity-0 transition-opacity duration-300 group-hover:opacity-100 border border-green-600/50 rounded-lg">
-							<div class="text-left w-full">
-								<h4 class="text-sm font-bold text-green-400 uppercase tracking-wider border-b border-gray-800 pb-1.5 mb-3 flex items-center justify-between">
-									<span>📂 DOSSIER MILITAR</span>
-									<span class="text-[9px] text-gray-500">ID: <?php echo $uid; ?></span>
+						<!-- Overlay lateral que se desliza en hover -->
+						<div class="rmm-card-overlay">
+							<div class="rmm-overlay-scroll">
+								<h4 class="rmm-overlay-title">
+									<span>📂 DOSSIER</span>
+									<span class="rmm-overlay-id">#<?php echo $uid; ?></span>
 								</h4>
-								<div class="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
-									<div>
-										<span class="block text-gray-500 uppercase text-[9px] tracking-wider"><?php _e( 'Partidas', 'reforger-milsim' ); ?></span>
-										<strong class="text-gray-200"><?php echo $attendance; ?></strong>
+								
+								<div class="rmm-overlay-grid">
+									<div class="rmm-overlay-item">
+										<span class="rmm-overlay-label">Rol Preferido</span>
+										<span class="rmm-overlay-val"><?php echo esc_html( $pref_role ); ?></span>
 									</div>
-									<div>
-										<span class="block text-gray-500 uppercase text-[9px] tracking-wider"><?php _e( 'Rol Preferido', 'reforger-milsim' ); ?></span>
-										<strong class="text-gray-200 truncate block" title="<?php echo esc_attr($pref_role); ?>"><?php echo esc_html( $pref_role ); ?></strong>
+									<div class="rmm-overlay-item">
+										<span class="rmm-overlay-label">Bajas / Muertes</span>
+										<span class="rmm-overlay-val"><?php echo "$kills / $deaths"; ?></span>
 									</div>
-									<div>
-										<span class="block text-gray-500 uppercase text-[9px] tracking-wider"><?php _e( 'Bajas / Muertes', 'reforger-milsim' ); ?></span>
-										<strong class="text-gray-200"><?php echo "$kills / $deaths"; ?></strong>
+									<div class="rmm-overlay-item">
+										<span class="rmm-overlay-label">Precisión</span>
+										<span class="rmm-overlay-val"><?php echo $accuracy; ?></span>
 									</div>
-									<div>
-										<span class="block text-gray-500 uppercase text-[9px] tracking-wider"><?php _e( 'K/D Ratio', 'reforger-milsim' ); ?></span>
-										<strong class="text-gray-200"><?php echo $kd_ratio; ?></strong>
-									</div>
-									<div>
-										<span class="block text-gray-500 uppercase text-[9px] tracking-wider"><?php _e( 'Precisión', 'reforger-milsim' ); ?></span>
-										<strong class="text-gray-200"><?php echo $accuracy; ?></strong>
-									</div>
-									<div>
-										<span class="block text-gray-500 uppercase text-[9px] tracking-wider"><?php _e( 'Horas', 'reforger-milsim' ); ?></span>
-										<strong class="text-gray-200"><?php echo $hours; ?>h</strong>
+									<div class="rmm-overlay-item">
+										<span class="rmm-overlay-label">Disparos / Impactos</span>
+										<span class="rmm-overlay-val"><?php echo "$shots_fired / $shots_hit"; ?></span>
 									</div>
 								</div>
-								<div class="mt-3 pt-2 border-t border-gray-900 text-[10px]">
-									<span class="text-gray-500 uppercase tracking-wider"><?php _e( 'Enlistado:', 'reforger-milsim' ); ?></span>
-									<strong class="text-gray-300 ml-1"><?php echo $enrol_date_f; ?></strong>
+								
+								<div class="rmm-overlay-enrol">
+									<span class="rmm-overlay-label">Enlistado</span>
+									<span class="rmm-overlay-val"><?php echo $enrol_date_f; ?></span>
 								</div>
 							</div>
-							<div class="w-full text-center mt-3">
-								<span class="inline-block w-full py-1.5 bg-green-900/40 text-green-400 border border-green-700/50 rounded text-xs font-bold uppercase tracking-wider hover:bg-green-800/60 transition-colors">
-									<?php _e( 'Ver expediente completo', 'reforger-milsim' ); ?>
-								</span>
+							
+							<div class="rmm-overlay-action">
+								<span>Ver expediente completo →</span>
 							</div>
 						</div>
 					</a>
 				<?php endforeach; ?>
 			</div>
 		</div>
+		
 		<style>
-			.rmm-dark-theme {
-				--tw-bg-opacity: 1;
-				background-color: transparent;
+			/* =============================================
+			   GRID DE OPERADORES — Estilo Táctico
+			   ============================================= */
+			
+			.rmm-members-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+				gap: 20px;
 			}
+			
+			/* ── Tarjeta ── */
 			.rmm-operator-card {
-				transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+				position: relative;
+				display: flex;
+				flex-direction: column;
+				background: linear-gradient(180deg, #1a1d21 0%, #141619 100%);
+				border: 1px solid #2a2d31;
+				border-radius: 10px;
+				overflow: hidden;
+				transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+				cursor: pointer;
+				min-height: 320px;
 			}
 			.rmm-operator-card:hover {
-				transform: translateY(-4px);
+				transform: translateY(-6px);
+				border-color: var(--card-accent, #849b4c);
+				box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 0 1px var(--card-accent, #849b4c);
+			}
+			
+			/* ── Barra de acento ── */
+			.rmm-card-accent {
+				height: 3px;
+				background: var(--card-accent, #849b4c);
+				border-radius: 10px 10px 0 0;
+				transition: height 0.3s ease;
+			}
+			.rmm-operator-card:hover .rmm-card-accent {
+				height: 5px;
+			}
+			
+			/* ── Cuerpo ── */
+			.rmm-card-body {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				padding: 20px 16px 16px;
+				text-align: center;
+			}
+			
+			/* ── Cabecera ── */
+			.rmm-card-header {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				margin-bottom: 14px;
+			}
+			.rmm-avatar-wrap {
+				position: relative;
+				margin-bottom: 10px;
+			}
+			.rmm-avatar-img {
+				border-radius: 50% !important;
+				border: 3px solid #2a2d31 !important;
+				width: 80px !important;
+				height: 80px !important;
+				object-fit: cover !important;
+				box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+				transition: border-color 0.3s ease;
+			}
+			.rmm-operator-card:hover .rmm-avatar-img {
+				border-color: var(--card-accent, #849b4c) !important;
+			}
+			.rmm-status-dot {
+				position: absolute;
+				bottom: 2px;
+				right: 2px;
+				width: 14px;
+				height: 14px;
+				border-radius: 50%;
+				background: #22c55e;
+				border: 2px solid #141619;
+				box-shadow: 0 0 8px rgba(34,197,94,0.4);
+			}
+			.rmm-card-name {
+				font-size: 0.95rem;
+				font-weight: 700;
+				color: #e5e7eb;
+				text-transform: uppercase;
+				letter-spacing: 0.03em;
+				margin: 0 0 4px;
+				line-height: 1.2;
+				transition: color 0.3s ease;
+			}
+			.rmm-operator-card:hover .rmm-card-name {
+				color: var(--card-accent, #849b4c);
+			}
+			.rmm-card-rank {
+				font-size: 0.7rem;
+				font-weight: 600;
+				color: #6b7280;
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+				padding: 2px 10px;
+				border: 1px solid #2a2d31;
+				border-radius: 3px;
+				background: rgba(255,255,255,0.02);
+			}
+			
+			/* ── Stats ── */
+			.rmm-card-stats {
+				display: flex;
+				gap: 0;
+				width: 100%;
+				border-top: 1px solid #1f2226;
+				border-bottom: 1px solid #1f2226;
+				padding: 10px 0;
+				margin-bottom: 14px;
+			}
+			.rmm-stat {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+			}
+			.rmm-stat-value {
+				font-size: 1.05rem;
+				font-weight: 700;
+				color: #e5e7eb;
+				font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+				line-height: 1.2;
+			}
+			.rmm-stat-label {
+				font-size: 0.6rem;
+				font-weight: 600;
+				color: #555;
+				text-transform: uppercase;
+				letter-spacing: 0.06em;
+				margin-top: 2px;
+			}
+			
+			/* ── Pasador de Medallas ── */
+			.rmm-card-ribbons {
+				margin-top: auto;
+				width: 100%;
+				display: flex;
+				justify-content: center;
+			}
+			.rmm-ribbons-grid {
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: 3px;
+				padding: 5px;
+				background: #0d0e10;
+				border: 1px solid #1f2226;
+				border-radius: 5px;
+				position: relative;
+			}
+			.rmm-ribbon {
+				width: 65px;
+				height: 19px;
+				display: block;
+				object-fit: cover;
+				border-radius: 2px;
+				transition: transform 0.2s ease, box-shadow 0.2s ease;
+			}
+			.rmm-ribbon:hover {
+				transform: scale(1.8);
+				box-shadow: 0 4px 15px rgba(0,0,0,0.7);
+				z-index: 5;
+				position: relative;
+			}
+			.rmm-ribbons-more {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 0.6rem;
+				font-weight: 700;
+				color: #849b4c;
+				background: #0d0e10;
+				border: 1px dashed #333;
+				border-radius: 2px;
+				min-width: 65px;
+				height: 19px;
+			}
+			.rmm-no-medals {
+				font-size: 0.6rem;
+				font-weight: 700;
+				color: #3a3d42;
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+			}
+			
+			/* ── Overlay ── */
+			.rmm-card-overlay {
+				position: absolute;
+				inset: 0;
+				display: flex;
+				flex-direction: column;
+				justify-content: space-between;
+				background: rgba(10,11,14,0.97);
+				border: 1px solid var(--card-accent, #849b4c);
+				border-radius: 10px;
+				opacity: 0;
+				transition: opacity 0.35s ease;
+				pointer-events: none;
+			}
+			.rmm-operator-card:hover .rmm-card-overlay {
+				opacity: 1;
+				pointer-events: auto;
+			}
+			.rmm-overlay-scroll {
+				flex: 1;
+				padding: 16px;
+				overflow-y: auto;
+			}
+			.rmm-overlay-title {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				font-size: 0.7rem;
+				font-weight: 700;
+				color: var(--card-accent, #849b4c);
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+				padding-bottom: 8px;
+				border-bottom: 1px solid #1f2226;
+				margin-bottom: 12px;
+			}
+			.rmm-overlay-id {
+				font-size: 0.6rem;
+				color: #555;
+				letter-spacing: 0.04em;
+			}
+			.rmm-overlay-grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 10px;
+			}
+			.rmm-overlay-item {
+				display: flex;
+				flex-direction: column;
+			}
+			.rmm-overlay-label {
+				font-size: 0.55rem;
+				font-weight: 600;
+				color: #555;
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+				margin-bottom: 2px;
+			}
+			.rmm-overlay-val {
+				font-size: 0.75rem;
+				font-weight: 600;
+				color: #d1d5db;
+				line-height: 1.3;
+			}
+			.rmm-overlay-enrol {
+				margin-top: 12px;
+				padding-top: 8px;
+				border-top: 1px solid #1f2226;
+				display: flex;
+				flex-direction: column;
+			}
+			.rmm-overlay-action {
+				padding: 10px 16px;
+				text-align: center;
+				border-top: 1px solid #1f2226;
+			}
+			.rmm-overlay-action span {
+				display: block;
+				padding: 7px 0;
+				font-size: 0.65rem;
+				font-weight: 700;
+				color: #0d0e10;
+				background: var(--card-accent, #849b4c);
+				border-radius: 4px;
+				text-transform: uppercase;
+				letter-spacing: 0.06em;
+				transition: filter 0.2s ease;
+			}
+			.rmm-overlay-action span:hover {
+				filter: brightness(1.15);
+			}
+			
+			/* ── Responsive ── */
+			@media (max-width: 640px) {
+				.rmm-members-grid {
+					grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+					gap: 12px;
+				}
+				.rmm-card-body {
+					padding: 14px 10px 10px;
+				}
+				.rmm-avatar-img {
+					width: 60px !important;
+					height: 60px !important;
+				}
+				.rmm-card-name {
+					font-size: 0.8rem;
+				}
+				.rmm-stat-value {
+					font-size: 0.85rem;
+				}
+				.rmm-ribbon {
+					width: 50px;
+					height: 15px;
+				}
 			}
 		</style>
 		<?php
