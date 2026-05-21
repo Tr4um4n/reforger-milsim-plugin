@@ -612,8 +612,9 @@ class RMM_Raid_Handler {
 	public function render_raid_join_button( $atts ) {
 			if ( ! is_singular( 'raid_eventos' ) ) return '';
 			if ( ! is_user_logged_in() ) {
-				return '<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:16px;text-align:center;color:#8b949e;font-family:sans-serif;margin:20px 0;"><i class="fa-solid fa-lock"></i> ' . __( 'Inicia sesión para apuntarte.', 'reforger-milsim' ) . '</div>';
-			}
+						$login_url = wp_login_url( get_permalink() );
+						return '<a href="' . esc_url( $login_url ) . '" style="display:block;text-decoration:none;background:#161b22;border:1px solid #21262d;border-radius:8px;padding:16px;text-align:center;color:#58a6ff;font-family:sans-serif;margin:20px 0;"><i class="fa-solid fa-lock"></i> ' . __( 'Inicia sesión para apuntarte.', 'reforger-milsim' ) . '</a>';
+					}
 
 			// Verificar rol permitido
 			$user = wp_get_current_user();
