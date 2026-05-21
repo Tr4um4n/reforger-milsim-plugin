@@ -396,16 +396,19 @@ class RMM_Raid_Handler {
 	 * Maneja la confirmación de asistencia desde el botón de Telegram
 	 */
 	public function handle_raid_confirm( $request ) {
-		global $wpdb;
+			global $wpdb;
 		
-		$raid_id = intval( $request->get_param( 'raid_id' ) );
-		$tg_user_id = sanitize_text_field( $request->get_param( 'user_id' ) );
-		$nombre = sanitize_text_field( $request->get_param( 'name' ) );
-		
-		if ( ! $raid_id || empty( $tg_user_id ) || empty( $nombre ) ) {
-			// Mostrar página de error
-			wp_die( 'Faltan datos. Usa el botón de Telegram correctamente.', 'Error', array( 'response' => 400 ) );
-		}
+			$raid_id = intval( $request->get_param( 'raid_id' ) );
+			$tg_user_id = sanitize_text_field( $request->get_param( 'user_id' ) );
+			$nombre = sanitize_text_field( $request->get_param( 'name' ) );
+
+			// Forzar salida HTML directa, no JSON de REST API
+			header( 'Content-Type: text/html; charset=utf-8' );
+
+			if ( ! $raid_id || empty( $tg_user_id ) || empty( $nombre ) ) {
+				echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Error</title><style>body{background:#0d1117;color:#c9d1d9;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}.box{text-align:center;padding:40px;background:#161b22;border:1px solid #21262d;border-radius:12px;max-width:400px}h1{color:#ef4444}</style></head><body><div class="box"><h1>❌ Error</h1><p>Faltan datos. Usa el botón de Telegram correctamente.</p></div></body></html>';
+				exit;
+			}
 		
 		// Verificar si ya está apuntado
 		$table = $wpdb->prefix . 'raid_participantes';
@@ -415,8 +418,9 @@ class RMM_Raid_Handler {
 		));
 		
 		if ( $exists ) {
-			wp_die( '✅ Ya habías confirmado tu asistencia a esta misión.', 'Ya confirmado', array( 'response' => 200 ) );
-		}
+					echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ya Confirmado</title><style>body{background:#0d1117;color:#c9d1d9;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}.box{text-align:center;padding:40px;background:#161b22;border:1px solid #21262d;border-radius:12px;max-width:400px}.icon{font-size:3rem}h1{color:#f59e0b;font-size:1.2rem}</style></head><body><div class="box"><div class="icon">✅</div><h1>Ya confirmado</h1><p>Ya habías confirmado tu asistencia a esta misión.</p></div></body></html>';
+					exit;
+				}
 		
 		// Guardar participación
 		$wpdb->insert( $table, array(
