@@ -192,8 +192,10 @@ class RMM_Telemetry_Handler {
 			'rmm_shots_hit'   => array( 'shots_hit', 'shotsHit' ),
 		);
 
-		// Si viene en minutos, convertir a horas
-		if ( isset( $data['playtime_minutes'] ) && ! isset( $data['hours'] ) && ! isset( $data['playtime_hours'] ) ) {
+		// Convertir tiempo a horas (acepta segundos, minutos o directamente horas)
+		if ( isset( $data['playtime_seconds'] ) && ! isset( $data['hours'] ) && ! isset( $data['playtime_hours'] ) && ! isset( $data['playtime_minutes'] ) ) {
+			$data['playtime_hours'] = round( intval( $data['playtime_seconds'] ) / 3600, 3 );
+		} elseif ( isset( $data['playtime_minutes'] ) && ! isset( $data['hours'] ) && ! isset( $data['playtime_hours'] ) ) {
 			$data['playtime_hours'] = round( intval( $data['playtime_minutes'] ) / 60, 2 );
 		}
 
