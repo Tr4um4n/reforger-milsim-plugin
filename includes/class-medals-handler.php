@@ -886,6 +886,45 @@ class RMM_Medals_Handler {
 		// Obtener historial de roles (timeline)
 		$history = get_user_meta( $user_id, 'rmm_role_history', true );
 		
+		// Fusionar historial de roles + medallas en una sola cronología
+		$timeline = array();
+		
+		// Añadir cambios de rango
+		if ( ! empty( $history ) && is_array( $history ) ) {
+			foreach ( $history as $change ) {
+				$timestamp = strtotime( $change['date'] ?? 'now' );
+				$timeline[] = array(
+					'date'      => $timestamp,
+					'type'      => 'role',
+					'from'      => $change['from'] ?? '',
+					'to'        => $change['to'] ?? '',
+					'author'    => $change['by'] ?? __( 'Sistema', 'reforger-milsim' ),
+				);
+			}
+		}
+		
+		// Añadir condecoraciones otorgadas
+		if ( ! empty( $medals ) ) {
+			foreach ( $medals as $m ) {
+				$timestamp = strtotime( $m->fecha_obtenida );
+				$admin_data = get_userdata( $m->otorgada_por_admin_id );
+				$admin_name = $admin_data ? $admin_data->display_name : __( 'Sistema', 'reforger-milsim' );
+				$timeline[] = array(
+					'date'       => $timestamp,
+					'type'       => 'medal',
+					'medal_id'   => $m->medal_id,
+					'medal_name' => $m->post_title,
+					'motivo'     => $m->motivo,
+					'author'     => $admin_name,
+				);
+			}
+		}
+		
+		// Ordenar por fecha descendente (más reciente primero)
+		usort( $timeline, function( $a, $b ) {
+			return $b['date'] - $a['date'];
+		});
+		
 		// Remover parámetro operator_id para el botón de volver
 		$back_url = remove_query_arg( 'operator_id' );
 
@@ -1044,38 +1083,75 @@ class RMM_Medals_Handler {
 			</div>
 
 			<!-- Timeline de Carrera -->
-			<div style="padding: 24px;">
-				<h2 style="font-size: 1rem; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #21262d; padding-bottom: 10px; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
-					<i class="fa-solid fa-timeline" style="color: #22c55e;"></i> <?php _e( 'CRONOLOGÍA DE CARRERA EN EL CLAN', 'reforger-milsim' ); ?>
-				</h2>
+				<div style="padding: 24px;">
+					<h2 style="font-size: 1rem; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #21262d; padding-bottom: 10px; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+						<i class="fa-solid fa-timeline" style="color: #22c55e;"></i> <?php _e( 'CRONOLOGÍA DE CARRERA EN EL CLAN', 'reforger-milsim' ); ?>
+					</h2>
 
-				<?php if ( ! empty($history) && is_array($history) ) : ?>
-					<div style="position: relative; border-left: 2px solid rgba(34,197,94,0.25); margin-left: 16px; padding-left: 24px; display: flex; flex-direction: column; gap: 20px;">
-						<?php foreach ( array_reverse($history) as $change ) : ?>
-							<div style="position: relative;">
-								<span style="position: absolute; left: -29px; top: 2px; display: flex; width: 14px; height: 14px; align-items: center; justify-content: center; border-radius: 50%; background: #0d1117; border: 2px solid #22c55e;">
-									<span style="width: 6px; height: 6px; border-radius: 50%; background: #22c55e;"></span>
-								</span>
-								<div style="font-size: 0.75rem;">
-									<strong style="color: #22c55e; display: block; font-family: monospace; font-size: 0.6rem; letter-spacing: 0.05em; margin-bottom: 4px;">
-										<i class="fa-solid fa-clock" style="margin-right: 4px;"></i> <?php echo esc_html( date('d/m/Y - H:i', strtotime($change['date'])) ); ?>h
-									</strong>
-									<span style="color: #c9d1d9;">
-										<?php if ( ! empty($change['from']) ) : ?>
-											Promoción de rango: de <code style="background: #161b22; padding: 1px 6px; border-radius: 3px; color: #8b949e;"><?php echo esc_html($change['from']); ?></code> a <code style="background: rgba(34,197,94,0.1); padding: 1px 6px; border-radius: 3px; color: #22c55e; border: 1px solid rgba(34,197,94,0.2);"><?php echo esc_html($change['to']); ?></code>.
-										<?php else : ?>
-											Ingreso al clan con rango <code style="background: rgba(34,197,94,0.1); padding: 1px 6px; border-radius: 3px; color: #22c55e; border: 1px solid rgba(34,197,94,0.2);"><?php echo esc_html($change['to']); ?></code>.
-										<?php endif; ?>
+					<?php if ( ! empty( $timeline ) ) : ?>
+						<div style="position: relative; border-left: 2px solid rgba(34,197,94,0.25); margin-left: 16px; padding-left: 24px; display: flex; flex-direction: column; gap: 20px;">
+							<?php foreach ( $timeline as $event ) : 
+								$is_role  = ( $event['type'] === 'role' );
+								$is_medal = ( $event['type'] === 'medal' );
+							
+								// Color del punto según tipo
+								$dot_color   = $is_role ? '#22c55e' : '#d2a850';
+								$dot_bg      = $is_role ? 'rgba(34,197,94,0.1)' : 'rgba(210,168,80,0.1)';
+								$icon        = $is_role ? 'fa-chevron-up' : 'fa-medal';
+								$label       = $is_role ? __( 'Cambio de rango', 'reforger-milsim' ) : __( 'Condecoración', 'reforger-milsim' );
+								?>
+								<div style="position: relative;">
+									<span style="position: absolute; left: -29px; top: 2px; display: flex; width: 14px; height: 14px; align-items: center; justify-content: center; border-radius: 50%; background: #0d1117; border: 2px solid <?php echo $dot_color; ?>;">
+										<span style="width: 6px; height: 6px; border-radius: 50%; background: <?php echo $dot_color; ?>;"></span>
 									</span>
-									<span style="display: block; font-size: 0.6rem; color: #484f58; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px;">Autorizado por: <?php echo esc_html($change['by']); ?></span>
+								
+									<div style="font-size: 0.75rem;">
+										<!-- Cabecera con tipo de evento -->
+										<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+											<span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 8px; border-radius: 3px; background: <?php echo $dot_bg; ?>; color: <?php echo $dot_color; ?>; border: 1px solid <?php echo $dot_color; ?>33;">
+												<i class="fa-solid <?php echo $icon; ?>" style="font-size: 0.5rem;"></i> <?php echo $label; ?>
+											</span>
+											<strong style="color: #484f58; font-family: monospace; font-size: 0.6rem; letter-spacing: 0.05em;">
+												<i class="fa-solid fa-clock" style="margin-right: 3px;"></i> <?php echo esc_html( date('d/m/Y - H:i', $event['date']) ); ?>h
+											</strong>
+										</div>
+									
+										<!-- Contenido del evento -->
+										<?php if ( $is_role ) : ?>
+											<span style="color: #c9d1d9;">
+												<?php if ( ! empty( $event['from'] ) ) : ?>
+													Promoción: de <code style="background: #161b22; padding: 1px 6px; border-radius: 3px; color: #8b949e;"><?php echo esc_html( $event['from'] ); ?></code> a <code style="background: rgba(34,197,94,0.1); padding: 1px 6px; border-radius: 3px; color: #22c55e; border: 1px solid rgba(34,197,94,0.2);"><?php echo esc_html( $event['to'] ); ?></code>.
+												<?php else : ?>
+													Ingreso al clan con rango <code style="background: rgba(34,197,94,0.1); padding: 1px 6px; border-radius: 3px; color: #22c55e; border: 1px solid rgba(34,197,94,0.2);"><?php echo esc_html( $event['to'] ); ?></code>.
+												<?php endif; ?>
+											</span>
+										<?php else : ?>
+											<div style="display: flex; align-items: center; gap: 10px; background: rgba(210,168,80,0.05); border: 1px solid rgba(210,168,80,0.15); border-radius: 6px; padding: 10px 12px;">
+												<?php 
+												$thumb_url = get_the_post_thumbnail_url( $event['medal_id'], 'metopa-militar' );
+												if ( $thumb_url ) : ?>
+													<img src="<?php echo esc_url( $thumb_url ); ?>" style="width: 80px; height: 23px; object-fit: cover; border-radius: 2px; flex-shrink: 0;">
+												<?php endif; ?>
+												<div>
+													<strong style="color: #d2a850; font-size: 0.8rem; text-transform: uppercase;"><?php echo esc_html( $event['medal_name'] ); ?></strong>
+													<?php if ( ! empty( $event['motivo'] ) ) : ?>
+														<p style="color: #8b949e; font-size: 0.7rem; font-style: italic; margin: 4px 0 0; line-height: 1.4;">"<?php echo esc_html( $event['motivo'] ); ?>"</p>
+													<?php endif; ?>
+												</div>
+											</div>
+										<?php endif; ?>
+									
+										<span style="display: block; font-size: 0.6rem; color: #484f58; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 6px;">
+											<?php echo $is_role ? __( 'Autorizado por:', 'reforger-milsim' ) : __( 'Otorgada por:', 'reforger-milsim' ); ?> <?php echo esc_html( $event['author'] ); ?>
+										</span>
+									</div>
 								</div>
-							</div>
-						<?php endforeach; ?>
-					</div>
-				<?php else : ?>
-					<p style="color: #8b949e; font-size: 0.75rem; font-style: italic;"><?php _e( 'No hay registros de cambios de rango en la hoja de servicio.', 'reforger-milsim' ); ?></p>
-				<?php endif; ?>
-			</div>
+							<?php endforeach; ?>
+						</div>
+					<?php else : ?>
+						<p style="color: #8b949e; font-size: 0.75rem; font-style: italic;"><?php _e( 'No hay registros de actividad en la hoja de servicio.', 'reforger-milsim' ); ?></p>
+					<?php endif; ?>
+				</div>
 
 			<!-- Popup Modal de Medalla (oculto por defecto) -->
 			<div id="rmm-medal-popup-overlay" class="rmm-medal-popup-overlay" style="display: none;">
