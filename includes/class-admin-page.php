@@ -642,7 +642,7 @@ class RMM_Admin_Page {
 																																						</div>
 																																						<div class="rmm-form-group">
 																																							<label for="rmm_raid_telegram_chat_id">ID del Chat/Grupo de RAIDs</label>
-																																							<input type="text" name="rmm_raid_telegram_chat_id" id="rmm_raid_telegram_chat_id" value="<?php echo esc_attr( get_option( 'rmm_raid_telegram_chat_id', '-3157817672' ) ); ?>" class="regular-text" placeholder="-3157817672">
+																																							<input type="text" name="rmm_raid_telegram_chat_id" id="rmm_raid_telegram_chat_id" value="<?php echo esc_attr( get_option( 'rmm_raid_telegram_chat_id', '-1003157817672' ) ); ?>" class="regular-text" placeholder="-1003157817672">
 																																							<p class="description">ID del grupo de Telegram donde se publican las RAIDs. Ya viene preconfigurado.</p>
 																																						</div>
 										</div>

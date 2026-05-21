@@ -286,7 +286,7 @@ class RMM_Raid_Handler {
 		// Enviar a Telegram (bot de RAIDs)
 				try {
 					$token = get_option( 'rmm_raid_telegram_token', '' );
-					$chat_id = get_option( 'rmm_raid_telegram_chat_id', '-3157817672' );
+					$chat_id = get_option( 'rmm_raid_telegram_chat_id', '-1003157817672' );
 
 					if ( empty( $token ) || empty( $chat_id ) ) {
 						wp_send_json_error( __( 'El bot de RAIDs no está configurado. Ve a Ajustes > Configuración.', 'reforger-milsim' ) );
