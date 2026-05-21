@@ -286,9 +286,8 @@ class RMM_Raid_Handler {
 		$date_formatted = "$dia_semana $dia_num";
 
 		// Construir mensaje con enlace de confirmación
-		$confirm_url = rest_url( 'clan/v1/raid/confirm' ) . '?raid_id=' . $wpdb->insert_id . '&user_id={telegram_user_id}&name={name}';
 
-		$msg = "📢 <b>¡Nueva solicitud de misión!</b>
+				$msg = "📢 <b>¡Nueva solicitud de misión!</b>\n\n";
 
 ";
 		$msg .= "👤 <b>" . esc_html( $user->display_name ) . "</b> ha solicitado crear una misión.
@@ -339,7 +338,7 @@ class RMM_Raid_Handler {
 									array(
 										array(
 											'text' => '✅ Confirmar asistencia',
-											'url'  => $confirm_base . '&user_id={telegram_user_id}&name={name}'
+																				'url'  => $confirm_base
 										)
 									),
 									array(
@@ -399,71 +398,123 @@ class RMM_Raid_Handler {
 			global $wpdb;
 		
 			$raid_id = intval( $request->get_param( 'raid_id' ) );
-			$tg_user_id = sanitize_text_field( $request->get_param( 'user_id' ) );
-			$nombre = sanitize_text_field( $request->get_param( 'name' ) );
 
-			// Forzar salida HTML directa, no JSON de REST API
+			// Si es POST, procesar confirmación
+			if ( $request->get_method() === 'POST' ) {
+				return $this->process_confirm_submit( $request );
+			}
+
+			// GET: mostrar formulario
 			header( 'Content-Type: text/html; charset=utf-8' );
 
-			if ( ! $raid_id || empty( $tg_user_id ) || empty( $nombre ) ) {
+			if ( ! $raid_id ) {
 				echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Error</title><style>body{background:#0d1117;color:#c9d1d9;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}.box{text-align:center;padding:40px;background:#161b22;border:1px solid #21262d;border-radius:12px;max-width:400px}h1{color:#ef4444}</style></head><body><div class="box"><h1>❌ Error</h1><p>Faltan datos. Usa el botón de Telegram correctamente.</p></div></body></html>';
 				exit;
 			}
-		
-		// Verificar si ya está apuntado
-		$table = $wpdb->prefix . 'raid_participantes';
-		$exists = $wpdb->get_var( $wpdb->prepare(
-			"SELECT id FROM $table WHERE raid_id = %d AND telegram_user_id = %s",
-			$raid_id, $tg_user_id
-		));
-		
-		if ( $exists ) {
-					echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ya Confirmado</title><style>body{background:#0d1117;color:#c9d1d9;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}.box{text-align:center;padding:40px;background:#161b22;border:1px solid #21262d;border-radius:12px;max-width:400px}.icon{font-size:3rem}h1{color:#f59e0b;font-size:1.2rem}</style></head><body><div class="box"><div class="icon">✅</div><h1>Ya confirmado</h1><p>Ya habías confirmado tu asistencia a esta misión.</p></div></body></html>';
-					exit;
-				}
-		
-		// Guardar participación
-		$wpdb->insert( $table, array(
-			'raid_id'         => $raid_id,
-			'telegram_user_id' => $tg_user_id,
-			'telegram_username' => $nombre,
-			'nombre'           => $nombre,
-			'confirmed_at'     => current_time( 'mysql' ),
-		));
-		
-		// Contar participantes
-		$count = $wpdb->get_var( $wpdb->prepare(
-			"SELECT COUNT(*) FROM $table WHERE raid_id = %d", $raid_id
-		));
-		
-		// Mostrar página de éxito estilizada
-		?>
-		<!DOCTYPE html>
-		<html>
-		<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-		<title>Asistencia Confirmada</title>
-		<style>
-			body { background:#0d1117; color:#c9d1d9; font-family:'Inter',sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
-			.box { text-align:center; padding:40px; background:#161b22; border:1px solid #21262d; border-radius:12px; max-width:400px; }
-			.icon { font-size:3rem; margin-bottom:16px; }
-			h1 { font-size:1.2rem; color:#22c55e; margin:0 0 8px; }
-			p { font-size:0.9rem; color:#8b949e; margin:4px 0; }
-			.count { font-size:2rem; font-weight:800; color:#CFDC35; }
-		</style></head>
-		<body>
-		<div class="box">
-			<div class="icon">✅</div>
-			<h1>¡Asistencia confirmada!</h1>
-			<p><?php echo esc_html( $nombre ); ?>, te has apuntado a la misión.</p>
-			<p style="margin-top:16px;">👥 Participantes: <span class="count"><?php echo $count; ?></span></p>
-		</div>
-		</body>
-		</html>
-		<?php
-		exit;
+
+			// Obtener datos de la raid
+			$table = $wpdb->prefix . 'raid_solicitudes';
+			$raid = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE id = %d", $raid_id ) );
+			if ( ! $raid ) {
+				echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>No encontrada</title><style>body{background:#0d1117;color:#c9d1d9;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}.box{text-align:center;padding:40px;background:#161b22;border:1px solid #21262d;border-radius:12px}h1{color:#ef4444}</style></head><body><div class="box"><h1>❌ No encontrada</h1><p>Esta solicitud de misión ya no existe.</p></div></body></html>';
+				exit;
+			}
+
+			$user = get_userdata( $raid->usuario_id );
+			$nombre = $user ? $user->display_name : 'Desconocido';
+			$dt = new DateTime( $raid->fecha );
+			$days = array( 'Monday' => 'Lunes', 'Tuesday' => 'Martes', 'Wednesday' => 'Miércoles', 'Thursday' => 'Jueves', 'Friday' => 'Viernes', 'Saturday' => 'Sábado', 'Sunday' => 'Domingo' );
+			$dia = $days[ $dt->format('l') ] ?? $dt->format('l');
+
+			// Contar confirmados
+			$parts_table = $wpdb->prefix . 'raid_participantes';
+			$count = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $parts_table WHERE raid_id = %d", $raid_id ) );
+
+			?>
+			<!DOCTYPE html>
+			<html>
+			<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+			<title>Confirmar Asistencia</title>
+			<style>
+				body { background:#0d1117; color:#c9d1d9; font-family:'Inter',sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
+				.box { padding:32px; background:#161b22; border:1px solid #21262d; border-radius:12px; max-width:420px; width:90%; }
+				h1 { font-size:1.1rem; color:#CFDC35; margin:0 0 16px; text-align:center; }
+				.info { font-size:0.8rem; color:#8b949e; margin-bottom:20px; line-height:1.6; }
+				.info strong { color:#e5e7eb; }
+				label { display:block; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.05em; color:#8b949e; margin-bottom:4px; }
+				input { width:100%; background:#0d1117; border:1px solid #30363d; border-radius:6px; padding:10px 12px; color:#c9d1d9; font-size:0.9rem; box-sizing:border-box; }
+				input:focus { border-color:#CFDC35; outline:none; }
+				button { width:100%; background:#CFDC35; color:#000; border:none; border-radius:6px; padding:12px; font-size:0.85rem; font-weight:700; cursor:pointer; margin-top:12px; }
+				.count { text-align:center; font-size:0.8rem; color:#8b949e; margin-top:16px; }
+				.count span { color:#CFDC35; font-weight:700; font-size:1.2rem; }
+			</style></head>
+			<body>
+			<div class="box">
+				<h1>🎯 Confirmar Asistencia</h1>
+				<div class="info">
+					<strong><?php echo esc_html( $nombre ); ?></strong> ha solicitado una misión.<br>
+					📅 <strong><?php echo $dia . ' ' . $dt->format('j'); ?></strong> a las <strong><?php echo $raid->hora; ?></strong>h<br>
+					<?php if ( $raid->servidor ): ?>🏷 Servidor: <strong><?php echo esc_html( $raid->servidor ); ?></strong><?php endif; ?>
+				</div>
+				<form method="post" action="">
+					<label>Tu nombre o alias de Telegram</label>
+					<input type="text" name="name" placeholder="Ej: @Trauman" required>
+					<input type="hidden" name="raid_id" value="<?php echo $raid_id; ?>">
+					<button type="submit">✅ Confirmar Asistencia</button>
+				</form>
+				<div class="count">👥 <span><?php echo $count; ?></span> confirmados</div>
+			</div>
+			</body>
+			</html>
+			<?php
+			exit;
+		}
+
+		/**
+		 * Procesa el POST del formulario de confirmación
+		 */
+		private function process_confirm_submit( $request ) {
+			global $wpdb;
+
+			$raid_id = intval( $request->get_param( 'raid_id' ) );
+			$nombre = sanitize_text_field( $request->get_param( 'name' ) );
+
+			header( 'Content-Type: text/html; charset=utf-8' );
+
+			if ( ! $raid_id || empty( $nombre ) ) {
+				echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Error</title><style>body{background:#0d1117;color:#c9d1d9;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh}.box{text-align:center;padding:40px;background:#161b22;border:1px solid #21262d;border-radius:12px}h1{color:#ef4444}</style></head><body><div class="box"><h1>❌ Error</h1><p>Faltan datos.</p></div></body></html>';
+				exit;
+			}
+
+			// Verificar duplicado
+			$table = $wpdb->prefix . 'raid_participantes';
+			$exists = $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM $table WHERE raid_id = %d AND nombre = %s",
+				$raid_id, $nombre
+			));
+
+			if ( $exists ) {
+				echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ya Confirmado</title><style>body{background:#0d1117;color:#c9d1d9;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh}.box{text-align:center;padding:40px;background:#161b22;border:1px solid #21262d;border-radius:12px;max-width:400px}.icon{font-size:3rem}h1{color:#f59e0b;font-size:1.2rem}</style></head><body><div class="box"><div class="icon">✅</div><h1>Ya confirmado</h1><p>Ya habías confirmado tu asistencia a esta misión.</p></div></body></html>';
+				exit;
+			}
+
+			// Guardar
+			$wpdb->insert( $table, array(
+				'raid_id'          => $raid_id,
+				'telegram_user_id' => $nombre,
+				'telegram_username' => $nombre,
+				'nombre'           => $nombre,
+				'confirmed_at'     => current_time( 'mysql' ),
+			));
+
+			$count = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $table WHERE raid_id = %d", $raid_id ) );
+
+			echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Confirmado</title><style>body{background:#0d1117;color:#c9d1d9;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}.box{text-align:center;padding:40px;background:#161b22;border:1px solid #21262d;border-radius:12px;max-width:400px}.icon{font-size:3rem;margin-bottom:16px}h1{font-size:1.2rem;color:#22c55e;margin:0 0 8px}p{font-size:0.9rem;color:#8b949e;margin:4px 0}.count{font-size:2rem;font-weight:800;color:#CFDC35}</style></head><body><div class="box"><div class="icon">✅</div><h1>¡Asistencia confirmada!</h1><p>' . esc_html( $nombre ) . ', te has apuntado a la misión.</p><p style="margin-top:16px">👥 Participantes: <span class="count">' . $count . '</span></p></div></body></html>';
+			exit;
+		}
 	}
 
-	/**
+
 	 * Devuelve las raids para el calendario FullCalendar
 	 */
 	public function get_raids_for_calendar( $request ) {
