@@ -355,7 +355,7 @@ class RMM_Server_Status_Handler {
 
                 ob_start();
         ?>
-        <div class="rmm-server-widget rmm-server-info-widget<?php echo $fill_class; ?>" style="background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 20px; font-family: 'Inter', sans-serif; color: #c9d1d9; <?php echo $fill_style; ?>">
+        <div id="<?php echo $fill_id; ?>" class="rmm-server-widget rmm-server-info-widget<?php echo $fill_class; ?>" style="background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 20px; font-family: 'Inter', sans-serif; color: #c9d1d9; <?php echo $fill_style; ?>">
             <h4 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #8b949e; margin: 0 0 16px; display: flex; align-items: center; gap: 8px;">
                 <i class="fa-solid fa-circle-info" style="color: #58a6ff;"></i> <?php _e( 'Información de Partida', 'reforger-milsim' ); ?>
             </h4>
@@ -395,7 +395,43 @@ class RMM_Server_Status_Handler {
                 <p style="font-size: 0.65rem; color: #484f58; text-align: center; margin: 12px 0 0; font-style: italic;"><?php _e( 'El servidor está actualmente fuera de línea.', 'reforger-milsim' ); ?></p>
             <?php endif; ?>
         </div>
-        <?php echo $fill_css; ?>
+        
+        <?php if ( $fill ) : ?>
+        <script>
+        (function() {
+            var el = document.getElementById('<?php echo $fill_id; ?>');
+            if (!el) return;
+            
+            function stretch() {
+                var parent = el.parentElement;
+                var maxH = 0;
+                var target = null;
+                
+                for (var i = 0; i < 5 && parent; i++) {
+                    var h = parent.clientHeight || parent.offsetHeight;
+                    if (h > maxH && h > 50) {
+                        maxH = h;
+                        target = parent;
+                    }
+                    parent = parent.parentElement;
+                }
+                
+                if (target && maxH > 50) {
+                    el.style.height = maxH + 'px';
+                    el.style.boxSizing = 'border-box';
+                }
+            }
+            
+            stretch();
+            window.addEventListener('resize', stretch);
+            
+            if (window.ResizeObserver) {
+                var observer = new ResizeObserver(function() { stretch(); });
+                observer.observe(document.body);
+            }
+        })();
+        </script>
+        <?php endif; ?>
         <?php return ob_get_clean();
     }
 
