@@ -85,27 +85,17 @@ class RMM_Raid_Handler {
 				</div>
 
 				<!-- Servidor -->
-				<div>
-					<label style="display:block; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.05em; color:#8b949e; margin-bottom:4px;">
-						<i class="fa-solid fa-server"></i> <?php _e( 'Servidor', 'reforger-milsim' ); ?>
-					</label>
-					<input type="text" id="raid_server" name="raid_server" 
-						value="<?php echo esc_attr( get_option( 'rmm_ptero_stable_server_id', '' ) ? 'STABLE' : '' ); ?>"
-						placeholder="Ej: STABLE / TESTING"
-						style="width:100%; background:#161b22; border:1px solid #30363d; border-radius:6px; padding:10px 12px; color:#c9d1d9; font-family:'Inter',sans-serif; font-size:0.85rem;">
-				</div>
+							<div>
+								<label style="display:block; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.05em; color:#8b949e; margin-bottom:4px;">
+									<i class="fa-solid fa-server"></i> <?php _e( 'Servidor', 'reforger-milsim' ); ?>
+								</label>
+								<input type="text" id="raid_server" name="raid_server" 
+									value="<?php echo esc_attr( get_option( 'rmm_ptero_stable_server_id', '' ) ? 'STABLE' : '' ); ?>"
+									placeholder="Ej: STABLE / TESTING"
+									style="width:100%; background:#161b22; border:1px solid #30363d; border-radius:6px; padding:10px 12px; color:#c9d1d9; font-family:'Inter',sans-serif; font-size:0.85rem;">
+							</div>
 
-				<!-- Contraseña -->
-				<div>
-					<label style="display:block; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.05em; color:#8b949e; margin-bottom:4px;">
-						<i class="fa-solid fa-key"></i> <?php _e( 'Contraseña del Servidor', 'reforger-milsim' ); ?>
-					</label>
-					<input type="text" id="raid_password" name="raid_password" 
-						placeholder="Contraseña de la partida"
-						style="width:100%; background:#161b22; border:1px solid #30363d; border-radius:6px; padding:10px 12px; color:#c9d1d9; font-family:'Inter',sans-serif; font-size:0.85rem;">
-				</div>
-
-				<!-- Notas -->
+							<!-- Notas -->
 				<div>
 					<label style="display:block; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.05em; color:#8b949e; margin-bottom:4px;">
 						<i class="fa-solid fa-note-sticky"></i> <?php _e( 'Notas / Requisitos (opcional)', 'reforger-milsim' ); ?>
@@ -159,8 +149,7 @@ class RMM_Raid_Handler {
 				var date = $('#raid_date').val();
 				var time = $('#raid_time').val();
 				var server = $('#raid_server').val().trim();
-				var password = $('#raid_password').val().trim();
-				var notes = $('#raid_notes').val().trim();
+							var notes = $('#raid_notes').val().trim();
 
 				if (!date || !time) {
 					$('#raid_status').html('<span style="color:#ef4444;"><i class="fa-solid fa-circle-xmark"></i> Selecciona fecha y hora.</span>');
@@ -172,20 +161,18 @@ class RMM_Raid_Handler {
 				$('#raid_status').html('<span style="color:#f59e0b;"><i class="fa-solid fa-spinner fa-spin"></i> Enviando solicitud...</span>');
 
 				$.post(ajaxurl, {
-					action: 'rmm_send_raid_request',
-					date: date,
-					time: time,
-					server: server,
-					password: password,
-					notes: notes,
-					_ajax_nonce: '<?php echo wp_create_nonce( "rmm_raid_request" ); ?>'
-				}, function(response) {
-					btn.prop('disabled', false).css('opacity', '1');
-					if (response.success) {
-						$('#raid_status').html('<span style="color:#22c55e;"><i class="fa-solid fa-circle-check"></i> ' + response.data + '</span>');
-						$('#raid_notes').val('');
-						$('#raid_password').val('');
-					} else {
+								action: 'rmm_send_raid_request',
+								date: date,
+								time: time,
+								server: server,
+								notes: notes,
+								_ajax_nonce: '<?php echo wp_create_nonce( "rmm_raid_request" ); ?>'
+							}, function(response) {
+								btn.prop('disabled', false).css('opacity', '1');
+								if (response.success) {
+									$('#raid_status').html('<span style="color:#22c55e;"><i class="fa-solid fa-circle-check"></i> ' + response.data + '</span>');
+									$('#raid_notes').val('');
+								} else {
 						$('#raid_status').html('<span style="color:#ef4444;"><i class="fa-solid fa-circle-xmark"></i> ' + (response.data || 'Error al enviar') + '</span>');
 					}
 				}).fail(function() {
@@ -236,7 +223,7 @@ class RMM_Raid_Handler {
 		$date = isset( $_POST['date'] ) ? sanitize_text_field( $_POST['date'] ) : '';
 		$time = isset( $_POST['time'] ) ? sanitize_text_field( $_POST['time'] ) : '';
 		$server = isset( $_POST['server'] ) ? sanitize_text_field( $_POST['server'] ) : '';
-		$password = isset( $_POST['password'] ) ? sanitize_text_field( $_POST['password'] ) : '';
+		$password = get_option( 'rmm_raid_password', '' );
 		$notes = isset( $_POST['notes'] ) ? sanitize_textarea_field( $_POST['notes'] ) : '';
 
 		if ( empty( $date ) || empty( $time ) ) {
