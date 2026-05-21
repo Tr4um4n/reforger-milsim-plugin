@@ -888,10 +888,15 @@ class RMM_Medals_Handler {
 		
 		// Fusionar historial de roles + medallas en una sola cronología
 		$timeline = array();
+		$hidden_entries = get_user_meta( $user_id, 'rmm_hidden_timeline', true ) ?: array();
 		
 		// Añadir cambios de rango
 		if ( ! empty( $history ) && is_array( $history ) ) {
-			foreach ( $history as $change ) {
+			foreach ( $history as $index => $change ) {
+				$entry_id  = ( $change['date'] ?? '' ) . '_' . $index;
+				// Saltar entradas ocultas por admin
+				if ( in_array( $entry_id, $hidden_entries ) ) continue;
+				
 				$timestamp = strtotime( $change['date'] ?? 'now' );
 				$timeline[] = array(
 					'date'      => $timestamp,

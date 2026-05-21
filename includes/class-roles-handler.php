@@ -24,6 +24,10 @@ class RMM_Roles_Handler {
 
 		// Registro automático de cambio de roles
 		add_action( 'set_user_role', array( $this, 'log_role_change' ), 10, 3 );
+		
+		// AJAX para ocultar/mostrar entradas del timeline desde admin
+		add_action( 'wp_ajax_rmm_toggle_timeline_entry', array( $this, 'ajax_toggle_timeline_entry' ) );
+		add_action( 'admin_footer', array( $this, 'inject_timeline_toggle_js' ) );
 	}
 
 	public function register_roles() {
@@ -234,10 +238,14 @@ class RMM_Roles_Handler {
 
 		<h3><?php _e( 'Cronología de Carrera Militar', 'reforger-milsim' ); ?></h3>
 		<?php if ( ! empty( $history ) && is_array( $history ) ) : ?>
-			<div style="background:#f6f7f7; padding: 15px; border-left: 4px solid #849b4c; max-width: 800px; max-height: 250px; overflow-y: auto;">
+			<div style="background:#f6f7f7; padding: 15px; border-left: 4px solid #849b4c; max-width: 800px; max-height: 350px; overflow-y: auto;">
 				<ul style="margin:0; padding-left:20px; list-style-type: square;">
-					<?php foreach ( array_reverse($history) as $change ) : ?>
-						<li style="margin-bottom:8px;">
+					<?php foreach ( array_reverse($history) as $index => $change ) : 
+						$entry_id = $change['date'] . '_' . $index;
+						$hidden_entries = get_user_meta( $user->ID, 'rmm_hidden_timeline', true ) ?: array();
+						$is_hidden = in_array( $entry_id, $hidden_entries );
+						?>
+						<li style="margin-bottom:8px; <?php echo $is_hidden ? 'opacity:0.4; text-decoration:line-through;' : ''; ?>">
 							<strong><?php echo esc_html( date('d/m/Y H:i', strtotime($change['date'])) ); ?></strong>:
 							<?php if ( ! empty($change['from']) ) : ?>
 								De <code><?php echo esc_html( $change['from'] ); ?></code> a 
@@ -246,6 +254,14 @@ class RMM_Roles_Handler {
 							<?php endif; ?>
 							<code><?php echo esc_html( $change['to'] ); ?></code> 
 							<span style="color:#666; font-size:0.9em;">(por <?php echo esc_html( $change['by'] ); ?>)</span>
+							<button type="button" 
+								class="rmm-hide-timeline-btn" 
+								data-user-id="<?php echo $user->ID; ?>" 
+								data-entry-id="<?php echo esc_attr( $entry_id ); ?>"
+								title="<?php echo $is_hidden ? esc_attr__( 'Mostrar', 'reforger-milsim' ) : esc_attr__( 'Ocultar del perfil público', 'reforger-milsim' ); ?>"
+								style="margin-left:6px; background:none; border:1px solid #ccc; border-radius:3px; cursor:pointer; font-size:11px; padding:0 4px;">
+								<?php echo $is_hidden ? '👁️' : '🚫'; ?>
+							</button>
 						</li>
 					<?php endforeach; ?>
 				</ul>
@@ -257,7 +273,7 @@ class RMM_Roles_Handler {
 	}
 
 	/**
-	 * SAVE: Guardar los campos extra del perfil
+	 * SAVE: Guardar los campos extra del perfil y detectar cambios de rol
 	 */
 	public function save_user_profile_fields( $user_id ) {
 		if ( ! current_user_can( 'edit_user', $user_id ) ) return false;
@@ -286,6 +302,133 @@ class RMM_Roles_Handler {
 		if ( isset( $_POST['rmm_shots_hit'] ) ) {
 			update_user_meta( $user_id, 'rmm_shots_hit', intval( $_POST['rmm_shots_hit'] ) );
 		}
+		
+		// Detectar cambios de rol (compatible con Members plugin que usa $_POST['role'] como array)
+		$user = get_userdata( $user_id );
+		if ( ! $user ) return;
+		
+		$old_roles = $user->roles;
+		$new_roles = array();
+		
+		if ( isset( $_POST['role'] ) && is_array( $_POST['role'] ) ) {
+			$new_roles = array_map( 'sanitize_text_field', $_POST['role'] );
+		} elseif ( isset( $_POST['role'] ) && is_string( $_POST['role'] ) ) {
+			$new_roles = array( sanitize_text_field( $_POST['role'] ) );
+		}
+		
+		if ( empty( $new_roles ) ) {
+			return; // No se enviaron roles, no hay cambios que registrar
+		}
+		
+		$added   = array_diff( $new_roles, $old_roles );
+		$removed = array_diff( $old_roles, $new_roles );
+		
+		if ( empty( $added ) && empty( $removed ) ) {
+			return; // Sin cambios
+		}
+		
+		$wp_roles  = wp_roles();
+		$history   = get_user_meta( $user_id, 'rmm_role_history', true ) ?: array();
+		$now       = current_time( 'mysql' );
+		$editor    = wp_get_current_user();
+		$editor_name = $editor ? $editor->display_name : __( 'Sistema', 'reforger-milsim' );
+		
+		// Registrar roles eliminados
+		foreach ( $removed as $slug ) {
+			$label = isset( $wp_roles->role_names[ $slug ] ) ? translate_user_role( $wp_roles->role_names[ $slug ] ) : $slug;
+			$history[] = array(
+				'date' => $now,
+				'from' => $label,
+				'to'   => __( 'Sin rol', 'reforger-milsim' ),
+				'by'   => $editor_name,
+			);
+		}
+		
+		// Registrar roles añadidos
+		foreach ( $added as $slug ) {
+			$label = isset( $wp_roles->role_names[ $slug ] ) ? translate_user_role( $wp_roles->role_names[ $slug ] ) : $slug;
+			$previous = ! empty( $old_roles ) ? ( isset( $wp_roles->role_names[ $old_roles[0] ] ) ? translate_user_role( $wp_roles->role_names[ $old_roles[0] ] ) : $old_roles[0] ) : '';
+			$history[] = array(
+				'date' => $now,
+				'from' => $previous,
+				'to'   => $label,
+				'by'   => $editor_name,
+			);
+		}
+		
+		update_user_meta( $user_id, 'rmm_role_history', $history );
+	}
+	
+	/**
+	 * AJAX: Alternar visibilidad de una entrada del timeline
+	 */
+	public function ajax_toggle_timeline_entry() {
+		if ( ! current_user_can( 'edit_user', intval( $_POST['user_id'] ) ) ) {
+			wp_send_json_error( __( 'Permiso denegado', 'reforger-milsim' ) );
+		}
+		
+		$user_id  = intval( $_POST['user_id'] );
+		$entry_id = sanitize_text_field( $_POST['entry_id'] );
+		
+		if ( ! $user_id || empty( $entry_id ) ) {
+			wp_send_json_error( __( 'Datos inválidos', 'reforger-milsim' ) );
+		}
+		
+		$hidden = get_user_meta( $user_id, 'rmm_hidden_timeline', true ) ?: array();
+		
+		if ( in_array( $entry_id, $hidden ) ) {
+			$hidden = array_diff( $hidden, array( $entry_id ) );
+			$action = 'shown';
+		} else {
+			$hidden[] = $entry_id;
+			$action = 'hidden';
+		}
+		
+		update_user_meta( $user_id, 'rmm_hidden_timeline', array_values( $hidden ) );
+		wp_send_json_success( array( 'action' => $action ) );
+	}
+	
+	/**
+	 * Inyectar JS para los botones de ocultar en el perfil de usuario (admin)
+	 */
+	public function inject_timeline_toggle_js() {
+		$screen = get_current_screen();
+		if ( ! $screen || ! in_array( $screen->base, array( 'user-edit', 'profile' ) ) ) {
+			return;
+		}
+		?>
+		<script>
+		jQuery(document).ready(function($) {
+			$('.rmm-hide-timeline-btn').on('click', function() {
+				var btn     = $(this);
+				var userId  = btn.data('user-id');
+				var entryId = btn.data('entry-id');
+				
+				btn.prop('disabled', true).text('...');
+				
+				$.post(ajaxurl, {
+					action: 'rmm_toggle_timeline_entry',
+					user_id: userId,
+					entry_id: entryId
+				}, function(res) {
+					if (res.success) {
+						var li = btn.closest('li');
+						if (res.data.action === 'hidden') {
+							li.css({ opacity: 0.4, textDecoration: 'line-through' });
+							btn.html('&#x1F441;');
+							btn.attr('title', 'Mostrar');
+						} else {
+							li.css({ opacity: 1, textDecoration: 'none' });
+							btn.html('&#x1F6AB;');
+							btn.attr('title', 'Ocultar del perfil público');
+						}
+					}
+					btn.prop('disabled', false);
+				});
+			});
+		});
+		</script>
+		<?php
 	}
 }
 

@@ -19,7 +19,7 @@ class RMM_Telemetry_Handler {
 	private $auth_key;
 
 	public function __construct() {
-		$this->auth_key = get_option( 'rmm_telemetry_auth_key', 'FSuhjrSF&546VFsHYUCf·/(JHSJHGD49fD' );
+		$this->auth_key = get_option( 'rmm_telemetry_auth_key', 'TFR_6F8C2E9A1D4B47C99A1E7D6F3B2A8C10' );
 		add_action( 'rest_api_init', array( $this, 'register_endpoint' ) );
 	}
 
@@ -37,21 +37,33 @@ class RMM_Telemetry_Handler {
 	/**
 	 * Validar clave de autorización.
 	 * 
-	 * Prueba primero el header Authorization (estándar HTTP).
-	 * Si no se recibe (Apache/Nginx a veces lo eliminan), 
-	 * usa el header X-TFR-Token como alternativa.
+	 * Orden de comprobación:
+	 * 1. Header Authorization (estándar HTTP)
+	 * 2. Header X-TFR-Token (alternativa si Apache/Nginx elimina Authorization)
+	 * 3. Campo "token" en el body JSON (formato nuevo del addon)
 	 */
 	public function validate_auth( $request ) {
-		// Intentar obtener el token de Authorization o X-TFR-Token
+		// 1. Intentar obtener el token de los headers
 		$token = $request->get_header( 'Authorization' );
 		if ( empty( $token ) ) {
 			$token = $request->get_header( 'X-TFR-Token' );
 		}
 		
+		// 2. Si no viene en headers, buscar en el body JSON
+		if ( empty( $token ) ) {
+			$body = $request->get_body();
+			if ( ! empty( $body ) ) {
+				$data = json_decode( $body, true );
+				if ( $data && isset( $data['token'] ) ) {
+					$token = $data['token'];
+				}
+			}
+		}
+		
 		if ( empty( $token ) ) {
 			return new WP_Error(
 				'rmm_telemetry_no_auth',
-				__( 'Authorization o X-TFR-Token requerido.', 'reforger-milsim' ),
+				__( 'Token requerido (header Authorization, X-TFR-Token o campo "token" en el body).', 'reforger-milsim' ),
 				array( 'status' => 401 )
 			);
 		}
