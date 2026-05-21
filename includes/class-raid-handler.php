@@ -21,6 +21,7 @@ class RMM_Raid_Handler {
 		add_action( 'wp_ajax_nopriv_rmm_raid_leave', '__return_false' );
 		add_action( 'rest_api_init', array( $this, 'register_rest_endpoints' ) );
 				add_action( 'publish_eventos_partidas', array( $this, 'notify_raid_channel_on_event' ), 10, 2 );
+						add_filter( 'the_content', array( $this, 'inject_raid_join_to_content' ) );
 	}
 
 	/**
@@ -320,9 +321,9 @@ class RMM_Raid_Handler {
 
 					$url = "https://api.telegram.org/bot{$token}/sendMessage";
 
-					// URL base para confirmación (web)
-					$site_url = get_site_url();
-					$confirm_base = $site_url . '/wp-json/clan/v1/raid/confirm?raid_id=' . $post_id;
+					// URL base para confirmación (web) — página de la raid
+									$site_url = get_site_url();
+									$raid_url = get_permalink( $post_id );
 
 					$args = array(
 						'method'    => 'POST',
@@ -337,7 +338,7 @@ class RMM_Raid_Handler {
 									array(
 										array(
 											'text' => '✅ Confirmar asistencia',
-																				'url'  => $confirm_base
+																				'url'  => $raid_url
 										)
 									),
 									array(
@@ -609,10 +610,17 @@ class RMM_Raid_Handler {
 	 * Shortcode [raid_apuntarse] - Botón de apuntarse/desapuntarse
 	 */
 	public function render_raid_join_button( $atts ) {
-		if ( ! is_singular( 'raid_eventos' ) ) return '';
-		if ( ! is_user_logged_in() ) {
-			return '<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:16px;text-align:center;color:#8b949e;font-family:sans-serif;margin:20px 0;"><i class="fa-solid fa-lock"></i> ' . __( 'Inicia sesión para apuntarte.', 'reforger-milsim' ) . '</div>';
-		}
+			if ( ! is_singular( 'raid_eventos' ) ) return '';
+			if ( ! is_user_logged_in() ) {
+				return '<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:16px;text-align:center;color:#8b949e;font-family:sans-serif;margin:20px 0;"><i class="fa-solid fa-lock"></i> ' . __( 'Inicia sesión para apuntarte.', 'reforger-milsim' ) . '</div>';
+			}
+
+			// Verificar rol permitido
+			$user = wp_get_current_user();
+			$allowed_roles = array( 'recluta', 'activo', 'aliado', 'reservista', 'baja_indefinida', 'administrator' );
+			if ( ! array_intersect( $allowed_roles, (array) $user->roles ) ) {
+				return '<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:16px;text-align:center;color:#8b949e;font-family:sans-serif;margin:20px 0;"><i class="fa-solid fa-shield-halved"></i> ' . __( 'No tienes rango suficiente para apuntarte.', 'reforger-milsim' ) . '</div>';
+			}
 
 		$post_id = get_the_ID();
 		$user_id = get_current_user_id();
@@ -711,5 +719,13 @@ class RMM_Raid_Handler {
 		unset( $parts[ $uid ] );
 		update_post_meta( $raid_id, 'raid_participantes', $parts );
 		wp_send_json_success( 'Desapuntado.' );
-	}
-}
+			}
+
+			/**
+			 * Auto-inyecta [raid_apuntarse] en las páginas de raid_eventos
+			 */
+			public function inject_raid_join_to_content( $content ) {
+				if ( ! is_singular( 'raid_eventos' ) || ! in_the_loop() || ! is_main_query() ) return $content;
+				return $content . do_shortcode( '[raid_apuntarse]' );
+			}
+		}
