@@ -87,7 +87,7 @@ class RMM_Calendar_Handler {
 	public function render_calendar_shortcode() {
 		// Encolar FullCalendar V6 y el idioma español desde CDN
 		wp_enqueue_script( 'fullcalendar-js', 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js', array(), '6.1.10', true );
-		wp_enqueue_script( 'fullcalendar-es-js', 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales/es.global.min.js', array('fullcalendar-js'), '6.1.10', true );
+		wp_enqueue_script( 'fullcalendar-es-js', 'https://unpkg.com/@fullcalendar/core@6.1.10/locales/es.global.min.js', array('fullcalendar-js'), '6.1.10', true );
 		
 		ob_start();
 		?>

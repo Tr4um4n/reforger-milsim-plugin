@@ -160,7 +160,7 @@ class RMM_Raid_Handler {
 				btn.prop('disabled', true).css('opacity', '0.6');
 				$('#raid_status').html('<span style="color:#f59e0b;"><i class="fa-solid fa-spinner fa-spin"></i> Enviando solicitud...</span>');
 
-				$.post(ajaxurl, {
+				$.post('<?php echo admin_url("admin-ajax.php"); ?>', {
 								action: 'rmm_send_raid_request',
 								date: date,
 								time: time,
