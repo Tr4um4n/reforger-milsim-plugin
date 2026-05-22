@@ -78,6 +78,14 @@ class RMM_Calendar_Handler {
 			);
 		}
 
+		// Cargar raids del sistema de solicitudes
+		$raid_handler = new RMM_Raid_Handler();
+		$raid_events = $raid_handler->get_raids_for_calendar( null );
+		if ( $raid_events && ! is_wp_error( $raid_events ) ) {
+			$raids_data = $raid_events->get_data();
+			$formatted_events = array_merge( $formatted_events, $raids_data );
+		}
+
 		return rest_ensure_response( $formatted_events );
 	}
 
@@ -87,7 +95,7 @@ class RMM_Calendar_Handler {
 	public function render_calendar_shortcode() {
 		// Encolar FullCalendar V6 y el idioma español desde CDN
 		wp_enqueue_script( 'fullcalendar-js', 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js', array(), '6.1.10', true );
-		wp_enqueue_script( 'fullcalendar-es-js', 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales/es.global.min.js', array('fullcalendar-js'), '6.1.10', true );
+		wp_enqueue_script( 'fullcalendar-es-js', 'https://unpkg.com/@fullcalendar/core@6.1.10/locales/es.global.min.js', array('fullcalendar-js'), '6.1.10', true );
 		
 		ob_start();
 		?>
@@ -205,7 +213,16 @@ class RMM_Calendar_Handler {
 						}
 					},
 					eventDidMount: function(info) {
-						info.el.setAttribute('title', info.event.title + ' [' + info.event.extendedProps.estado.toUpperCase() + ']');
+						var props = info.event.extendedProps;
+						var title = info.event.title;
+						if (props.tipo === 'raid') {
+							title += ' | ' + props.usuario;
+							if (props.servidor) title += ' | ' + props.servidor;
+							title += ' | ' + props.participantes + ' confirmados';
+						} else {
+							title += ' [' + (props.estado || '').toUpperCase() + ']';
+						}
+						info.el.setAttribute('title', title);
 					}
 				});
 				calendar.render();

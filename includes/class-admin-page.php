@@ -152,7 +152,13 @@ class RMM_Admin_Page {
 				'description' => 'Muestra una cuadrícula táctica de miembros con su avatar, nombre, pasador y overlay táctico de estadísticas al pasar el ratón. Al hacer clic, lleva al expediente detallado.',
 				'context'     => 'Global (cualquier página)',
 				'params'      => 'profile_url="[URL_PAGINA_PERFIL]"',
-			),
+						),
+						array(
+							'shortcode'   => '[clan_solicitar_raid]',
+							'description' => 'Formulario para solicitar una RAID. Solo visible para miembros con rol Activo o Aliado. Envía una notificación a Telegram con fecha, hora, servidor y notas.',
+							'context'     => 'Global (cualquier página)',
+							'params'      => '—',
+						),
 			array(
 				'shortcode'   => '[clan_perfil_operador]',
 				'description' => 'Muestra la ficha militar completa de un operador, con su expediente de condecoraciones en tamaño grande, dossier de combate y cronología de su carrera en el clan.',
@@ -421,6 +427,9 @@ class RMM_Admin_Page {
 									update_option( 'rmm_server_cpu_limit', intval( $_POST['rmm_server_cpu_limit'] ) ?: 800 );
 									update_option( 'rmm_server_ram_gb', intval( $_POST['rmm_server_ram_gb'] ) ?: 24 );
 									update_option( 'rmm_server_disk_gb', intval( $_POST['rmm_server_disk_gb'] ) ?: 200 );
+												update_option( 'rmm_raid_password', sanitize_text_field( trim( $_POST['rmm_raid_password'] ) ) );
+															update_option( 'rmm_raid_telegram_token', sanitize_text_field( trim( $_POST['rmm_raid_telegram_token'] ) ) );
+															update_option( 'rmm_raid_telegram_chat_id', sanitize_text_field( trim( $_POST['rmm_raid_telegram_chat_id'] ) ) );
 			update_option( 'rmm_telegram_token', sanitize_text_field( trim( $_POST['rmm_telegram_token'] ) ) );
 			update_option( 'rmm_telegram_chat_id', sanitize_text_field( trim( $_POST['rmm_telegram_chat_id'] ) ) );
 			update_option( 'rmm_telegram_bot_path', sanitize_text_field( trim( $_POST['rmm_telegram_bot_path'] ) ) );
@@ -620,7 +629,22 @@ class RMM_Admin_Page {
 												<label for="rmm_server_disk_gb">Disco Total (GB)</label>
 												<input type="number" name="rmm_server_disk_gb" id="rmm_server_disk_gb" value="<?php echo esc_attr( get_option( 'rmm_server_disk_gb', 200 ) ); ?>" class="small-text" min="1" step="1">
 												<p class="description">Espacio en disco total asignado al servidor de juego.</p>
-											</div>
+																						</div>
+																						<div class="rmm-form-group">
+																							<label for="rmm_raid_password">Contraseña RAID</label>
+																							<input type="text" name="rmm_raid_password" id="rmm_raid_password" value="<?php echo esc_attr( get_option( 'rmm_raid_password', '' ) ); ?>" class="regular-text" placeholder="Contraseña del servidor de juego">
+																							<p class="description">Contraseña que se enviará en las notificaciones de RAID. Los usuarios no la introducen en el formulario.</p>
+																																						</div>
+																																						<div class="rmm-form-group">
+																																							<label for="rmm_raid_telegram_token">Token del Bot de RAIDs</label>
+																																							<input type="text" name="rmm_raid_telegram_token" id="rmm_raid_telegram_token" value="<?php echo esc_attr( get_option( 'rmm_raid_telegram_token', '' ) ); ?>" class="regular-text" placeholder="Token del bot @raidsratasdelaestrada_bot">
+																																							<p class="description">Bot de Telegram específico para notificaciones de RAID. Distinto del bot principal de avisos.</p>
+																																						</div>
+																																						<div class="rmm-form-group">
+																																							<label for="rmm_raid_telegram_chat_id">ID del Chat/Grupo de RAIDs</label>
+																																							<input type="text" name="rmm_raid_telegram_chat_id" id="rmm_raid_telegram_chat_id" value="<?php echo esc_attr( get_option( 'rmm_raid_telegram_chat_id', '-1003157817672' ) ); ?>" class="regular-text" placeholder="-1003157817672">
+																																							<p class="description">ID del grupo de Telegram donde se publican las RAIDs. Ya viene preconfigurado.</p>
+																																						</div>
 										</div>
 									</div>
 

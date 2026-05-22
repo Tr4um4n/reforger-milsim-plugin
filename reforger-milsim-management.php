@@ -4,7 +4,7 @@
  * Plugin URI:  https://gure.party
  * Description: Gestión integral para comunidades de Arma Reforger: Misiones, Eventos, ORBAT y Condecoraciones.
  * Version:     1.0.0
- * Author:      Antigravity & TRAUMAN
+ * Author:      Antigravity, TRAUMAN, Gemini, DeepSeek, Zed
  * Author URI:  https://gure.party
  * Text Domain: reforger-milsim
  * License:     GPL2
@@ -33,6 +33,7 @@ $rmm_includes = array(
 	'class-telemetry-handler.php',
 	'class-admin-page.php',
 	'class-intel-handler.php',
+	'class-raid-handler.php',
 );
 
 foreach ( $rmm_includes as $file ) {
@@ -130,6 +131,7 @@ class ReforgerMilsimManagement {
 		new RMM_Calendar_Handler();
 		new RMM_Admin_Page();
 		new RMM_Intel_Handler();
+		new RMM_Raid_Handler();
 		new RMM_Server_Status_Handler();
 		new RMM_Telemetry_Handler();
 		// Global Frontend Filters

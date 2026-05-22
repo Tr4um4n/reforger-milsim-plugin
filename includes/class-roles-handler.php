@@ -200,6 +200,13 @@ class RMM_Roles_Handler {
 				</td>
 			</tr>
 			<tr>
+				<th><label for="rmm_telegram_id"><?php _e( 'Telegram ID', 'reforger-milsim' ); ?></label></th>
+				<td>
+					<input type="text" name="rmm_telegram_id" id="rmm_telegram_id" value="<?php echo esc_attr( get_the_author_meta( 'rmm_telegram_id', $user->ID ) ); ?>" class="regular-text" />
+					<p class="description"><?php _e( 'ID numérico de Telegram (ej: 12345678). Se usa para auto-confirmar asistencia a RAIDs desde el bot.', 'reforger-milsim' ); ?></p>
+				</td>
+			</tr>
+			<tr>
 				<th><label for="rmm_enrolment_date"><?php _e( 'Fecha de Enrolamiento', 'reforger-milsim' ); ?></label></th>
 				<td>
 					<input type="date" name="rmm_enrolment_date" id="rmm_enrolment_date" value="<?php echo esc_attr( $enrolment_date ); ?>" class="regular-text" />
@@ -225,9 +232,10 @@ class RMM_Roles_Handler {
 			</tr>
 			<tr>
 				<th><label for="rmm_hours"><?php _e( 'Horas de combate', 'reforger-milsim' ); ?></label></th>
-				<td>
-					<input type="number" name="rmm_hours" id="rmm_hours" value="<?php echo esc_attr( $hours ); ?>" min="0" class="small-text" />
-				</td>
+								<td>
+									<input type="number" name="rmm_hours" id="rmm_hours" value="<?php echo esc_attr( $hours ); ?>" min="0" step="0.1" class="small-text" />
+									<p class="description"><?php _e( 'Formato decimal. Ej: 0.5 = 30 min, 2.25 = 2h 15min.', 'reforger-milsim' ); ?></p>
+								</td>
 			</tr>
 			<tr>
 				<th><label for="rmm_shots_fired"><?php _e( 'Disparos realizados', 'reforger-milsim' ); ?></label></th>
@@ -357,6 +365,9 @@ class RMM_Roles_Handler {
 		if ( isset( $_POST['bohemia_uid'] ) ) {
 			update_user_meta( $user_id, 'bohemia_uid', sanitize_text_field( $_POST['bohemia_uid'] ) );
 		}
+		if ( isset( $_POST['rmm_telegram_id'] ) ) {
+			update_user_meta( $user_id, 'rmm_telegram_id', sanitize_text_field( $_POST['rmm_telegram_id'] ) );
+		}
 		if ( isset( $_POST['rmm_enrolment_date'] ) ) {
 			update_user_meta( $user_id, 'rmm_enrolment_date', sanitize_text_field( $_POST['rmm_enrolment_date'] ) );
 		}
@@ -367,8 +378,8 @@ class RMM_Roles_Handler {
 			update_user_meta( $user_id, 'rmm_deaths', intval( $_POST['rmm_deaths'] ) );
 		}
 		if ( isset( $_POST['rmm_hours'] ) ) {
-			update_user_meta( $user_id, 'rmm_hours', intval( $_POST['rmm_hours'] ) );
-		}
+					update_user_meta( $user_id, 'rmm_hours', round( floatval( $_POST['rmm_hours'] ), 4 ) );
+				}
 		if ( isset( $_POST['rmm_shots_fired'] ) ) {
 			update_user_meta( $user_id, 'rmm_shots_fired', intval( $_POST['rmm_shots_fired'] ) );
 		}

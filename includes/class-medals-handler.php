@@ -283,7 +283,8 @@ class RMM_Medals_Handler {
 					// Estadísticas
 					$kills        = intval( get_user_meta( $uid, 'rmm_kills', true ) ?: 0 );
 					$deaths       = intval( get_user_meta( $uid, 'rmm_deaths', true ) ?: 0 );
-					$hours        = intval( get_user_meta( $uid, 'rmm_hours', true ) ?: 0 );
+					$hours_raw    = floatval( get_user_meta( $uid, 'rmm_hours', true ) ?: 0 );
+									$hours_fmt    = $this->format_hours( $hours_raw );
 					$shots_fired  = intval( get_user_meta( $uid, 'rmm_shots_fired', true ) ?: 0 );
 					$shots_hit    = intval( get_user_meta( $uid, 'rmm_shots_hit', true ) ?: 0 );
 					
@@ -379,8 +380,8 @@ class RMM_Medals_Handler {
 										<span class="rmm-stat-label"><i class="fa-solid fa-skull"></i> K/D</span>
 									</div>
 									<div class="rmm-stat">
-										<span class="rmm-stat-value"><?php echo $hours; ?>h</span>
-										<span class="rmm-stat-label"><i class="fa-solid fa-clock"></i> Horas</span>
+										<span class="rmm-stat-value"><?php echo $hours_fmt; ?></span>
+																			<span class="rmm-stat-label"><i class="fa-solid fa-clock"></i> Horas</span>
 									</div>
 								</div>
 
@@ -856,7 +857,8 @@ class RMM_Medals_Handler {
 		// Cargar estadísticas
 		$kills        = intval( get_user_meta( $user_id, 'rmm_kills', true ) ?: 0 );
 		$deaths       = intval( get_user_meta( $user_id, 'rmm_deaths', true ) ?: 0 );
-		$hours        = intval( get_user_meta( $user_id, 'rmm_hours', true ) ?: 0 );
+		$hours_raw    = floatval( get_user_meta( $user_id, 'rmm_hours', true ) ?: 0 );
+				$hours_fmt    = $this->format_hours( $hours_raw );
 		$shots_fired  = intval( get_user_meta( $user_id, 'rmm_shots_fired', true ) ?: 0 );
 		$shots_hit    = intval( get_user_meta( $user_id, 'rmm_shots_hit', true ) ?: 0 );
 		// Medical stats
@@ -1036,7 +1038,7 @@ class RMM_Medals_Handler {
 						<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 12px; text-align: center;">
 							<i class="fa-solid fa-clock" style="color: #8b949e; font-size: 1rem; margin-bottom: 6px; display: block;"></i>
 							<span style="display: block; font-size: 0.55rem; text-transform: uppercase; color: #8b949e; letter-spacing: 0.05em; margin-bottom: 4px;"><?php _e( 'Horas de combate', 'reforger-milsim' ); ?></span>
-							<strong style="font-size: 1.3rem; color: #fff; font-family: monospace;"><?php echo $hours; ?>h</strong>
+							<strong style="font-size: 1.3rem; color: #fff; font-family: monospace;"><?php echo $hours_fmt; ?></strong>
 						</div>
 						
 						<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 12px; text-align: center;">
@@ -1329,5 +1331,28 @@ class RMM_Medals_Handler {
 		</div>
 		<?php
 		return ob_get_clean();
+		}
+
+		/**
+		 * Formatea horas (float) a formato legible: "2h 30m" o "45m"
+		 */
+		private function format_hours( $hours_float ) {
+			if ( $hours_float <= 0 ) return '0h';
+		
+			$h = floor( $hours_float );
+			$m = round( ( $hours_float - $h ) * 60 );
+		
+			if ( $m >= 60 ) {
+				$h++;
+				$m = 0;
+			}
+		
+			if ( $h > 0 && $m > 0 ) {
+				return $h . 'h ' . $m . 'm';
+			} elseif ( $h > 0 ) {
+				return $h . 'h';
+			} else {
+				return $m . 'm';
+			}
+		}
 	}
-}

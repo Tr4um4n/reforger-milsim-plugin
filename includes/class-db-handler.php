@@ -51,8 +51,40 @@ class RMM_DB_Handler {
 			KEY condecoracion_id (condecoracion_id)
 		) $charset_collate;";
 
+		// Table 3: wp_raid_solicitudes
+		$table_raids = $wpdb->prefix . 'raid_solicitudes';
+		$sql3 = "CREATE TABLE $table_raids (
+			id bigint(20) NOT NULL AUTO_INCREMENT,
+			usuario_id bigint(20) NOT NULL,
+			fecha date NOT NULL,
+			hora time NOT NULL,
+			servidor varchar(100) DEFAULT '' NOT NULL,
+			password varchar(100) DEFAULT '' NOT NULL,
+			notas text DEFAULT '' NOT NULL,
+			estado varchar(20) DEFAULT 'activa' NOT NULL,
+			created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+			PRIMARY KEY (id),
+			KEY usuario_id (usuario_id),
+			KEY fecha (fecha)
+		) $charset_collate;";
+
+		// Table 4: wp_raid_participantes
+		$table_raid_parts = $wpdb->prefix . 'raid_participantes';
+		$sql4 = "CREATE TABLE $table_raid_parts (
+			id bigint(20) NOT NULL AUTO_INCREMENT,
+			raid_id bigint(20) NOT NULL,
+			telegram_user_id varchar(50) DEFAULT '' NOT NULL,
+			telegram_username varchar(100) DEFAULT '' NOT NULL,
+			nombre varchar(200) DEFAULT '' NOT NULL,
+			confirmed_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+			PRIMARY KEY (id),
+			KEY raid_id (raid_id)
+		) $charset_collate;";
+
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql1 );
 		dbDelta( $sql2 );
+		dbDelta( $sql3 );
+		dbDelta( $sql4 );
 	}
 }

@@ -197,31 +197,42 @@ class RMM_Telemetry_Handler {
 			'rmm_epinephrine' => array( 'medical_epinephrine_applied', 'medical _epinephrine_applied' ),
 		);
 
-		// Convertir tiempo a horas (acepta segundos, minutos o directamente horas)
-		if ( isset( $data['playtime_seconds'] ) && ! isset( $data['hours'] ) && ! isset( $data['playtime_hours'] ) && ! isset( $data['playtime_minutes'] ) ) {
-			$data['playtime_hours'] = round( intval( $data['playtime_seconds'] ) / 3600, 3 );
-		} elseif ( isset( $data['playtime_minutes'] ) && ! isset( $data['hours'] ) && ! isset( $data['playtime_hours'] ) ) {
-			$data['playtime_hours'] = round( intval( $data['playtime_minutes'] ) / 60, 2 );
-		}
+		// Convertir tiempo a horas como float (NO int) para no perder precisión
+						if ( isset( $data['playtime_seconds'] ) && ! isset( $data['hours'] ) && ! isset( $data['playtime_hours'] ) && ! isset( $data['playtime_minutes'] ) ) {
+							$data['playtime_hours'] = round( intval( $data['playtime_seconds'] ) / 3600, 4 );
+						} elseif ( isset( $data['playtime_second'] ) && ! isset( $data['hours'] ) && ! isset( $data['playtime_hours'] ) && ! isset( $data['playtime_minutes'] ) ) {
+							$data['playtime_hours'] = round( intval( $data['playtime_second'] ) / 3600, 4 );
+						} elseif ( isset( $data['playtime_minutes'] ) && ! isset( $data['hours'] ) && ! isset( $data['playtime_hours'] ) ) {
+							$data['playtime_hours'] = round( intval( $data['playtime_minutes'] ) / 60, 4 );
+						}
 
-		foreach ( $fields as $meta_key => $aliases ) {
-			$value = null;
-			foreach ( $aliases as $alias ) {
-				if ( isset( $data[ $alias ] ) && is_numeric( $data[ $alias ] ) ) {
-					$value = $data[ $alias ];
-					break;
-				}
-			}
+				foreach ( $fields as $meta_key => $aliases ) {
+					$value = null;
+					foreach ( $aliases as $alias ) {
+						if ( isset( $data[ $alias ] ) && is_numeric( $data[ $alias ] ) ) {
+							$value = $data[ $alias ];
+							break;
+						}
+					}
 
-			if ( $value === null ) continue;
+					if ( $value === null ) continue;
 
-			$current = intval( get_user_meta( $user_id, $meta_key, true ) ?: 0 );
-
-			if ( $cumulative ) {
-				update_user_meta( $user_id, $meta_key, $current + intval( $value ) );
-			} else {
-				update_user_meta( $user_id, $meta_key, intval( $value ) );
-			}
+					// Para horas usamos floatval para preservar minutos, para el resto intval
+					if ( $meta_key === 'rmm_hours' ) {
+						$current = floatval( get_user_meta( $user_id, $meta_key, true ) ?: 0 );
+						if ( $cumulative ) {
+							update_user_meta( $user_id, $meta_key, round( $current + floatval( $value ), 4 ) );
+						} else {
+							update_user_meta( $user_id, $meta_key, round( floatval( $value ), 4 ) );
+						}
+					} else {
+						$current = intval( get_user_meta( $user_id, $meta_key, true ) ?: 0 );
+						if ( $cumulative ) {
+							update_user_meta( $user_id, $meta_key, $current + intval( $value ) );
+						} else {
+							update_user_meta( $user_id, $meta_key, intval( $value ) );
+						}
+					}
 		}
 	}
 }
