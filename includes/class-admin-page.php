@@ -17,7 +17,9 @@ class RMM_Admin_Page {
 		add_action( 'wp_ajax_rmm_save_server_preset', array( $this, 'ajax_save_server_preset' ) );
 		add_action( 'wp_ajax_rmm_send_telegram_aviso', array( $this, 'ajax_send_telegram_aviso' ) );
 		add_action( 'wp_ajax_rmm_server_power_action', array( $this, 'ajax_server_power_action' ) );
-		}
+		add_action( 'admin_menu', array( $this, 'restrict_admin_menu' ), 999 );
+		add_action( 'admin_bar_menu', array( $this, 'restrict_admin_bar' ), 999 );
+	}
 
 	/**
 	 * Enqueue WP Media Library on settings page
@@ -2521,6 +2523,64 @@ class RMM_Admin_Page {
 							update_post_meta( $post->ID, $key, $orbat );
 						}
 					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Oculta todos los menús del admin para no-admins, excepto "Perfil"
+	 */
+	public function restrict_admin_menu() {
+		if ( current_user_can( 'administrator' ) ) return;
+		
+		global $menu, $submenu;
+		
+		// Solo permitir acceso al perfil
+		$allowed = array( 'profile.php' );
+		
+		// Eliminar menús principales
+		if ( is_array( $menu ) ) {
+			foreach ( $menu as $i => $item ) {
+				if ( isset( $item[2] ) && ! in_array( $item[2], $allowed ) ) {
+					unset( $menu[ $i ] );
+				}
+			}
+		}
+		
+		// Eliminar submenús excepto perfil
+		if ( is_array( $submenu ) ) {
+			foreach ( $submenu as $parent => $items ) {
+				foreach ( $items as $j => $item ) {
+					if ( isset( $item[2] ) && ! in_array( $item[2], $allowed ) ) {
+						unset( $submenu[ $parent ][ $j ] );
+					}
+				}
+			}
+		}
+		
+		// Renombrar "Perfil" a "Mi Perfil" y cambiar icono
+		foreach ( $menu as $i => $item ) {
+			if ( isset( $item[2] ) && $item[2] === 'profile.php' ) {
+				$menu[ $i ][0] = '👤 Mi Perfil';
+				$menu[ $i ][6] = 'dashicons-admin-users';
+			}
+		}
+	}
+
+	/**
+	 * Oculta items de la barra superior para no-admins, excepto perfil
+	 */
+	public function restrict_admin_bar( $wp_admin_bar ) {
+		if ( current_user_can( 'administrator' ) ) return;
+		
+		$allowed = array( 'my-account', 'user-actions', 'user-info', 'edit-profile', 'logout', 'top-secondary' );
+		
+		$nodes = $wp_admin_bar->get_nodes();
+		if ( is_array( $nodes ) ) {
+			foreach ( $nodes as $id => $node ) {
+				if ( ! in_array( $id, $allowed ) ) {
+					$wp_admin_bar->remove_node( $id );
 				}
 			}
 		}
