@@ -33,14 +33,18 @@ class RMM_Frontend_ORBAT {
 	}
 
 	public function render_fecha_evento_shortcode( $atts ) {
-		$post_id = get_the_ID();
-		if ( ! $post_id ) return '';
+			$post_id = get_the_ID();
+			if ( ! $post_id ) return '';
 		
-		$fecha_inicio = get_post_meta( $post_id, 'fecha_inicio', true );
-		if ( empty( $fecha_inicio ) ) return '';
+			$fecha_inicio = get_post_meta( $post_id, 'fecha_inicio', true );
+			if ( empty( $fecha_inicio ) ) return '';
+
+			// La fecha se guarda en hora local (UTC+2 Bilbao). Usar wp_timezone() para evitar offset.
+			$dt = DateTime::createFromFormat( 'Y-m-d H:i:s', $fecha_inicio, wp_timezone() );
+			if ( ! $dt ) return '';
 		
-		return ucfirst( wp_date( 'l, j \d\e F \a \l\a\s H:i', strtotime( $fecha_inicio ) ) );
-	}
+			return ucfirst( wp_date( 'l, j \d\e F \a \l\a\s H:i', $dt->getTimestamp() ) );
+		}
 
 	public function render_legacy_orbat_shortcode( $atts ) {
 		return $this->render_rmm_orbat_shortcode($atts) . $this->render_addons_list_shortcode($atts);

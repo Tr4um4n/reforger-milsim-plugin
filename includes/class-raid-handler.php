@@ -21,8 +21,6 @@ class RMM_Raid_Handler {
 		add_action( 'wp_ajax_nopriv_rmm_raid_leave', '__return_false' );
 		add_action( 'rest_api_init', array( $this, 'register_rest_endpoints' ) );
 				add_action( 'publish_eventos_partidas', array( $this, 'notify_raid_channel_on_event' ), 10, 2 );
-						add_action( 'before_delete_post', array( $this, 'delete_telegram_raid_message' ) );
-						add_action( 'wp_trash_post', array( $this, 'delete_telegram_raid_message' ) );
 						add_filter( 'the_content', array( $this, 'inject_raid_join_to_content' ) );
 	}
 
@@ -356,20 +354,14 @@ class RMM_Raid_Handler {
 
 					$response = wp_remote_post( $url, $args );
 
-										if ( is_wp_error( $response ) ) {
-											wp_send_json_error( $response->get_error_message() );
-										}
+									if ( is_wp_error( $response ) ) {
+										wp_send_json_error( $response->get_error_message() );
+									}
 
-										$code = wp_remote_retrieve_response_code( $response );
-										$body = wp_remote_retrieve_body( $response );
-										if ( $code === 200 ) {
-											// Guardar message_id de Telegram para borrarlo si se elimina el evento
-											$tg_data = json_decode( $body, true );
-											if ( isset( $tg_data['result']['message_id'] ) ) {
-												update_post_meta( $post_id, 'raid_telegram_message_id', $tg_data['result']['message_id'] );
-												update_post_meta( $post_id, 'raid_telegram_chat_id', $chat_id );
-											}
-											wp_send_json_success( __( '¡Solicitud enviada al chat de RAIDs!', 'reforger-milsim' ) );
+									$code = wp_remote_retrieve_response_code( $response );
+									$body = wp_remote_retrieve_body( $response );
+									if ( $code === 200 ) {
+										wp_send_json_success( __( '¡Solicitud enviada al chat de RAIDs!', 'reforger-milsim' ) );
 									} else {
 										$err = json_decode( $body, true );
 										$err_msg = isset( $err['description'] ) ? $err['description'] : "HTTP $code";
@@ -583,10 +575,11 @@ class RMM_Raid_Handler {
 				$fecha_inicio = get_post_meta( $post_id, 'fecha_inicio', true );
 				$fecha_fin = get_post_meta( $post_id, 'fecha_fin', true );
 
-				$dt = new DateTime( $fecha_inicio );
-				$days = array( 'Monday' => 'Lunes', 'Tuesday' => 'Martes', 'Wednesday' => 'Miércoles', 'Thursday' => 'Jueves', 'Friday' => 'Viernes', 'Saturday' => 'Sábado', 'Sunday' => 'Domingo' );
-				$dia = $days[ $dt->format('l') ] ?? $dt->format('l');
-				$hora = $dt->format('H:i');
+				$dt = DateTime::createFromFormat( 'Y-m-d H:i:s', $fecha_inicio, wp_timezone() );
+							if ( ! $dt ) continue;
+							$days = array( 'Monday' => 'Lunes', 'Tuesday' => 'Martes', 'Wednesday' => 'Miércoles', 'Thursday' => 'Jueves', 'Friday' => 'Viernes', 'Saturday' => 'Sábado', 'Sunday' => 'Domingo' );
+							$dia = $days[ $dt->format('l') ] ?? $dt->format('l');
+							$hora = $dt->format('H:i');
 
 				$msg = "📢 <b>¡MISIÓN OFICIAL CREADA!</b>
 
@@ -604,42 +597,15 @@ class RMM_Raid_Handler {
 <i>Reserva tu slot en la web. ¡No faltes!</i>";
 
 				wp_remote_post( "https://api.telegram.org/bot{$token}/sendMessage", array(
-								'timeout'   => 15,
-								'sslverify' => false,
-								'body'      => array(
-									'chat_id'    => $chat_id,
-									'text'       => $msg,
-									'parse_mode' => 'HTML',
-								),
-							));
-
-							// Guardar message_id (se captura en la respuesta pero es async)
-						}
-					}
-
-					/**
-					 * Borra el mensaje de Telegram al eliminar el evento
-					 */
-					public function delete_telegram_raid_message( $post_id ) {
-						if ( get_post_type( $post_id ) !== 'raid_eventos' && get_post_type( $post_id ) !== 'eventos_partidas' ) return;
-
-						$message_id = get_post_meta( $post_id, 'raid_telegram_message_id', true );
-						$chat_id = get_post_meta( $post_id, 'raid_telegram_chat_id', true );
-
-						if ( empty( $message_id ) || empty( $chat_id ) ) return;
-
-						$token = get_option( 'rmm_raid_telegram_token', '' );
-						if ( empty( $token ) ) return;
-
-						wp_remote_post( "https://api.telegram.org/bot{$token}/deleteMessage", array(
-							'timeout'   => 10,
-							'sslverify' => false,
-							'body'      => array(
-								'chat_id'    => $chat_id,
-								'message_id' => $message_id,
-							),
-						));
-					}
+					'timeout'   => 15,
+					'sslverify' => false,
+					'body'      => array(
+						'chat_id'    => $chat_id,
+						'text'       => $msg,
+						'parse_mode' => 'HTML',
+					),
+				));
+			}
 
 	/**
 	 * Shortcode [raid_apuntarse] - Botón de apuntarse/desapuntarse
