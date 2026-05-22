@@ -159,7 +159,7 @@ class ReforgerMilsimManagement {
 				$fecha_inicio = get_post_meta( $post_id, 'fecha_inicio', true );
 				if ( $fecha_inicio ) {
 					$html .= '<div class="rmm-event-time-badge" style="background:#2271b1; color:#fff; display:inline-block; padding:8px 15px; border-radius:4px; font-weight:bold; letter-spacing:1px; margin-bottom:15px;">';
-					$html .= '⏱ INICIO: ' . date( 'd/m/Y - H:i', DateTime::createFromFormat( "Y-m-d H:i:s", $fecha_inicio, wp_timezone() )->getTimestamp() ) . 'h';
+					$html .= '⏱ INICIO: ' . wp_date( 'd/m/Y - H:i', DateTime::createFromFormat( "Y-m-d H:i:s", $fecha_inicio, wp_timezone() )->getTimestamp() ) . 'h';
 					$html .= '</div>';
 				}
 			}
@@ -178,9 +178,9 @@ class ReforgerMilsimManagement {
 			$fecha_inicio = get_post_meta( $id, 'fecha_inicio', true );
 			if ( $fecha_inicio ) {
 				$timestamp = DateTime::createFromFormat( "Y-m-d H:i:s", $fecha_inicio, wp_timezone() )->getTimestamp();
-				$date_str = date( 'Y/m/d', $timestamp );
+				$date_str = wp_date( 'Y/m/d', $timestamp );
 				$day_name = date_i18n( 'l', $timestamp );
-				$time = date( 'H:i', $timestamp );
+				$time = wp_date( 'H:i', $timestamp );
 				
 				$meta_title = " {$date_str} {$day_name} - {$time}h";
 				if ( strpos( $title, $meta_title ) === false ) {
