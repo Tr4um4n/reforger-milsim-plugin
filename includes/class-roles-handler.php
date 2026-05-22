@@ -167,6 +167,10 @@ class RMM_Roles_Handler {
 	 * RENDER: Campos extra en el perfil de usuario
 	 */
 	public function render_user_profile_fields( $user ) {
+		// Solo admin o fundador ven stats de combate y timeline editables
+		$current = wp_get_current_user();
+		$can_edit_tactical = current_user_can( 'manage_options' ) || in_array( 'fundador', (array) $current->roles );
+		
 		// Obtener estadísticas existentes
 		$steamid_64      = get_the_author_meta( 'steamid_64', $user->ID );
 		$bohemia_uid     = get_the_author_meta( 'bohemia_uid', $user->ID );
@@ -215,6 +219,7 @@ class RMM_Roles_Handler {
 			</tr>
 		</table>
 
+		<?php if ( $can_edit_tactical ) : ?>
 		<h3><?php _e( 'Estadísticas de Combate (Manual/Addon)', 'reforger-milsim' ); ?></h3>
 		<p class="description"><?php _e( 'Estos valores serán actualizados automáticamente por el Addon de Arma Reforger en el futuro, pero puedes editarlos manualmente.', 'reforger-milsim' ); ?></p>
 		<table class="form-table">
@@ -350,6 +355,7 @@ class RMM_Roles_Handler {
 				<?php endif; ?>
 			</div>
 		</div>
+		<?php endif; ?>
 		<?php
 	}
 
@@ -359,18 +365,24 @@ class RMM_Roles_Handler {
 	public function save_user_profile_fields( $user_id ) {
 		if ( ! current_user_can( 'edit_user', $user_id ) ) return false;
 		
+		// Solo admin o fundador pueden guardar stats y timeline
+		$current = wp_get_current_user();
+		$can_edit_tactical = current_user_can( 'manage_options' ) || in_array( 'fundador', (array) $current->roles );
+		
+		// Info básica (SteamID, BohemiaUID, enrolamiento) — todos los editores
 		if ( isset( $_POST['steamid_64'] ) ) {
 			update_user_meta( $user_id, 'steamid_64', sanitize_text_field( $_POST['steamid_64'] ) );
 		}
 		if ( isset( $_POST['bohemia_uid'] ) ) {
 			update_user_meta( $user_id, 'bohemia_uid', sanitize_text_field( $_POST['bohemia_uid'] ) );
 		}
-		if ( isset( $_POST['rmm_telegram_id'] ) ) {
-			update_user_meta( $user_id, 'rmm_telegram_id', sanitize_text_field( $_POST['rmm_telegram_id'] ) );
-		}
 		if ( isset( $_POST['rmm_enrolment_date'] ) ) {
 			update_user_meta( $user_id, 'rmm_enrolment_date', sanitize_text_field( $_POST['rmm_enrolment_date'] ) );
 		}
+		
+		// Stats de combate y detección de roles — solo admin/fundador
+		if ( ! $can_edit_tactical ) return;
+		
 		if ( isset( $_POST['rmm_kills'] ) ) {
 			update_user_meta( $user_id, 'rmm_kills', intval( $_POST['rmm_kills'] ) );
 		}
@@ -464,6 +476,9 @@ class RMM_Roles_Handler {
 		if ( ! current_user_can( 'edit_user', intval( $_POST['user_id'] ) ) ) {
 			wp_send_json_error( __( 'Permiso denegado', 'reforger-milsim' ) );
 		}
+		if ( ! $this->current_user_is_admin_or_fundador() ) {
+			wp_send_json_error( __( 'Solo admin o fundador', 'reforger-milsim' ) );
+		}
 		
 		$user_id  = intval( $_POST['user_id'] );
 		$entry_id = sanitize_text_field( $_POST['entry_id'] );
@@ -492,6 +507,9 @@ class RMM_Roles_Handler {
 	public function ajax_add_timeline_entry() {
 		if ( ! current_user_can( 'edit_user', intval( $_POST['user_id'] ) ) ) {
 			wp_send_json_error( __( 'Permiso denegado', 'reforger-milsim' ) );
+		}
+		if ( ! $this->current_user_is_admin_or_fundador() ) {
+			wp_send_json_error( __( 'Solo admin o fundador', 'reforger-milsim' ) );
 		}
 		
 		$user_id = intval( $_POST['user_id'] );
@@ -548,6 +566,9 @@ class RMM_Roles_Handler {
 	public function ajax_delete_timeline_entry() {
 		if ( ! current_user_can( 'edit_user', intval( $_POST['user_id'] ) ) ) {
 			wp_send_json_error( __( 'Permiso denegado', 'reforger-milsim' ) );
+		}
+		if ( ! $this->current_user_is_admin_or_fundador() ) {
+			wp_send_json_error( __( 'Solo admin o fundador', 'reforger-milsim' ) );
 		}
 		
 		$user_id  = intval( $_POST['user_id'] );
@@ -698,6 +719,14 @@ class RMM_Roles_Handler {
 		});
 		</script>
 		<?php
+	}
+	
+	/**
+	 * Verificar si el usuario actual es admin o fundador
+	 */
+	private function current_user_is_admin_or_fundador() {
+		$user = wp_get_current_user();
+		return current_user_can( 'manage_options' ) || in_array( 'fundador', (array) $user->roles );
 	}
 }
 
