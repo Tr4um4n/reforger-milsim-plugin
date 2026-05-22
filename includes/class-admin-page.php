@@ -20,6 +20,7 @@ class RMM_Admin_Page {
 		add_action( 'admin_menu', array( $this, 'restrict_admin_menu' ), 999 );
 				add_action( 'admin_bar_menu', array( $this, 'restrict_admin_bar' ), 999 );
 				add_action( 'admin_init', array( $this, 'redirect_non_admin_dashboard' ) );
+						add_filter( 'ajax_query_attachments_args', array( $this, 'restrict_media_library' ) );
 	}
 
 	/**
@@ -2611,6 +2612,15 @@ class RMM_Admin_Page {
 							if ( ! in_array( $current, $allowed ) && strpos( $_SERVER['REQUEST_URI'], '/wp-admin/' ) !== false ) {
 								wp_redirect( home_url() );
 								exit;
-							}
-						}
-					}
+														}
+													}
+
+									/**
+									 * Restringe la biblioteca de medios: no-admins solo ven sus propios archivos
+									 */
+									public function restrict_media_library( $args ) {
+										if ( current_user_can( 'administrator' ) ) return $args;
+										$args['author'] = get_current_user_id();
+										return $args;
+									}
+								}
