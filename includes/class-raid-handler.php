@@ -694,8 +694,8 @@ class RMM_Raid_Handler {
 					</button>
 				<?php else : ?>
 					<span style="background:#30363d;color:#8b949e;border-radius:6px;padding:10px 20px;font-weight:700;font-size:0.8rem;text-transform:uppercase;">
-						<?php echo $estado === 'cancelada' ? '🚫 Cancelada' : '✅ Finalizada'; ?>
-					</span>
+										🔒 SOLICITUD CERRADA
+									</span>
 				<?php endif; ?>
 			</div>
 			<div style="margin-top:16px;">
@@ -997,9 +997,8 @@ class RMM_Raid_Handler {
 							}
 
 							if ( $estado !== 'activa' ) {
-								$labels = array( 'aprobada' => '✅ Aprobada', 'denegada' => '🔴 Denegada', 'finalizada' => '🏁 Finalizada', 'cancelada' => '🚫 Cancelada' );
-								return '<span style="display:inline-block;background:#30363d;color:#8b949e;border-radius:6px;padding:10px 20px;font-size:0.8rem;font-weight:600;text-transform:uppercase;">' . esc_html( $labels[ $estado ] ?? $estado ) . '</span>';
-							}
+														return '<span style="display:inline-block;background:#30363d;color:#8b949e;border-radius:6px;padding:10px 20px;font-size:0.8rem;font-weight:600;text-transform:uppercase;">🔒 SOLICITUD CERRADA</span>';
+													}
 
 							ob_start();
 							?>
