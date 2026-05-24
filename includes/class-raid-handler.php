@@ -21,6 +21,8 @@ class RMM_Raid_Handler {
 				add_shortcode( 'raid_estado', array( $this, 'render_raid_field' ) );
 				add_shortcode( 'raid_justificacion', array( $this, 'render_raid_field' ) );
 						add_shortcode( 'raid_aprobar', array( $this, 'render_raid_approve_buttons' ) );
+								add_shortcode( 'raid_lista_participantes', array( $this, 'render_raid_participants_list' ) );
+								add_shortcode( 'raid_boton_participar', array( $this, 'render_raid_join_only_button' ) );
 		add_action( 'wp_ajax_rmm_send_raid_request', array( $this, 'ajax_send_raid_request' ) );
 		add_action( 'wp_ajax_rmm_raid_join', array( $this, 'ajax_raid_join' ) );
 		add_action( 'wp_ajax_rmm_raid_leave', array( $this, 'ajax_raid_leave' ) );
@@ -917,5 +919,110 @@ class RMM_Raid_Handler {
 					}
 
 					wp_send_json_success( 'Decisión guardada.' );
-				}
-			}
+									}
+
+						/**
+						 * Shortcode [raid_lista_participantes] — Lista formateada de participantes con avatares
+						 */
+						public function render_raid_participants_list( $atts ) {
+							if ( ! is_singular( 'raid_eventos' ) ) return '';
+							$post_id = get_the_ID();
+							$participants = get_post_meta( $post_id, 'raid_participantes', true ) ?: array();
+
+							if ( empty( $participants ) ) {
+								return '<p style="font-size:0.75rem;color:#484f58;text-align:center;padding:12px;">' . __( 'Nadie se ha apuntado todavía.', 'reforger-milsim' ) . '</p>';
+							}
+
+							ob_start();
+							?>
+							<div class="rmm-raid-participants-list" style="display:flex;flex-wrap:wrap;gap:8px;">
+								<?php foreach ( $participants as $uid => $name ) : 
+									$p_user = get_userdata( $uid );
+									$display = $p_user ? $p_user->display_name : $name;
+								?>
+									<div style="display:inline-flex;align-items:center;gap:8px;background:#161b22;border:1px solid #21262d;border-radius:8px;padding:6px 14px 6px 6px;">
+										<?php echo get_avatar( $uid, 32, '', '', array( 'style' => 'border-radius:50%;width:32px;height:32px;' ) ); ?>
+										<div>
+											<span style="display:block;font-size:0.8rem;font-weight:600;color:#e5e7eb;line-height:1.2;"><?php echo esc_html( $display ); ?></span>
+										</div>
+									</div>
+								<?php endforeach; ?>
+							</div>
+							<?php
+							return ob_get_clean();
+						}
+
+						/**
+						 * Shortcode [raid_boton_participar] — Solo el botón de apuntarse/desapuntarse (sin lista)
+						 */
+						public function render_raid_join_only_button( $atts ) {
+							if ( ! is_singular( 'raid_eventos' ) ) return '';
+							if ( ! is_user_logged_in() ) {
+								$login_url = wp_login_url( get_permalink() );
+								return '<a href="' . esc_url( $login_url ) . '" style="display:inline-block;text-decoration:none;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 20px;font-size:0.8rem;font-weight:600;color:#58a6ff;text-transform:uppercase;letter-spacing:0.04em;"><i class="fa-solid fa-lock"></i> ' . __( 'Inicia sesión', 'reforger-milsim' ) . '</a>';
+							}
+
+							$user = wp_get_current_user();
+							$allowed = array( 'recluta', 'activo', 'aliado', 'reservista', 'baja_indefinida', 'administrator' );
+							if ( ! array_intersect( $allowed, (array) $user->roles ) ) {
+								return '<span style="display:inline-block;background:#30363d;color:#8b949e;border-radius:6px;padding:10px 20px;font-size:0.8rem;font-weight:600;text-transform:uppercase;">' . __( 'Sin rango', 'reforger-milsim' ) . '</span>';
+							}
+
+							$post_id = get_the_ID();
+							$estado = get_post_meta( $post_id, 'raid_estado', true ) ?: 'activa';
+							$participants = get_post_meta( $post_id, 'raid_participantes', true ) ?: array();
+							$user_id = get_current_user_id();
+							$is_joined = isset( $participants[ $user_id ] );
+
+							// Auto-confirm si viene de Telegram
+							$tg_id = get_user_meta( $user_id, 'rmm_telegram_id', true );
+							$auto_confirm = isset( $_GET['tg_confirm'] ) && $_GET['tg_confirm'] === '1';
+							if ( $auto_confirm && ! $is_joined && ! empty( $tg_id ) && $estado === 'activa' ) {
+								$participants[ $user_id ] = $user->display_name;
+								update_post_meta( $post_id, 'raid_participantes', $participants );
+								$is_joined = true;
+							}
+
+							if ( $estado !== 'activa' ) {
+								$labels = array( 'aprobada' => '✅ Aprobada', 'denegada' => '🔴 Denegada', 'finalizada' => '🏁 Finalizada', 'cancelada' => '🚫 Cancelada' );
+								return '<span style="display:inline-block;background:#30363d;color:#8b949e;border-radius:6px;padding:10px 20px;font-size:0.8rem;font-weight:600;text-transform:uppercase;">' . esc_html( $labels[ $estado ] ?? $estado ) . '</span>';
+							}
+
+							ob_start();
+							?>
+							<?php if ( $auto_confirm && $is_joined ) : ?>
+								<div style="background:rgba(207,220,53,0.08);border:1px solid #CFDC35;border-radius:6px;padding:8px 16px;margin-bottom:8px;font-size:0.7rem;color:#CFDC35;text-align:center;">
+									✅ ¡Reconocido por Telegram ID! Confirmado automáticamente.
+								</div>
+							<?php endif; ?>
+							<?php if ( ! $is_joined ) : ?>
+								<button id="rmm-raid-join-only-btn" data-raid="<?php echo $post_id; ?>" style="background:#CFDC35;color:#000;border:none;border-radius:6px;padding:10px 24px;font-weight:700;font-size:0.8rem;cursor:pointer;text-transform:uppercase;letter-spacing:0.04em;">
+									<i class="fa-solid fa-check"></i> <?php _e( 'Apuntarme', 'reforger-milsim' ); ?>
+								</button>
+							<?php else : ?>
+								<button id="rmm-raid-leave-only-btn" data-raid="<?php echo $post_id; ?>" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:10px 24px;font-weight:700;font-size:0.8rem;cursor:pointer;text-transform:uppercase;letter-spacing:0.04em;">
+									<i class="fa-solid fa-xmark"></i> <?php _e( 'Desapuntarme', 'reforger-milsim' ); ?>
+								</button>
+							<?php endif; ?>
+							<script>
+							jQuery(document).ready(function($) {
+								$('#rmm-raid-join-only-btn').on('click', function() {
+									var btn = $(this); btn.prop('disabled', true).text('...');
+									$.post('<?php echo admin_url("admin-ajax.php"); ?>', {
+										action: 'rmm_raid_join', raid_id: btn.data('raid'),
+										_ajax_nonce: '<?php echo wp_create_nonce("rmm_raid_join"); ?>'
+									}, function(r) { if (r.success) location.reload(); else alert(r.data); });
+								});
+								$('#rmm-raid-leave-only-btn').on('click', function() {
+									var btn = $(this); btn.prop('disabled', true).text('...');
+									$.post('<?php echo admin_url("admin-ajax.php"); ?>', {
+										action: 'rmm_raid_leave', raid_id: btn.data('raid'),
+										_ajax_nonce: '<?php echo wp_create_nonce("rmm_raid_leave"); ?>'
+									}, function(r) { if (r.success) location.reload(); else alert(r.data); });
+								});
+							});
+							</script>
+							<?php
+							return ob_get_clean();
+						}
+					}
