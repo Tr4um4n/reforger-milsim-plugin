@@ -123,7 +123,7 @@ class RMM_Intel_Handler {
 							ob_start();
 				?>
 				<div class="rmm-zulu-time" style="display:inline-block;font-family:'JetBrains Mono','SF Mono',monospace;font-size:0.85rem;color:<?php echo esc_attr( $atts['color'] ); ?>;background:rgba(0,0,0,0.3);border:1px solid rgba(207,220,53,0.3);border-radius:4px;padding:6px 14px;letter-spacing:0.06em;">
-					<span style="opacity:0.6;font-size:0.65rem;text-transform:uppercase;">⌚ HORA LOCAL • </span>
+					<span style="opacity:0.6;font-size:0.65rem;text-transform:uppercase;">⌚ HORA LOCAL • v2</span>
 					<strong style="font-size:1.1rem;"><?php echo $hora; ?></strong>
 					<span style="font-size:0.6rem;opacity:0.5;margin-left:6px;"><?php echo $dtg; ?></span>
 				</div>
