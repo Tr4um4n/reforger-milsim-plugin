@@ -117,10 +117,15 @@ class RMM_Intel_Handler {
 			public function render_hora_zulu( $atts ) {
 				$atts = shortcode_atts( array( 'color' => '#CFDC35' ), $atts );
 
-				$dt = current_datetime();
+				// Construir fecha con offset GMT de WP
+								$gmt = intval( get_option( 'gmt_offset', 2 ) );
+								$sign = $gmt >= 0 ? '+' : '';
+								$tz = new DateTimeZone( $sign . str_pad( abs( $gmt ), 2, '0', STR_PAD_LEFT ) . ':00' );
+								$dt = new DateTime( 'now', new DateTimeZone( 'UTC' ) );
+								$dt->setTimezone( $tz );
 
 								// Letra de zona horaria militar: A=UTC+1 (Alpha), B=UTC+2 (Bravo)
-				$offset = $dt->getOffset() / 3600;
+								$offset = $dt->getOffset() / 3600;
 				$zones = array( 1 => 'A', 2 => 'B', 0 => 'Z', -1 => 'N' );
 				$zone_letter = $zones[ $offset ] ?? 'L'; // L = Local
 
