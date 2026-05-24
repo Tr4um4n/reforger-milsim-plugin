@@ -21,6 +21,7 @@ class RMM_Raid_Handler {
 				add_shortcode( 'raid_estado', array( $this, 'render_raid_field' ) );
 				add_shortcode( 'raid_justificacion', array( $this, 'render_raid_field' ) );
 								add_shortcode( 'raid_notas', array( $this, 'render_raid_field' ) );
+												add_shortcode( 'raid_solicitante', array( $this, 'render_raid_field' ) );
 						add_shortcode( 'raid_aprobar', array( $this, 'render_raid_approve_buttons' ) );
 								add_shortcode( 'raid_lista_participantes', array( $this, 'render_raid_participants_list' ) );
 								add_shortcode( 'raid_boton_participar', array( $this, 'render_raid_join_only_button' ) );
@@ -287,16 +288,17 @@ class RMM_Raid_Handler {
 					// Crear post tipo raid_eventos
 					$post_id = wp_insert_post( array(
 						'post_type'    => 'raid_eventos',
-						'post_title'   => '🎯 RAID: ' . esc_html( $user->display_name ) . ' - ' . $date_formatted . ' ' . $time,
+						'post_title'   => 'RAID SOLICITADA',
 						'post_status'  => 'publish',
 						'post_content' => $notes,
 						'meta_input'   => array(
-							'raid_fecha'    => $date,
-							'raid_hora'     => $time . ':00',
-							'raid_servidor' => $server,
-							'raid_password' => $password,
-							'raid_estado'   => 'activa',
-						),
+												'raid_fecha'      => $date,
+												'raid_hora'       => $time . ':00',
+												'raid_servidor'   => $server,
+												'raid_password'   => $password,
+												'raid_estado'     => 'activa',
+												'raid_solicitante' => get_current_user_id(),
+											),
 					));
 
 					if ( is_wp_error( $post_id ) || ! $post_id ) {
@@ -809,8 +811,14 @@ class RMM_Raid_Handler {
 												return esc_html( get_post_meta( $post_id, 'raid_justificacion', true ) ?: '' );
 
 											case 'raid_notas':
-												$raid_post = get_post( $post_id );
-												return $raid_post ? wp_kses_post( $raid_post->post_content ) : '';
+																			$raid_post = get_post( $post_id );
+																			return $raid_post ? wp_kses_post( $raid_post->post_content ) : '';
+
+																		case 'raid_solicitante':
+																			$uid = get_post_meta( $post_id, 'raid_solicitante', true );
+																			if ( ! $uid ) return '';
+																			$u = get_userdata( $uid );
+																			return $u ? esc_html( $u->display_name ) : '';
 
 						default:
 							return '';
