@@ -25,6 +25,7 @@ class RMM_Raid_Handler {
 						add_shortcode( 'raid_aprobar', array( $this, 'render_raid_approve_buttons' ) );
 								add_shortcode( 'raid_lista_participantes', array( $this, 'render_raid_participants_list' ) );
 								add_shortcode( 'raid_boton_participar', array( $this, 'render_raid_join_only_button' ) );
+										add_shortcode( 'raid_faq', array( $this, 'render_raid_faq' ) );
 		add_action( 'wp_ajax_rmm_send_raid_request', array( $this, 'ajax_send_raid_request' ) );
 		add_action( 'wp_ajax_rmm_raid_join', array( $this, 'ajax_raid_join' ) );
 		add_action( 'wp_ajax_rmm_raid_leave', array( $this, 'ajax_raid_leave' ) );
@@ -765,6 +766,66 @@ class RMM_Raid_Handler {
 		unset( $parts[ $uid ] );
 		update_post_meta( $raid_id, 'raid_participantes', $parts );
 		wp_send_json_success( 'Desapuntado.' );
+				}
+
+			/**
+			 * Shortcode [raid_faq] — Preguntas frecuentes sobre qué es una RAID
+			 */
+			public function render_raid_faq( $atts ) {
+				ob_start();
+				?>
+				<div class="rmm-raid-faq" style="font-family:'Inter',sans-serif;color:#c9d1d9;max-width:700px;">
+					<style>
+						.rmm-raid-faq details { background:#161b22; border:1px solid #21262d; border-radius:8px; margin-bottom:8px; overflow:hidden; }
+						.rmm-raid-faq summary { padding:14px 18px; font-size:0.85rem; font-weight:700; color:#CFDC35; cursor:pointer; text-transform:uppercase; letter-spacing:0.04em; user-select:none; display:flex; align-items:center; gap:8px; }
+						.rmm-raid-faq summary i { font-size:0.7rem; transition:transform 0.2s; }
+						.rmm-raid-faq details[open] summary i { transform:rotate(90deg); }
+						.rmm-raid-faq details p, .rmm-raid-faq details ul { padding:0 18px 14px; font-size:0.8rem; color:#8b949e; line-height:1.7; margin:0; }
+						.rmm-raid-faq details ul { padding-left:36px; list-style-type:square; }
+						.rmm-raid-faq details ul li { margin-bottom:4px; }
+						.rmm-raid-faq details ul li strong { color:#e5e7eb; }
+					</style>
+
+					<details open>
+						<summary><i class="fa-solid fa-chevron-right"></i> ¿Qué es una RAID?</summary>
+						<p>Una <strong style="color:#e5e7eb;">RAID</strong> es una partida rápida no oficial organizada por miembros del clan. A diferencia de los Eventos Oficiales, las RAIDs no tienen estructura de mando ni ORBAT predefinido. Son partidas informales para jugar y practicar.</p>
+					</details>
+
+					<details>
+						<summary><i class="fa-solid fa-chevron-right"></i> ¿Quién puede solicitar una RAID?</summary>
+						<p>Cualquier miembro con rango <strong style="color:#e5e7eb;">Activo</strong> o <strong style="color:#e5e7eb;">Aliado</strong> puede solicitar una RAID desde la web usando el formulario <code style="background:#0d1117;padding:2px 8px;border-radius:3px;color:#CFDC35;">[clan_solicitar_raid]</code>. La solicitud se publica en el grupo de Telegram para que otros miembros confirmen asistencia.</p>
+					</details>
+
+					<details>
+						<summary><i class="fa-solid fa-chevron-right"></i> ¿Quién puede apuntarse a una RAID?</summary>
+						<p>Pueden apuntarse los miembros con los siguientes rangos:</p>
+						<ul>
+							<li><strong>Recluta</strong></li>
+							<li><strong>Activo</strong></li>
+							<li><strong>Aliado</strong></li>
+							<li><strong>Reservista</strong></li>
+							<li><strong>Baja Indefinida</strong></li>
+						</ul>
+					</details>
+
+					<details>
+						<summary><i class="fa-solid fa-chevron-right"></i> ¿Cómo funciona el proceso?</summary>
+						<p>
+							<strong style="color:#CFDC35;">1. Solicitud:</strong> Un miembro Activo o Aliado rellena el formulario con fecha, hora y servidor.<br>
+							<strong style="color:#CFDC35;">2. Telegram:</strong> La solicitud se publica en el grupo con un botón para confirmar asistencia.<br>
+							<strong style="color:#CFDC35;">3. Confirmación:</strong> Los miembros confirman desde Telegram o desde la web.<br>
+							<strong style="color:#CFDC35;">4. Aprobación:</strong> Un Fundador, Admin o Editor revisa la solicitud y la aprueba o deniega con una justificación.<br>
+							<strong style="color:#CFDC35;">5. Partida:</strong> Si se aprueba, la RAID se convierte en una partida oficial. ¡A jugar!
+						</p>
+					</details>
+
+					<details>
+						<summary><i class="fa-solid fa-chevron-right"></i> ¿En qué se diferencia de un Evento Oficial?</summary>
+						<p>Los <strong style="color:#22c55e;">Eventos Oficiales</strong> son misiones planificadas con antelación, tienen ORBAT, slots asignados y suelen ser más serios. Las <strong style="color:#CFDC35;">RAIDs</strong> son partidas improvisadas, sin estructura, para cuando alguien quiere jugar en el momento.</p>
+					</details>
+				</div>
+				<?php
+				return ob_get_clean();
 			}
 
 			/**
