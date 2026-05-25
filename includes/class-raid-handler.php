@@ -1098,4 +1098,55 @@ class RMM_Raid_Handler {
 							<?php
 							return ob_get_clean();
 						}
-					}
+					
+	/**
+	 * Manejar cancelacion de evento: editar mensaje de Telegram
+	 */
+	public function handle_event_cancellation( $post_id, $post, $update ) {
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
+		if ( $post->post_status !== 'publish' ) return;
+		
+		$estado = get_post_meta( $post_id, 'estado', true );
+		if ( $estado !== 'cancelada' ) return;
+		
+		$motivo = get_post_meta( $post_id, 'motivo_cancelacion', true );
+		$msg_id = get_post_meta( $post_id, '_tg_message_id', true );
+		
+		$token   = get_option( 'rmm_raid_telegram_token', '' );
+		$chat_id = get_option( 'rmm_raid_telegram_chat_id', '-1003157817672' );
+		
+		if ( empty( $token ) || empty( $chat_id ) ) return;
+		
+		if ( $msg_id ) {
+			$msg  = "🚫 <b>CANCELADO</b> — " . esc_html( $post->post_title ) . "
+";
+			if ( $motivo ) $msg .= "
+📝 Motivo: " . esc_html( $motivo );
+			
+			wp_remote_post( "https://api.telegram.org/bot{$token}/editMessageText", array(
+				'timeout'   => 15, 'sslverify' => false,
+				'body' => array(
+					'chat_id' => $chat_id, 'message_id' => $msg_id,
+					'text' => $msg, 'parse_mode' => 'HTML',
+				),
+			));
+		} else {
+			$msg  = "🚫 <b>EVENTO CANCELADO</b>
+";
+			$msg .= "🎮 " . esc_html( $post->post_title ) . "
+";
+			if ( $motivo ) $msg .= "📝 " . esc_html( $motivo ) . "
+";
+			$msg .= "
+🔗 " . get_permalink( $post_id );
+			
+			wp_remote_post( "https://api.telegram.org/bot{$token}/sendMessage", array(
+				'timeout' => 15, 'sslverify' => false,
+				'body' => array(
+					'chat_id' => $chat_id, 'text' => $msg, 'parse_mode' => 'HTML',
+				),
+			));
+		}
+	}
+
+}

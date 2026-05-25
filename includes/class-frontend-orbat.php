@@ -19,6 +19,7 @@ class RMM_Frontend_ORBAT {
 		add_shortcode( 'rmm_author', array( $this, 'render_rmm_author_shortcode' ) );
 		add_shortcode( 'fecha_evento', array( $this, 'render_fecha_evento_shortcode' ) );
 		add_shortcode( 'rmm_missions_grid', array( $this, 'render_missions_grid_shortcode' ) );
+		add_shortcode( 'rmm_evento_estado', array( $this, 'render_evento_estado_shortcode' ) );
 		add_action( 'wp_ajax_reclamar_slot', array( $this, 'handle_slot_reservation' ) );
 		add_action( 'wp_ajax_liberar_slot', array( $this, 'handle_slot_leave' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
@@ -102,6 +103,44 @@ class RMM_Frontend_ORBAT {
 		), $atts );
 
 		return '<a href="' . esc_url( $url ) . '" target="_blank" rel="noopener noreferrer" class="' . esc_attr( $a['class'] ) . '">' . esc_html( $a['text'] ) . '</a>';
+	}
+
+	public function render_evento_estado_shortcode( $atts ) {
+		$post_id = get_the_ID();
+		if ( ! $post_id ) return '';
+		
+		$estado  = get_post_meta( $post_id, 'estado', true );
+		$motivo  = get_post_meta( $post_id, 'motivo_cancelacion', true );
+		
+		$labels = array(
+			'abierta'    => 'Abierta',
+			'en_curso'   => 'En curso',
+			'debriefing' => 'Debriefing',
+			'finalizada' => 'Finalizada',
+			'cancelada'  => 'Cancelada',
+		);
+		
+		$colors = array(
+			'abierta'    => '#849b4c',
+			'en_curso'   => '#d97706',
+			'debriefing' => '#7c3aed',
+			'finalizada' => '#6b7280',
+			'cancelada'  => '#dc2626',
+		);
+		
+		$label = $labels[ $estado ] ?? ucfirst( $estado );
+		$color = $colors[ $estado ] ?? '#6b7280';
+		
+		$html  = '<span class="rmm-evento-estado" style="display:inline-block;padding:4px 12px;border-radius:3px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;';
+		$html .= 'background:' . $color . '22;color:' . $color . ';border:1px solid ' . $color . '44;">';
+		$html .= esc_html( $label );
+		$html .= '</span>';
+		
+		if ( $estado === 'cancelada' && ! empty( $motivo ) ) {
+			$html .= ' <span style="color:#fca5a5;font-size:0.7rem;font-style:italic;">' . esc_html( $motivo ) . '</span>';
+		}
+		
+		return $html;
 	}
 
 	public function render_rmm_orbat_shortcode( $atts ) {

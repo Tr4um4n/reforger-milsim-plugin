@@ -404,8 +404,9 @@ class RMM_Metabox_Handler {
 		<p><label><strong>Inicio</strong></label><input type="datetime-local" name="fecha_inicio" value="<?php echo $fecha_inicio; ?>" style="width:100%; padding:5px; border:1px solid #ccc;"></p>
 		<p><label><strong>Fin</strong></label><input type="datetime-local" name="fecha_fin" value="<?php echo $fecha_fin; ?>" style="width:100%; padding:5px; border:1px solid #ccc;"></p>
 		<p><label><strong>Estado</strong></label><select name="estado" class="widefat">
-			<?php foreach(['abierta','en_curso','debriefing','finalizada'] as $s) echo '<option value="'.$s.'" '.selected($estado,$s,false).'>'.ucfirst($s).'</option>'; ?>
+			<?php foreach(['abierta','en_curso','debriefing','finalizada','cancelada'] as $s) echo '<option value="'.$s.'" '.selected($estado,$s,false).'>'.ucfirst($s).'</option>'; ?>
 		</select></p>
+		<p><label><strong>Motivo de cancelación</strong></label><input type="text" name="motivo_cancelacion" value="<?php echo esc_attr( get_post_meta($post->ID, 'motivo_cancelacion', true) ); ?>" style="width:100%; padding:5px; border:1px solid #ccc;" placeholder="Solo si el estado es Cancelada"></p>
 		<p><label><strong>Medalla de Premio</strong></label><select name="condecoracion_premio" class="widefat">
 			<option value="">-- Ninguna --</option>
 			<?php foreach($medallas as $m) echo '<option value="'.$m->ID.'" '.selected($condecoracion_id,$m->ID,false).'>'.$m->post_title.'</option>'; ?>
@@ -756,7 +757,7 @@ class RMM_Metabox_Handler {
 		}
 
 		// Save Mission/Event fields
-		$fields = array( 'workshop_id', 'mission_api_name', 'workshop_url', 'mision_id', 'fecha_inicio', 'fecha_fin', 'estado', 'condecoracion_premio', 'rmm_author' );
+		$fields = array( 'workshop_id', 'mission_api_name', 'workshop_url', 'mision_id', 'fecha_inicio', 'fecha_fin', 'estado', 'motivo_cancelacion', 'condecoracion_premio', 'rmm_author' );
 		foreach ( $fields as $f ) {
 			if ( isset( $_POST[$f] ) ) update_post_meta( $post_id, $f, sanitize_text_field( $_POST[$f] ) );
 		}

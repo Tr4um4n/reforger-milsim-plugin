@@ -168,6 +168,7 @@ class RMM_Calendar_Handler {
 			.rmm-event-status-en_curso { background-color: #d97706 !important; border-color: #d97706 !important; color: #fff !important; }
 			.rmm-event-status-debriefing { background-color: #7c3aed !important; border-color: #7c3aed !important; color: #fff !important; }
 			.rmm-event-status-finalizada { background-color: #444 !important; border-color: #444 !important; color: #aaa !important; opacity: 0.7; }
+			.rmm-event-status-cancelada { background-color: #991b1b !important; border-color: #dc2626 !important; color: #fca5a5 !important; text-decoration: line-through; }
 			
 			.fc-event { padding: 4px 6px; border-radius: 3px; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
 
