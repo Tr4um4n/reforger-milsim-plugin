@@ -34,7 +34,9 @@ class RMM_Raid_Handler {
 				add_action( 'wp_ajax_rmm_raid_decide', array( $this, 'ajax_raid_decide' ) );
 		add_action( 'rest_api_init', array( $this, 'register_rest_endpoints' ) );
 				add_action( 'publish_eventos_partidas', array( $this, 'notify_raid_channel_on_event' ), 10, 2 );
-						add_filter( 'the_content', array( $this, 'inject_raid_join_to_content' ) );
+				add_action( 'save_post_eventos_partidas', array( $this, 'handle_event_cancellation' ), 20, 3 );
+				add_action( 'wp_ajax_rmm_resend_telegram_event', array( $this, 'ajax_resend_telegram_event' ) );
+				add_filter( 'the_content', array( $this, 'inject_raid_join_to_content' ) );
 	}
 
 	/**
