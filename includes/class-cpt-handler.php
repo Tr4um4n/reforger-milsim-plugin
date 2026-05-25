@@ -20,6 +20,15 @@ class RMM_CPT_Handler {
 		add_action( 'init', array( $this, 'register_cpts' ) );
 		add_action( 'add_meta_boxes', array( $this, 'register_raid_metaboxes' ) );
 		add_action( 'save_post_raid_eventos', array( $this, 'save_raid_metadata' ) );
+		// Forzar editor clasico para nuestros CPTs (evita errores JS de Gutenberg)
+		add_filter( 'use_block_editor_for_post_type', array( $this, 'disable_block_editor' ), 10, 2 );
+	}
+
+	public function disable_block_editor( $enabled, $post_type ) {
+		if ( in_array( $post_type, array( 'misiones', 'eventos_partidas', 'condecoraciones' ) ) ) {
+			return false;
+		}
+		return $enabled;
 	}
 
 	/**
