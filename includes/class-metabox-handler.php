@@ -160,6 +160,9 @@ class RMM_Metabox_Handler {
 		$thumbnail_id = get_post_thumbnail_id( $mission_id );
 		$summary = get_post_meta( $mission_id, 'rmm_summary', true );
 		$description = get_post_meta( $mission_id, 'rmm_description', true );
+		
+		// Copiar imagen destacada al evento (el JS ya tiene el post_id en res.data)
+		// La copia real se hace en el JS al recibir el thumbnail_id
 
 		wp_send_json_success( array(
 			'title'       => $mission->post_title,
@@ -385,8 +388,13 @@ class RMM_Metabox_Handler {
 					if(res.data.description) jQuery('#hidden-description').val(res.data.description);
 					
 					// 4. Imagen Destacada
-					if(res.data.thumbnail_id && typeof wp !== 'undefined' && wp.data && wp.data.dispatch('core/editor')) {
-						wp.data.dispatch('core/editor').editPost({ featured_media: parseInt(res.data.thumbnail_id) });
+					if(res.data.thumbnail_id) {
+						if (typeof wp !== 'undefined' && wp.media && wp.media.featuredImage) {
+							// Funciona en editor clasico y Gutenberg
+							wp.media.featuredImage.set( parseInt(res.data.thumbnail_id) );
+						} else if (typeof wp !== 'undefined' && wp.data && wp.data.dispatch('core/editor')) {
+							wp.data.dispatch('core/editor').editPost({ featured_media: parseInt(res.data.thumbnail_id) });
+						}
 					}
 					
 					// 5. Contenido / Briefing
