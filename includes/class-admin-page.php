@@ -1344,9 +1344,9 @@ class RMM_Admin_Page {
 							<!-- Addons Section -->
 							<h3>🧩 Añadir Mods y Dependencias</h3>
 							<div class="addon-quick-buttons mb-4">
-								<button type="button" id="btnAddBase" class="rmm-btn btn-primary">📦 Añadir Base Addons</button>
-								<button type="button" id="btnAddACE" class="rmm-btn btn-danger">🚑 Añadir todo ACE</button>
-								<button type="button" id="btnAddRHS" class="rmm-btn btn-success">🪖 Añadir todo RHS</button>
+								<button type="button" id="btnAddBase" class="rmm-btn btn-primary">Anadir Base Addons</button>
+								<button type="button" id="btnAddACE" class="rmm-btn btn-danger">Anadir todo ACE</button>
+								<button type="button" id="btnAddRHS" class="rmm-btn btn-success">Anadir todo RHS</button>
 							</div>
 
 							<div class="mb-4">
