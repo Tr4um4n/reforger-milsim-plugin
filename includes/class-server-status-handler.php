@@ -464,9 +464,11 @@ class RMM_Server_Status_Handler {
         	 */
 	public function render_server_manager() {
 		$user = wp_get_current_user();
-		$allowed = array( 'fundador', 'activo', 'aliado', 'administrator' );
+		$allowed = get_option( 'rmm_server_manager_roles', array( 'fundador', 'editor', 'administrator' ) );
+		if ( ! is_array( $allowed ) ) $allowed = array( 'fundador', 'editor', 'administrator' );
 		if ( ! array_intersect( $allowed, (array) $user->roles ) ) {
-			return '<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:24px;text-align:center;color:#8b949e;font-family:Inter,sans-serif;">Acceso restringido. Solo Fundador, Activo, Aliado o Admin.</div>';
+			$role_names = array_map( function($r) { $wp = wp_roles(); return isset($wp->role_names[$r]) ? translate_user_role($wp->role_names[$r]) : $r; }, $allowed );
+			return '<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:24px;text-align:center;color:#8b949e;font-family:Inter,sans-serif;">Acceso restringido. Solo: ' . implode( ', ', $role_names ) . '.</div>';
 		}
 
 		// Asegurar que ajaxurl esta disponible en frontend

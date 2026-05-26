@@ -577,6 +577,10 @@ class RMM_Admin_Page {
 			update_option( 'rmm_orbatlink_send_periodic', isset( $_POST['rmm_orbatlink_send_periodic'] ) ? '1' : '0' );
 			update_option( 'rmm_orbatlink_interval', intval( $_POST['rmm_orbatlink_interval'] ) ?: 5 );
 
+			// Roles para acceso al gestor de servidor frontend
+			$manager_roles = isset( $_POST['rmm_server_manager_roles'] ) ? array_map( 'sanitize_text_field', $_POST['rmm_server_manager_roles'] ) : array( 'fundador', 'editor' );
+			update_option( 'rmm_server_manager_roles', $manager_roles );
+
 			// Roles
 			$role_admin  = trim( $_POST['rmm_telegram_role_admin'] );
 			$role_user   = trim( $_POST['rmm_telegram_role_user'] );
@@ -930,6 +934,22 @@ class RMM_Admin_Page {
 							<label for="rmm_orbatlink_test_delay">Delay del test (ms)</label>
 							<input type="number" name="rmm_orbatlink_test_delay" value="<?php echo intval( get_option( 'rmm_orbatlink_test_delay', '5000' ) ); ?>" min="0" class="small-text">
 						</div>
+					</div>
+				</div>
+
+				<!-- Section: Acceso al Gestor de Servidor -->
+				<div class="rmm-section">
+					<h2>🔐 Acceso al Gestor de Servidor Frontend</h2>
+					<p class="rmm-section-desc">Roles que pueden ver el shortcode <code>[rmm_server_manager]</code> en el frontend.</p>
+					<div class="rmm-form-grid rmm-grid-3">
+						<?php 
+						$saved_roles = get_option( 'rmm_server_manager_roles', array( 'fundador', 'editor' ) );
+						$all_roles = wp_roles()->roles;
+						foreach ( $all_roles as $slug => $data ) : ?>
+							<div class="rmm-form-group">
+								<label><input type="checkbox" name="rmm_server_manager_roles[]" value="<?php echo $slug; ?>" <?php checked( in_array( $slug, $saved_roles ) ); ?>> <?php echo translate_user_role( $data['name'] ); ?></label>
+							</div>
+						<?php endforeach; ?>
 					</div>
 				</div>
 
