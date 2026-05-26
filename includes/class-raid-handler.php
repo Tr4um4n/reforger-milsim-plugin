@@ -1113,9 +1113,15 @@ class RMM_Raid_Handler {
 		if ( $post->post_status !== 'publish' ) return;
 		
 		$estado = get_post_meta( $post_id, 'estado', true );
-		if ( $estado !== 'cancelada' ) return;
-		
 		$motivo = get_post_meta( $post_id, 'motivo_cancelacion', true );
+		
+		// Si hay motivo pero el estado no es cancelada, forzar cancelada
+		if ( ! empty( $motivo ) && $estado !== 'cancelada' ) {
+			$estado = 'cancelada';
+			update_post_meta( $post_id, 'estado', 'cancelada' );
+		}
+		
+		if ( $estado !== 'cancelada' ) return;
 		$msg_id = get_post_meta( $post_id, '_tg_message_id', true );
 		
 		$token   = get_option( 'rmm_raid_telegram_token', '' );
