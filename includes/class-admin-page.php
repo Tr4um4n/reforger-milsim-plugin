@@ -1240,7 +1240,20 @@ class RMM_Admin_Page {
 								<button type="button" class="rmm-btn btn-outline-success" id="btnSavePreset">💾 Guardar en LocalStorage</button>
 							</div>
 						</div>
-						<p class="rmm-section-desc">Genera la estructura de configuración requerida para partidas de Reforger. Permite importar dependencias desde Steam Workshop de forma directa y subir la partida resultante como preset al servidor Pterodactyl.</p>
+						<p class="rmm-section-desc">Genera la estructura de configuracion requerida para partidas de Reforger. Permite importar dependencias desde Steam Workshop de forma directa y subir la partida resultante como preset al servidor Pterodactyl.</p>
+
+						<!-- Extractor de dependencias (arriba) -->
+						<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:12px 16px;margin-bottom:16px;">
+							<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+								<span style="font-size:1rem;">🔍</span>
+								<strong style="color:#849b4c;font-size:0.8rem;text-transform:uppercase;">Extraer dependencias de Steam Workshop</strong>
+							</div>
+							<p style="color:#8b949e;font-size:0.7rem;margin:0 0 10px;">Pega un ID de mod de Steam (ej: 3010275991) o un UUID de Reforger Workshop. El sistema buscara automaticamente todas sus dependencias y las añadira a la lista de mods.</p>
+							<div style="display:flex;gap:8px;">
+								<input type="text" id="autoFetchId" placeholder="ID del Mod o Escenario del Workshop" style="flex:1;background:#0d1117;color:#c9d1d9;border:1px solid #21262d;padding:8px;border-radius:4px;">
+								<button type="button" id="btnAutoFetch" class="rmm-btn btn-primary" style="white-space:nowrap;">🔍 Extraer e Insertar Dependencias</button>
+							</div>
+						</div>
 
 						<form id="rmm_json_form" onsubmit="return false;">
 							<div class="rmm-form-grid mb-4">
@@ -1335,15 +1348,10 @@ class RMM_Admin_Page {
 										<div id="emptyModsMsg" class="table-empty">No hay mods añadidos a la lista.</div>
 									</div>
 
-									<div class="input-row mt-3">
+									<div class="input-row mt-2">
 										<input type="text" id="manualModId" placeholder="Mod ID (32 bytes)" style="max-width: 200px;">
 										<input type="text" id="manualModName" placeholder="Nombre descriptivo">
 										<button type="button" id="btnAddManual" class="rmm-btn btn-secondary">Añadir Manual</button>
-									</div>
-
-									<div class="input-row mt-2">
-										<input type="text" id="autoFetchId" placeholder="ID del Mod o Escenario del Workshop" style="flex:1;">
-										<button type="button" id="btnAutoFetch" class="rmm-btn btn-primary">🔍 Extraer e Insertar Dependencias</button>
 									</div>
 								</div>
 

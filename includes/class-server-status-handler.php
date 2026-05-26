@@ -11,9 +11,10 @@ class RMM_Server_Status_Handler {
     public function __construct() {
         add_shortcode( 'rmm_server_status', array( $this, 'render_server_status' ) );
         add_shortcode( 'rmm_server_resources', array( $this, 'render_server_resources' ) );
-        add_shortcode( 'rmm_server_info', array( $this, 'render_server_info' ) );
+        		add_shortcode( 'rmm_server_info', array( $this, 'render_server_info' ) );
+        		add_shortcode( 'rmm_server_manager', array( $this, 'render_server_manager' ) );
         
-        // AJAX endpoint for live refresh
+                // AJAX endpoint for live refresh
         add_action( 'wp_ajax_rmm_live_server_data', array( $this, 'ajax_live_server_data' ) );
         add_action( 'wp_ajax_nopriv_rmm_live_server_data', array( $this, 'ajax_live_server_data' ) );
     }
@@ -454,6 +455,27 @@ class RMM_Server_Status_Handler {
         $data['disk_limit_formatted'] = $this->format_bytes( $data['disk_limit'] ?? 0 );
         $data['is_online'] = ( $data['state'] === 'running' );
         
-        wp_send_json_success( $data );
-    }
-}
+        		wp_send_json_success( $data );
+        	}
+
+        	/**
+        	 * Shortcode [rmm_server_manager] — Gestor de servidor en frontend
+        	 * Solo visible para roles: fundador, activo, aliado, administrator
+        	 */
+	public function render_server_manager() {
+		$user = wp_get_current_user();
+		$allowed = array( 'fundador', 'activo', 'aliado', 'administrator' );
+		if ( ! array_intersect( $allowed, (array) $user->roles ) ) {
+			return '<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:24px;text-align:center;color:#8b949e;font-family:Inter,sans-serif;">Acceso restringido. Solo Fundador, Activo, Aliado o Admin.</div>';
+		}
+
+		// Asegurar que ajaxurl esta disponible en frontend
+		wp_enqueue_script( 'rmm-frontend-ajax', '', array(), RMM_VERSION, true );
+		wp_add_inline_script( 'rmm-frontend-ajax', 'var ajaxurl = "' . admin_url( 'admin-ajax.php' ) . '";', 'before' );
+
+		$admin_page = new RMM_Admin_Page();
+		ob_start();
+		$admin_page->render_server_management_page();
+		return '<div class="rmm-frontend-server" style="background:#0d1117;color:#c9d1d9;padding:20px;border-radius:8px;font-family:Inter,sans-serif;">' . ob_get_clean() . '</div>';
+	}
+        }
