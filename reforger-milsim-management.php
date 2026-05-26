@@ -223,6 +223,12 @@ class ReforgerMilsimManagement {
 			.rmm-status-badge { background: #1e3a1e !important; color: #a5d6a7 !important; }
 			.rmm-api-sync-box { background: #222; padding: 15px; border-radius: 8px; border: 1px solid #444; }
 		</style>';
+		
+		// Ocultar footer solo en nuestras paginas
+		$page = isset( $_GET["page"] ) ? $_GET["page"] : "";
+		if ( strpos( $page, "rmm-" ) === 0 ) {
+			echo "<style>#wpfooter{display:none!important}</style>";
+		}
 	}
 
 	/**
