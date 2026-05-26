@@ -394,6 +394,10 @@ class RMM_Metabox_Handler {
 						wp.data.dispatch('core/editor').editPost({ content: res.data.content });
 					} else if (typeof tinymce !== 'undefined' && tinymce.activeEditor) {
 						tinymce.activeEditor.setContent(res.data.content);
+					} else {
+						// Fallback para editor clasico sin TinyMCE activo
+						var ta = document.getElementById('content');
+						if (ta && ta.value !== undefined) ta.value = res.data.content;
 					}
 					
 					alert('Datos de misión importados correctamente.');
