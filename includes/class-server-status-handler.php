@@ -471,13 +471,14 @@ class RMM_Server_Status_Handler {
 			return '<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:24px;text-align:center;color:#8b949e;font-family:Inter,sans-serif;">Acceso restringido. Solo: ' . implode( ', ', $role_names ) . '.</div>';
 		}
 
-		// Asegurar que ajaxurl esta disponible en frontend
-		wp_enqueue_script( 'rmm-frontend-ajax', '', array(), RMM_VERSION, true );
-		wp_add_inline_script( 'rmm-frontend-ajax', 'var ajaxurl = "' . admin_url( 'admin-ajax.php' ) . '";', 'before' );
-
 		$admin_page = new RMM_Admin_Page();
 		ob_start();
 		$admin_page->render_server_management_page();
-		return '<div class="rmm-frontend-server" style="background:#0d1117;color:#c9d1d9;padding:20px;border-radius:8px;font-family:Inter,sans-serif;">' . ob_get_clean() . '</div>';
+		$html = ob_get_clean();
+		
+		// Inyectar ajaxurl para los scripts del server manager
+		$ajaxurl_script = '<script>var ajaxurl = "' . admin_url( 'admin-ajax.php' ) . '";</script>';
+		
+		return '<div class="rmm-frontend-server" style="background:#0d1117;color:#c9d1d9;padding:20px;border-radius:8px;font-family:Inter,sans-serif;">' . $ajaxurl_script . $html . '</div>';
 	}
         }
