@@ -191,10 +191,35 @@ class RMM_Medals_Handler {
 					</a>
 				<?php endforeach; ?>
 			</div>
-		</div>
-		<?php
-		return ob_get_clean();
+		<?php endif; ?>
+	</div>
+
+	<style>
+	/* Responsive para el perfil de operador */
+	@media (max-width: 768px) {
+		.rmm-operator-profile .rmm-profile-header {
+			grid-template-columns: 1fr !important;
+			gap: 16px !important;
+			padding: 16px !important;
+		}
+		.rmm-operator-profile .rmm-profile-dossier-stats {
+			grid-template-columns: repeat(3, 1fr) !important;
+			gap: 8px !important;
+		}
 	}
+	@media (max-width: 480px) {
+		.rmm-operator-profile .rmm-profile-dossier-stats {
+			grid-template-columns: repeat(2, 1fr) !important;
+		}
+		.rmm-operator-profile .rmm-profile-avatar-img {
+			width: 100px !important;
+			height: 100px !important;
+		}
+	}
+	</style>
+	<?php
+	return ob_get_clean();
+}
 
 	/**
 	 * Shortcode: Listado de Miembros del Clan [clan_lista_miembros]
@@ -1006,7 +1031,7 @@ class RMM_Medals_Handler {
 			</div>
 
 			<!-- Cabecera de Ficha Táctica: 2 columnas -->
-			<div style="display: grid; grid-template-columns: 280px 1fr; gap: 24px; padding: 24px; border-bottom: 1px solid #21262d;">
+			<div class="rmm-profile-header" style="display: grid; grid-template-columns: 280px 1fr; gap: 24px; padding: 24px; border-bottom: 1px solid #21262d;">
 				
 				<!-- Columna Izquierda: Avatar + Info -->
 				<div style="display: flex; flex-direction: column; align-items: center; text-align: center;">
@@ -1018,7 +1043,7 @@ class RMM_Medals_Handler {
 					elseif ( $first_role_slug === 'recluta' ) $border_color = '#3b82f6';
 					elseif ( $first_role_slug === 'activo' ) $border_color = '#22c55e';
 					?>
-					<?php echo get_avatar( $user_id, 140, '', '', array( 'class' => 'rmm-profile-avatar', 'style' => 'border-radius: 8px; border: 3px solid ' . $border_color . '; object-fit: cover; width: 140px; height: 140px; box-shadow: 0 0 20px rgba(0,0,0,0.5);' ) ); ?>
+					<?php echo get_avatar( $user_id, 140, '', '', array( 'class' => 'rmm-profile-avatar rmm-profile-avatar-img', 'style' => 'border-radius: 8px; border: 3px solid ' . $border_color . '; object-fit: cover; width: 140px; height: 140px; box-shadow: 0 0 20px rgba(0,0,0,0.5);' ) ); ?>
 					
 					<h1 style="font-size: 1.5rem; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.03em; margin: 14px 0 8px;"><?php echo esc_html( $user->display_name ); ?></h1>
 					
@@ -1043,7 +1068,7 @@ class RMM_Medals_Handler {
 					<h3 style="font-size: 0.75rem; font-weight: 700; color: #58a6ff; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid #21262d; padding-bottom: 10px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
 						<i class="fa-solid fa-file-shield"></i> DOSSIER DE COMBATE DEL OPERADOR
 					</h3>
-					<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+					<div class="rmm-profile-dossier-stats" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
 						
 						<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 12px; text-align: center;">
 							<i class="fa-solid fa-flag" style="color: #58a6ff; font-size: 1rem; margin-bottom: 6px; display: block;"></i>
