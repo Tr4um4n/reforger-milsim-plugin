@@ -44,8 +44,11 @@ class RMM_DAGR_Handler {
 			),
 		);
 		foreach ( $defaults as $map ) {
-			$wpdb->replace( $table, $map );
-		}
+					$exists = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $table WHERE map_name = %s", $map['map_name'] ) );
+					if ( ! $exists ) {
+						$wpdb->insert( $table, $map );
+					}
+				}
 	}
 
 	public function register_rest_endpoints() {
