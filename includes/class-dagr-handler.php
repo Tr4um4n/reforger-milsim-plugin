@@ -133,7 +133,12 @@ class RMM_DAGR_Handler {
 
 		ob_start();
 		?>
-		<div id="<?php echo $uid; ?>" style="width:100%;height:<?php echo esc_attr( $atts['height'] ); ?>;background:#0d1117;border:1px solid #21262d;border-radius:8px;"></div>
+		<div id="<?php echo $uid; ?>" style="width:100%;height:<?php echo esc_attr( $atts['height'] ); ?>;background:#0d1117;border:1px solid #21262d;border-radius:8px;position:relative;">
+			<div class="dagr-mode-toggle" style="position:absolute;top:10px;right:10px;z-index:1000;display:flex;gap:4px;">
+				<button class="dagr-mode-btn active" data-mode="personal" style="background:#1a1d21;color:#849b4c;border:1px solid #849b4c;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:0.7rem;font-weight:700;text-transform:uppercase;font-family:Inter,sans-serif;">👤 Yo</button>
+				<button class="dagr-mode-btn" data-mode="global" style="background:#1a1d21;color:#555;border:1px solid #333;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:0.7rem;font-weight:700;text-transform:uppercase;font-family:Inter,sans-serif;">🌍 Global</button>
+			</div>
+		</div>
 		<script>
 		(function() {
 			var container = document.getElementById('<?php echo $uid; ?>');
@@ -146,9 +151,40 @@ class RMM_DAGR_Handler {
 			var minY = <?php echo floatval( $map_config->min_y ); ?>;
 			var maxX = <?php echo floatval( $map_config->max_x ); ?>;
 			var maxY = <?php echo floatval( $map_config->max_y ); ?>;
-			var mode = '<?php echo esc_js( $atts['mode'] ); ?>';
-			var currentUserId = <?php echo get_current_user_id(); ?>;
+			var mode = localStorage.getItem('dagr_mode') || 'personal';
+			var currentUserId = <?php echo get_current_user_id(); ?: 0; ?>;
 			var tilesUrl = '<?php echo esc_url( $tiles_url ); ?>';
+
+			// Toggle buttons
+			var toggleContainer = container.querySelector('.dagr-mode-toggle');
+			toggleContainer.querySelectorAll('.dagr-mode-btn').forEach(function(btn) {
+				var m = btn.dataset.mode;
+				if (m === mode) {
+					btn.classList.add('active');
+					btn.style.color = '#849b4c';
+					btn.style.borderColor = '#849b4c';
+				} else {
+					btn.classList.remove('active');
+					btn.style.color = '#555';
+					btn.style.borderColor = '#333';
+				}
+			});
+
+			container.addEventListener('click', function(e) {
+				var btn = e.target.closest('.dagr-mode-btn');
+				if (!btn) return;
+				mode = btn.dataset.mode;
+				localStorage.setItem('dagr_mode', mode);
+				toggleContainer.querySelectorAll('.dagr-mode-btn').forEach(function(b) {
+					b.classList.remove('active');
+					b.style.color = '#555';
+					b.style.borderColor = '#333';
+				});
+				btn.classList.add('active');
+				btn.style.color = '#849b4c';
+				btn.style.borderColor = '#849b4c';
+				updatePositions();
+			});
 
 			// CRS personalizado
 			L.CRS.CustomSimple = L.Util.extend({}, L.CRS, {
@@ -205,15 +241,18 @@ class RMM_DAGR_Handler {
 						if (mode === 'personal' && p.id != currentUserId) return;
 						seen[p.id] = true;
 						var latlng = gameToLatLng(p.pos_x, p.pos_y);
+						var isMe = (p.id == currentUserId);
 
 						if (playerMarkers[p.id]) {
 							playerMarkers[p.id].setLatLng(latlng);
 						} else {
+							var color = isMe ? '#849b4c' : '#58a6ff';
+							var size = isMe ? '14px' : '10px';
 							var icon = L.divIcon({
 								className: 'dagr-player-marker',
-								html: '<div style="width:12px;height:12px;background:#849b4c;border:2px solid #fff;border-radius:50%;box-shadow:0 0 6px #849b4c;" title="' + p.name + '"></div>',
-								iconSize: [12, 12],
-								iconAnchor: [6, 6]
+								html: '<div style="width:' + size + ';height:' + size + ';background:' + color + ';border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px ' + color + ';" title="' + p.name + '"></div>',
+								iconSize: [parseInt(size)+4, parseInt(size)+4],
+								iconAnchor: [(parseInt(size)+4)/2, (parseInt(size)+4)/2]
 							});
 							playerMarkers[p.id] = L.marker(latlng, { icon: icon }).addTo(map);
 							playerMarkers[p.id].bindTooltip(p.name, { direction: 'top', offset: [0, -8] });
