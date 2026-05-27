@@ -126,7 +126,7 @@ class RMM_Match_Stats_Handler {
 					</div>
 				
 					<div class="rmm-match-stat-card" style="background: #0d1117; border: 1px solid #21262d; border-radius: 5px; padding: 8px 5px; text-align: center; transition: transform 0.2s, border-color 0.2s;">
-						<span style="font-size: 0.5rem; color: #484f58; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Impactos</span>
+						<span style="font-size: 0.5rem; color: #484f58; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Vehiculos</span>
 						<strong style="color: #f78166; font-family: 'JetBrains Mono', monospace; font-size: 1rem;"><?php echo intval( $session->total_shots_hit ); ?></strong>
 					</div>
 				
@@ -178,6 +178,7 @@ class RMM_Match_Stats_Handler {
 			'medical_bandages_applied' => 'total_bandages', 'medical_tourniquets_applied' => 'total_tourniquets',
 			'medical_saline_applied' => 'total_saline', 'medical_morphine_applied' => 'total_morphine',
 			'medical_epinephrine_applied' => 'total_epinephrine',
+			'vehicles_destroyed_total' => 'total_shots_hit',
 		);
 		
 		foreach ( $stat_map as $data_key => $col ) {
