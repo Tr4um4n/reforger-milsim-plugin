@@ -85,7 +85,7 @@ class RMM_Match_Stats_Handler {
 			<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
 				<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 5px; padding: 10px;">
 					<span style="display: block; font-size: 0.55rem; color: #484f58; text-transform: uppercase; letter-spacing: 0.06em;">Horario</span>
-					<strong style="color: #c9d1d9; font-family: monospace; font-size: 0.8rem;"><?php echo esc_html( $time ); ?>h</strong>
+					<strong style="color: #c9d1d9; font-family: monospace; font-size: 0.8rem;"><?php echo esc_html( $time ); ?>h (UTC+2)</strong>
 				</div>
 				<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 5px; padding: 10px;">
 					<span style="display: block; font-size: 0.55rem; color: #484f58; text-transform: uppercase; letter-spacing: 0.06em;">Jugadores</span>
