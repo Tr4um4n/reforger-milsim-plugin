@@ -1055,12 +1055,6 @@ class RMM_Medals_Handler {
 						</div>
 						
 						<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 12px; text-align: center;">
-							<i class="fa-solid fa-explosion" style="color: #f78166; font-size: 1rem; margin-bottom: 6px; display: block;"></i>
-							<span style="display: block; font-size: 0.55rem; text-transform: uppercase; color: #8b949e; letter-spacing: 0.05em; margin-bottom: 4px;"><?php _e( 'Impactos', 'reforger-milsim' ); ?></span>
-							<strong style="font-size: 1.3rem; color: #fff; font-family: monospace;"><?php echo $shots_hit; ?></strong>
-						</div>
-						
-						<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 12px; text-align: center;">
 							<i class="fa-solid fa-bandage" style="color: #f778ba; font-size: 1rem; margin-bottom: 6px; display: block;"></i>
 							<span style="display: block; font-size: 0.55rem; text-transform: uppercase; color: #8b949e; letter-spacing: 0.05em; margin-bottom: 4px;"><?php _e( 'Vendajes', 'reforger-milsim' ); ?></span>
 							<strong style="font-size: 1.3rem; color: #fff; font-family: monospace;"><?php echo $bandages; ?></strong>
