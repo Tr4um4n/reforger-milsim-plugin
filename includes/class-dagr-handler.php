@@ -529,7 +529,7 @@ class RMM_DAGR_Handler {
 
 			// Parse existing data for builder
 			$edit_markers = $editing ? json_decode( $editing->markers, true ) : array(
-				array( 'id' => 'obj1', 'type' => 'objective', 'label' => 'Base', 'pos_x' => 5000, 'pos_y' => 3000 )
+				array( 'id' => 'obj1', 'type' => 'objective', 'label' => 'Base', 'pos_x' => 50, 'pos_y' => 30 )
 			);
 			$edit_positions = $editing ? json_decode( $editing->positions, true ) : array();
 
@@ -619,8 +619,8 @@ class RMM_DAGR_Handler {
 							id: row.data('id') || ('m'+nextId++),
 							type: row.find('.m-type').val(),
 							label: row.find('.m-label').val(),
-							pos_x: parseFloat(row.find('.m-x').val()) || 0,
-							pos_y: parseFloat(row.find('.m-y').val()) || 0
+							pos_x: g2m(row.find('.m-x').val()),
+													pos_y: g2m(row.find('.m-y').val())
 						});
 					});
 					$('#dagr_markers_json').val(JSON.stringify(markers));
@@ -632,24 +632,26 @@ class RMM_DAGR_Handler {
 						var row = $(this);
 						positions.push({
 							name: row.find('.p-name').val(),
-							pos_x: parseFloat(row.find('.p-x').val()) || 0,
-							pos_y: parseFloat(row.find('.p-y').val()) || 0,
+							pos_x: g2m(row.find('.p-x').val()),
+													pos_y: g2m(row.find('.p-y').val()),
 							color: row.find('.p-color').val()
 						});
 					});
 					$('#dagr_positions_json').val(JSON.stringify(positions));
 				}
 
-				function addMarkerRow(data) {
-					data = data || { id: 'm'+(nextId++), type:'info', label:'', pos_x:6400, pos_y:6400 };
+				function g2m(v) { return Math.round(parseFloat(v) * 100) || 0; } // grid (0-128) a metros (0-12800)
+
+							function addMarkerRow(data) {
+					data = data || { id: 'm'+(nextId++), type:'info', label:'', pos_x:64, pos_y:64 };
 					var options = markerTypes.map(function(t) {
 						return '<option value="'+t+'"'+(t===data.type?' selected':'')+'>'+ (markerIcons[t]||'') +' '+t+'</option>';
 					}).join('');
 					var row = '<tr data-id="'+data.id+'">' +
 						'<td><select class="m-type" style="width:100%;">'+options+'</select></td>' +
 						'<td><input type="text" class="m-label" value="'+ (data.label||'') +'" placeholder="Label" style="width:100%;"></td>' +
-						'<td><input type="number" class="m-x" value="'+ (data.pos_x||6400) +'" step="0.1" style="width:100%;"></td>' +
-						'<td><input type="number" class="m-y" value="'+ (data.pos_y||6400) +'" step="0.1" style="width:100%;"></td>' +
+						'<td><input type="number" class="m-x" value="'+ (data.pos_x||64) +'" step="0.01" min="0" max="128" style="width:100%;" title="Grid (0-128)"></td>' +
+						'<td><input type="number" class="m-y" value="'+ (data.pos_y||64) +'" step="0.01" min="0" max="128" style="width:100%;" title="Grid (0-128)"></td>' +
 						'<td><button type="button" class="button button-small dagr-remove-row">✕</button></td>' +
 						'</tr>';
 					$('#dagr-markers-table tbody').append(row);
@@ -657,11 +659,11 @@ class RMM_DAGR_Handler {
 				}
 
 				function addPositionRow(data) {
-					data = data || { name:'', pos_x:6400, pos_y:6400, color:'#58a6ff' };
+					data = data || { name:'', pos_x:64, pos_y:64, color:'#58a6ff' };
 					var row = '<tr>' +
 						'<td><input type="text" class="p-name" value="'+ (data.name||'') +'" placeholder="Nombre" style="width:100%;"></td>' +
-						'<td><input type="number" class="p-x" value="'+ (data.pos_x||6400) +'" step="0.1" style="width:100%;"></td>' +
-						'<td><input type="number" class="p-y" value="'+ (data.pos_y||6400) +'" step="0.1" style="width:100%;"></td>' +
+						'<td><input type="number" class="p-x" value="'+ (data.pos_x||64) +'" step="0.01" min="0" max="128" style="width:100%;" title="Grid (0-128)"></td>' +
+						'<td><input type="number" class="p-y" value="'+ (data.pos_y||64) +'" step="0.01" min="0" max="128" style="width:100%;" title="Grid (0-128)"></td>' +
 						'<td><input type="color" class="p-color" value="'+ (data.color||'#58a6ff') +'" style="width:50px;"></td>' +
 						'<td><button type="button" class="button button-small dagr-remove-row">✕</button></td>' +
 						'</tr>';
@@ -669,17 +671,18 @@ class RMM_DAGR_Handler {
 					updatePositionsJSON();
 				}
 
-				// Init from existing data
-				var initMarkers = <?php echo json_encode( $edit_markers ); ?>;
-				var initPositions = <?php echo json_encode( $edit_positions ); ?>;
-				if ( initMarkers && initMarkers.length ) {
-					initMarkers.forEach(addMarkerRow);
-				} else {
-					addMarkerRow(); // default
-				}
-				if ( initPositions && initPositions.length ) {
-					initPositions.forEach(addPositionRow);
-				}
+				// Init from existing data (convertir metros a grid para el builder)
+							var initMarkers = <?php echo json_encode( $edit_markers ); ?>;
+							var initPositions = <?php echo json_encode( $edit_positions ); ?>;
+							function m2g(m) { return Math.round(m / 100 * 100) / 100; } // meters a grid
+							if ( initMarkers && initMarkers.length ) {
+								initMarkers.forEach(function(m) { m.pos_x = m2g(m.pos_x); m.pos_y = m2g(m.pos_y); addMarkerRow(m); });
+							} else {
+								addMarkerRow();
+							}
+							if ( initPositions && initPositions.length ) {
+								initPositions.forEach(function(p) { p.pos_x = m2g(p.pos_x); p.pos_y = m2g(p.pos_y); addPositionRow(p); });
+							}
 
 				// Event handlers
 				$('#dagr-add-marker').on('click', function() { addMarkerRow(); });
