@@ -1746,7 +1746,41 @@ class RMM_Admin_Page {
 			min-height: 140px;
 		}
 		.w-100 { width: 100% !important; }
-		</style>
+		
+				/* ══════════════════════════════════════ */
+				/* 📱 RESPONSIVE GLOBAL                    */
+				/* ══════════════════════════════════════ */
+				@media (max-width: 782px) {
+					/* Generator: editor layout single column */
+					.rmm-editor-layout { grid-template-columns: 1fr; gap: 20px; }
+					.layout-right textarea { height: 200px; }
+					/* Generator: action buttons stack */
+					.form-final-actions { flex-direction: column; }
+					.form-final-actions .rmm-btn { width: 100%; }
+					/* Generator: quick buttons wrap */
+					.addon-quick-buttons { flex-wrap: wrap; gap: 8px; }
+					.addon-quick-buttons .rmm-btn { flex: 1; min-width: 120px; font-size: 0.8em; }
+					/* Input rows full width */
+					.input-row { flex-direction: column; }
+					.input-row input { width: 100%; box-sizing: border-box; }
+					/* Table scroll */
+					.table-container { max-height: 250px; font-size: 0.85em; }
+					/* Launcher selects */
+					.rmm-form-grid { grid-template-columns: 1fr !important; }
+					/* Console */
+					.console-output { max-height: 180px; font-size: 0.8em; }
+					/* Modal */
+					.rmm-modal-content { width: 90%; margin: 15% auto; padding: 18px; }
+					/* Monitor cards */
+					#monitor_content { grid-template-columns: 1fr !important; }
+					/* Friendly buttons */
+					.friendly-buttons-flow button { font-size: 0.75em; padding: 4px 8px; }
+					/* Avisos */
+					.rmm-aviso-preview { font-size: 0.8em; }
+					/* List group */
+					.list-group-item { font-size: 0.85em; padding: 10px 14px; }
+				}
+				</style>
 
 		<!-- JAVASCRIPT LOGIC -->
 		<script>
