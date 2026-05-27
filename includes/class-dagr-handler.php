@@ -137,7 +137,11 @@ class RMM_DAGR_Handler {
 
 	public function render_tactical_map( $atts ) {
 		global $wpdb;
-		$atts = shortcode_atts( array( 'height' => '600px', 'map' => '' ), $atts );
+		$atts = shortcode_atts( array( 'height' => '600px', 'map' => '', 'markers' => '', 'positions' => '' ), $atts );
+
+				$static_markers = ! empty( $atts['markers'] ) ? json_decode( stripslashes( $atts['markers'] ), true ) : array();
+				$static_positions = ! empty( $atts['positions'] ) ? json_decode( stripslashes( $atts['positions'] ), true ) : array();
+				$has_static_data = ! empty( $static_markers ) || ! empty( $static_positions );
 
 		$map_name = sanitize_text_field( $atts['map'] );
 		$active = null;
@@ -213,7 +217,12 @@ class RMM_DAGR_Handler {
 			var currentUserId = <?php echo get_current_user_id() ?: 0; ?>;
 			var tilesUrl = '<?php echo esc_url( $tiles_url ); ?>';
 
-			// Toggle buttons
+						/* DATOS ESTATICOS via shortcode */
+						var staticMarkers = <?php echo json_encode( $static_markers ); ?>;
+						var staticPositions = <?php echo json_encode( $static_positions ); ?>;
+						var hasStaticData = <?php echo $has_static_data ? 'true' : 'false'; ?>;
+
+						// Toggle buttons
 			var toggleContainer = container.querySelector('.dagr-mode-toggle');
 			toggleContainer.querySelectorAll('.dagr-mode-btn').forEach(function(btn) {
 				var m = btn.dataset.mode;
@@ -290,7 +299,22 @@ class RMM_DAGR_Handler {
 			var playerIcons = {};
 
 			function updatePositions() {
-				var url = '<?php echo rest_url( 'clan/v1/dagr/positions' ); ?>?map=<?php echo urlencode( $map_name ); ?>';
+							if ( hasStaticData ) {
+												staticPositions.forEach(function(p) {
+													var latlng = gameToLatLng(p.pos_x, p.pos_y);
+													var color = p.color || '#58a6ff';
+													var size = '10px';
+													var icon = L.divIcon({
+														className: 'dagr-player-marker',
+														html: '<div style="width:'+size+';height:'+size+';background:'+color+';border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px ' + color + ';" title="' + (p.name||'') + '"></div>',
+														iconSize: [14,14],
+														iconAnchor: [7,7]
+													});
+													L.marker(latlng, { icon: icon }).addTo(map).bindTooltip(p.name||'', { direction:'top', offset:[0,-8] });
+												});
+												return;
+											}
+							var url = '<?php echo rest_url( 'clan/v1/dagr/positions' ); ?>?map=<?php echo urlencode( $map_name ); ?>';
 				fetch(url).then(function(r) { return r.json(); }).then(function(data) {
 					if (!data.players) return;
 					var seen = {};
@@ -348,7 +372,16 @@ class RMM_DAGR_Handler {
 			};
 
 			function updateMapMarkers() {
-				var url = '<?php echo rest_url( 'clan/v1/dagr/markers' ); ?>?map=<?php echo urlencode( $map_name ); ?>';
+							if ( hasStaticData ) {
+								staticMarkers.forEach(function(m) {
+									var latlng = gameToLatLng(m.pos_x, m.pos_y);
+									var html = markerIcons[m.type] || markerIcons['marker'];
+									var icon = L.divIcon({ className: 'dagr-map-marker', html: html, iconSize: [20,20], iconAnchor: [10,10] });
+									L.marker(latlng, { icon: icon }).addTo(map).bindTooltip(m.label || m.type, { direction:'top', offset:[0,-12] });
+								});
+								return;
+							}
+							var url = '<?php echo rest_url( 'clan/v1/dagr/markers' ); ?>?map=<?php echo urlencode( $map_name ); ?>';
 				fetch(url).then(function(r) { return r.json(); }).then(function(data) {
 					if (!data.markers) return;
 					var seen = {};
@@ -382,9 +415,12 @@ class RMM_DAGR_Handler {
 				});
 			}
 
-			updateMapMarkers();
-			setInterval(updateMapMarkers, 15000);
-		})();
+						updateMapMarkers();
+						if ( ! hasStaticData ) {
+							setInterval(updatePositions, 10000);
+							setInterval(updateMapMarkers, 15000);
+						}
+					})();
 		</script>
 		<?php
 		return ob_get_clean();
