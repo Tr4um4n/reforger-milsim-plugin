@@ -335,8 +335,20 @@ class RMM_DAGR_Handler {
 			}
 
 			// Marcadores de jugadores
-			var playerMarkers = {};
-			var playerIcons = {};
+						var playerMarkers = {};
+						var playerIcons = {};
+
+						// ── Coordenadas en el puntero ──
+						var coordDiv = document.createElement('div');
+						coordDiv.style.cssText = 'position:absolute;bottom:8px;left:8px;z-index:1000;background:rgba(0,0,0,0.75);color:#CFDC35;font-family:monospace;font-size:0.7rem;padding:4px 10px;border-radius:4px;pointer-events:none;letter-spacing:0.05em;';
+						coordDiv.textContent = 'X:---- Y:----';
+						container.appendChild(coordDiv);
+
+						map.on('mousemove', function(e) {
+							var x = (e.latlng.lng - edgeOffset).toFixed(0);
+							var y = (e.latlng.lat - edgeOffset).toFixed(0);
+							coordDiv.textContent = 'X:' + x.padStart(4,'0') + ' Y:' + y.padStart(4,'0');
+						});
 
 			function updatePositions() {
 				if ( hasStaticData ) {
