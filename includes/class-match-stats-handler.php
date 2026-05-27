@@ -103,7 +103,7 @@ class RMM_Match_Stats_Handler {
 			<div style="background: rgba(132,155,76,0.05); border: 1px solid rgba(132,155,76,0.15); border-radius: 5px; padding: 12px;">
 				<div style="font-size: 0.6rem; color: #849b4c; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; margin-bottom: 10px;">Estadisticas Totales</div>
 			
-				<div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;">
+				<div class="rmm-match-stats-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;">
 				
 					<div class="rmm-match-stat-card" style="background: #0d1117; border: 1px solid #21262d; border-radius: 5px; padding: 8px 5px; text-align: center; transition: transform 0.2s, border-color 0.2s;">
 						<span style="font-size: 0.5rem; color: #484f58; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Bajas</span>
@@ -136,6 +136,9 @@ class RMM_Match_Stats_Handler {
 				.rmm-match-stat-card:hover {
 					transform: translateY(-3px);
 					border-color: #849b4c;
+				}
+				@media (max-width: 480px) {
+					.rmm-match-stats-grid { grid-template-columns: repeat(3, 1fr) !important; }
 				}
 				</style>
 			</div>
