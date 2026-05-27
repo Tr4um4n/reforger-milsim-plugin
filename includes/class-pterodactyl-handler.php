@@ -482,9 +482,12 @@ class RMM_Pterodactyl_Handler {
 	 */
 	public function upload_orbat_link_config( $server_id ) {
 		$config = array(
-			'm_sBaseUrl'            => get_option( 'rmm_orbatlink_base_url', 'https://tfrpruebas.gure.party' ),
+			'm_sBaseUrl'            => get_option( 'rmm_orbatlink_base_url', 'https://tfr.gure.party' ),
 			'm_sRoute'              => get_option( 'rmm_orbatlink_route', '/wp-json/clan/v1/telemetry/push' ),
 			'm_sBearerToken'        => get_option( 'rmm_orbatlink_token', get_option( 'rmm_telemetry_auth_key', 'TFR_6F8C2E9A1D4B47C99A1E7D6F3B2A8C10' ) ),
+			'm_sMissionId'          => '',
+			'm_sScenarioId'         => '',
+			'm_sScenarioName'       => '',
 			'm_bDebug'              => get_option( 'rmm_orbatlink_debug', '1' ) === '1',
 			'm_bSendOnDisconnect'   => get_option( 'rmm_orbatlink_send_disconnect', '1' ) === '1',
 			'm_bSendOnGameEnd'      => get_option( 'rmm_orbatlink_send_gameend', '1' ) === '1',

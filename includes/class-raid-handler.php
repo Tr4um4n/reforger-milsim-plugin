@@ -620,9 +620,8 @@ class RMM_Raid_Handler {
 ";
 				$msg .= "📅 <b>$dia " . $dt->format('j') . "</b>
 ";
-				$msg .= "🕒 <b>{$hora}h</b>
-";
-				$msg .= "
+				$msg .= "🕒 <b>{$hora}h (hora peninsular)</b>\n";
+				$msg .= "\n
 🔗 " . get_permalink( $post_id ) . "
 ";
 				$msg .= "

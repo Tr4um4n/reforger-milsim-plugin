@@ -128,8 +128,8 @@ class RMM_Telemetry_Handler {
 			$this->update_player_stats( $user->ID, $player_data );
 			$results['players_updated']++;
 			
-			// Disparar hook para evaluar reglas de condecoraciones
-			do_action( 'rmm_after_telemetry_update', $user->ID, 'telemetry' );
+			// Disparar hook para evaluar reglas de condecoraciones y tracking de sesion
+			do_action( 'rmm_after_telemetry_update', $user->ID, 'telemetry', $player_data );
 			
 			// Si el payload incluye scenario_name, actualizar la sesion activa
 			if ( ! empty( $data['scenario_name'] ) || ! empty( $data['scenario_id'] ) ) {
@@ -142,6 +142,26 @@ class RMM_Telemetry_Handler {
 					if ( ! empty( $data['scenario_id'] ) ) $update['scenario_id'] = sanitize_text_field( $data['scenario_id'] );
 					if ( ! empty( $update ) ) $wpdb->update( $sess_table, $update, array( 'id' => $active->id ) );
 				}
+			}
+
+			// Procesar marcadores DAGR si vienen en el payload
+			if ( ! empty( $data['markers'] ) && is_array( $data['markers'] ) ) {
+				$map = sanitize_text_field( $data['map'] ?? ( $data['scenario_name'] ?? '' ) );
+				$key = 'dagr_markers_' . ( $map ?: 'all' );
+				$clean = array();
+				foreach ( $data['markers'] as $m ) {
+					$clean[] = array(
+						'id'     => sanitize_text_field( $m['id'] ?? uniqid('m') ),
+						'type'   => sanitize_text_field( $m['type'] ?? 'marker' ),
+						'label'  => sanitize_text_field( $m['label'] ?? '' ),
+						'pos_x'  => floatval( $m['pos_x'] ?? 0 ),
+						'pos_y'  => floatval( $m['pos_y'] ?? 0 ),
+						'color'  => sanitize_text_field( $m['color'] ?? '#d2a850' ),
+						'author' => sanitize_text_field( $m['author'] ?? '' ),
+						'time'   => current_time( 'mysql' ),
+					);
+				}
+				set_transient( $key, $clean, 3600 );
 			}
 		}
 
@@ -211,6 +231,21 @@ class RMM_Telemetry_Handler {
 			'rmm_saline'      => array( 'medical_saline_applied', 'medical _saline_applied' ),
 			'rmm_morphine'    => array( 'medical_morphine_applied', 'medical _morphine_applied' ),
 			'rmm_epinephrine' => array( 'medical_epinephrine_applied', 'medical _epinephrine_applied' ),
+			'rmm_dist_walked' => array( 'distance_walked_m' ),
+			'rmm_dist_vehicle'=> array( 'distance_in_vehicle_m' ),
+			'rmm_dist_total'  => array( 'distance_total_m' ),
+			'rmm_veh_destroyed'=> array( 'vehicles_destroyed_total' ),
+			'rmm_veh_light'   => array( 'vehicles_destroyed_light' ),
+			'rmm_veh_heavy'   => array( 'vehicles_destroyed_heavy' ),
+			'rmm_veh_air'     => array( 'vehicles_destroyed_air' ),
+			'rmm_veh_sea'     => array( 'vehicles_destroyed_sea' ),
+			'rmm_veh_static'  => array( 'vehicles_destroyed_static' ),
+			'rmm_explosives'  => array( 'placed_explosives_detonated' ),
+			'rmm_pos_x'      => array( 'pos_x' ),
+			'rmm_pos_y'      => array( 'pos_y' ),
+			'rmm_pos_z'      => array( 'pos_z' ),
+			'rmm_heading'    => array( 'heading' ),
+			'rmm_map'        => array( 'map' ),
 		);
 
 		// Convertir tiempo a horas como float (NO int) para no perder precisión
@@ -233,14 +268,19 @@ class RMM_Telemetry_Handler {
 
 					if ( $value === null ) continue;
 
-					// Para horas usamos floatval para preservar minutos, para el resto intval
-					if ( $meta_key === 'rmm_hours' ) {
+					// Para horas y posiciones usamos floatval, el resto intval
+					if ( $meta_key === 'rmm_hours' || str_starts_with( $meta_key, 'rmm_pos_' ) || $meta_key === 'rmm_heading' ) {
 						$current = floatval( get_user_meta( $user_id, $meta_key, true ) ?: 0 );
-						if ( $cumulative ) {
+						// Posiciones y heading NUNCA se acumulan (son estado actual, no total)
+						$no_accumulate = str_starts_with( $meta_key, 'rmm_pos_' ) || $meta_key === 'rmm_heading';
+						if ( $cumulative && ! $no_accumulate ) {
 							update_user_meta( $user_id, $meta_key, round( $current + floatval( $value ), 4 ) );
 						} else {
 							update_user_meta( $user_id, $meta_key, round( floatval( $value ), 4 ) );
 						}
+					} elseif ( $meta_key === 'rmm_map' ) {
+						// String: guardar tal cual
+						update_user_meta( $user_id, $meta_key, sanitize_text_field( $value ) );
 					} else {
 						$current = intval( get_user_meta( $user_id, $meta_key, true ) ?: 0 );
 						if ( $cumulative ) {

@@ -191,13 +191,12 @@ class RMM_Medals_Handler {
 					</a>
 				<?php endforeach; ?>
 			</div>
-		</div>
-		<?php
-		return ob_get_clean();
-	}
+			<?php
+			return ob_get_clean();
+		}
 
-	/**
-	 * Shortcode: Listado de Miembros del Clan [clan_lista_miembros]
+		/**
+		 * Shortcode: Listado de Miembros del Clan [clan_lista_miembros]
 	 */
 	public function render_members_list( $atts ) {
 		global $wpdb;
@@ -751,25 +750,58 @@ class RMM_Medals_Handler {
 			/* ── Responsive ── */
 			@media (max-width: 640px) {
 				.rmm-members-grid {
-					grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-					gap: 12px;
+					grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+					gap: 10px;
+				}
+				.rmm-operator-card {
+					min-height: 260px;
 				}
 				.rmm-card-body {
-					padding: 14px 10px 10px;
+					padding: 12px 8px 8px;
 				}
 				.rmm-avatar-img {
-					width: 60px !important;
-					height: 60px !important;
+					width: 55px !important;
+					height: 55px !important;
 				}
 				.rmm-card-name {
-					font-size: 0.8rem;
+					font-size: 0.75rem;
+				}
+				.rmm-card-rank {
+					font-size: 0.6rem;
 				}
 				.rmm-stat-value {
-					font-size: 0.85rem;
+					font-size: 0.8rem;
+				}
+				.rmm-stat-label {
+					font-size: 0.5rem;
 				}
 				.rmm-ribbon {
-					width: 50px;
-					height: 15px;
+					width: 45px;
+					height: 13px;
+				}
+				.rmm-ribbons-more {
+					min-width: 45px;
+					height: 13px;
+					font-size: 0.5rem;
+				}
+				/* Overlay en movil */
+				.rmm-overlay-scroll {
+					padding: 10px;
+				}
+				.rmm-overlay-title {
+					font-size: 0.6rem;
+					margin-bottom: 8px;
+				}
+				.rmm-overlay-grid {
+					grid-template-columns: 1fr;
+					gap: 6px;
+				}
+				.rmm-overlay-val {
+					font-size: 0.7rem;
+				}
+				.rmm-overlay-action span {
+					font-size: 0.6rem;
+					padding: 5px 0;
 				}
 			}
 			
@@ -867,6 +899,13 @@ class RMM_Medals_Handler {
 		$saline       = intval( get_user_meta( $user_id, 'rmm_saline', true ) ?: 0 );
 		$morphine     = intval( get_user_meta( $user_id, 'rmm_morphine', true ) ?: 0 );
 		$epinephrine  = intval( get_user_meta( $user_id, 'rmm_epinephrine', true ) ?: 0 );
+		// Movilidad y vehiculos
+		$dist_walked    = intval( get_user_meta( $user_id, 'rmm_dist_walked', true ) ?: 0 );
+		$dist_vehicle   = intval( get_user_meta( $user_id, 'rmm_dist_vehicle', true ) ?: 0 );
+		$dist_total     = intval( get_user_meta( $user_id, 'rmm_dist_total', true ) ?: 0 );
+		$veh_destroyed  = intval( get_user_meta( $user_id, 'rmm_veh_destroyed', true ) ?: 0 );
+		$veh_air        = intval( get_user_meta( $user_id, 'rmm_veh_air', true ) ?: 0 );
+		$explosives     = intval( get_user_meta( $user_id, 'rmm_explosives', true ) ?: 0 );
 		$steamid_64   = get_user_meta( $user_id, 'steamid_64', true );
 		$bohemia_uid  = get_user_meta( $user_id, 'bohemia_uid', true );
 		$enrol_date   = get_user_meta( $user_id, 'rmm_enrolment_date', true );
@@ -966,7 +1005,7 @@ class RMM_Medals_Handler {
 			</div>
 
 			<!-- Cabecera de Ficha Táctica: 2 columnas -->
-			<div style="display: grid; grid-template-columns: 280px 1fr; gap: 24px; padding: 24px; border-bottom: 1px solid #21262d;">
+			<div class="rmm-profile-header" style="display: grid; grid-template-columns: 280px 1fr; gap: 24px; padding: 24px; border-bottom: 1px solid #21262d;">
 				
 				<!-- Columna Izquierda: Avatar + Info -->
 				<div style="display: flex; flex-direction: column; align-items: center; text-align: center;">
@@ -978,7 +1017,7 @@ class RMM_Medals_Handler {
 					elseif ( $first_role_slug === 'recluta' ) $border_color = '#3b82f6';
 					elseif ( $first_role_slug === 'activo' ) $border_color = '#22c55e';
 					?>
-					<?php echo get_avatar( $user_id, 140, '', '', array( 'class' => 'rmm-profile-avatar', 'style' => 'border-radius: 8px; border: 3px solid ' . $border_color . '; object-fit: cover; width: 140px; height: 140px; box-shadow: 0 0 20px rgba(0,0,0,0.5);' ) ); ?>
+					<?php echo get_avatar( $user_id, 140, '', '', array( 'class' => 'rmm-profile-avatar rmm-profile-avatar-img', 'style' => 'border-radius: 8px; border: 3px solid ' . $border_color . '; object-fit: cover; width: 140px; height: 140px; box-shadow: 0 0 20px rgba(0,0,0,0.5);' ) ); ?>
 					
 					<h1 style="font-size: 1.5rem; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.03em; margin: 14px 0 8px;"><?php echo esc_html( $user->display_name ); ?></h1>
 					
@@ -1003,7 +1042,7 @@ class RMM_Medals_Handler {
 					<h3 style="font-size: 0.75rem; font-weight: 700; color: #58a6ff; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid #21262d; padding-bottom: 10px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
 						<i class="fa-solid fa-file-shield"></i> DOSSIER DE COMBATE DEL OPERADOR
 					</h3>
-					<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+					<div class="rmm-profile-dossier-stats" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
 						
 						<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 12px; text-align: center;">
 							<i class="fa-solid fa-flag" style="color: #58a6ff; font-size: 1rem; margin-bottom: 6px; display: block;"></i>
@@ -1048,12 +1087,6 @@ class RMM_Medals_Handler {
 						</div>
 						
 						<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 12px; text-align: center;">
-							<i class="fa-solid fa-explosion" style="color: #f78166; font-size: 1rem; margin-bottom: 6px; display: block;"></i>
-							<span style="display: block; font-size: 0.55rem; text-transform: uppercase; color: #8b949e; letter-spacing: 0.05em; margin-bottom: 4px;"><?php _e( 'Impactos', 'reforger-milsim' ); ?></span>
-							<strong style="font-size: 1.3rem; color: #fff; font-family: monospace;"><?php echo $shots_hit; ?></strong>
-						</div>
-						
-						<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 12px; text-align: center;">
 							<i class="fa-solid fa-bandage" style="color: #f778ba; font-size: 1rem; margin-bottom: 6px; display: block;"></i>
 							<span style="display: block; font-size: 0.55rem; text-transform: uppercase; color: #8b949e; letter-spacing: 0.05em; margin-bottom: 4px;"><?php _e( 'Vendajes', 'reforger-milsim' ); ?></span>
 							<strong style="font-size: 1.3rem; color: #fff; font-family: monospace;"><?php echo $bandages; ?></strong>
@@ -1081,9 +1114,39 @@ class RMM_Medals_Handler {
 							<i class="fa-solid fa-heart-pulse" style="color: #dc2626; font-size: 1rem; margin-bottom: 6px; display: block;"></i>
 							<span style="display: block; font-size: 0.55rem; text-transform: uppercase; color: #8b949e; letter-spacing: 0.05em; margin-bottom: 4px;"><?php _e( 'Epinefrina', 'reforger-milsim' ); ?></span>
 							<strong style="font-size: 1.3rem; color: #fff; font-family: monospace;"><?php echo $epinephrine; ?></strong>
-						</div>
+							</div>
 						
-					</div>
+							<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 12px; text-align: center;">
+								<i class="fa-solid fa-person-walking" style="color: #58a6ff; font-size: 1rem; margin-bottom: 6px; display: block;"></i>
+								<span style="display: block; font-size: 0.55rem; text-transform: uppercase; color: #8b949e; letter-spacing: 0.05em; margin-bottom: 4px;"><?php _e( 'Dist. a pie', 'reforger-milsim' ); ?></span>
+								<strong style="font-size: 1.3rem; color: #fff; font-family: monospace;"><?php echo number_format( $dist_walked / 1000, 1 ); ?>km</strong>
+							</div>
+						
+							<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 12px; text-align: center;">
+								<i class="fa-solid fa-car" style="color: #d2a850; font-size: 1rem; margin-bottom: 6px; display: block;"></i>
+								<span style="display: block; font-size: 0.55rem; text-transform: uppercase; color: #8b949e; letter-spacing: 0.05em; margin-bottom: 4px;"><?php _e( 'Dist. vehiculo', 'reforger-milsim' ); ?></span>
+								<strong style="font-size: 1.3rem; color: #fff; font-family: monospace;"><?php echo number_format( $dist_vehicle / 1000, 1 ); ?>km</strong>
+							</div>
+						
+							<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 12px; text-align: center;">
+								<i class="fa-solid fa-burst" style="color: #f78166; font-size: 1rem; margin-bottom: 6px; display: block;"></i>
+								<span style="display: block; font-size: 0.55rem; text-transform: uppercase; color: #8b949e; letter-spacing: 0.05em; margin-bottom: 4px;"><?php _e( 'Vehiculos destruidos', 'reforger-milsim' ); ?></span>
+								<strong style="font-size: 1.3rem; color: #fff; font-family: monospace;"><?php echo $veh_destroyed; ?></strong>
+							</div>
+						
+							<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 12px; text-align: center;">
+								<i class="fa-solid fa-helicopter" style="color: #a371f7; font-size: 1rem; margin-bottom: 6px; display: block;"></i>
+								<span style="display: block; font-size: 0.55rem; text-transform: uppercase; color: #8b949e; letter-spacing: 0.05em; margin-bottom: 4px;"><?php _e( 'Aeronaves derribadas', 'reforger-milsim' ); ?></span>
+								<strong style="font-size: 1.3rem; color: #fff; font-family: monospace;"><?php echo $veh_air; ?></strong>
+							</div>
+						
+							<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 12px; text-align: center;">
+								<i class="fa-solid fa-bomb" style="color: #dc2626; font-size: 1rem; margin-bottom: 6px; display: block;"></i>
+								<span style="display: block; font-size: 0.55rem; text-transform: uppercase; color: #8b949e; letter-spacing: 0.05em; margin-bottom: 4px;"><?php _e( 'Explosivos detonados', 'reforger-milsim' ); ?></span>
+								<strong style="font-size: 1.3rem; color: #fff; font-family: monospace;"><?php echo $explosives; ?></strong>
+							</div>
+						
+						</div>
 				</div>
 
 			</div>
@@ -1329,6 +1392,31 @@ class RMM_Medals_Handler {
 			</script>
 
 		</div>
+
+		<style>
+		/* Responsive para el perfil de operador */
+		@media (max-width: 768px) {
+			.rmm-operator-profile .rmm-profile-header {
+				grid-template-columns: 1fr !important;
+				gap: 16px !important;
+				padding: 16px !important;
+			}
+			.rmm-operator-profile .rmm-profile-dossier-stats {
+				grid-template-columns: repeat(3, 1fr) !important;
+				gap: 8px !important;
+			}
+		}
+		@media (max-width: 480px) {
+			.rmm-operator-profile .rmm-profile-dossier-stats {
+				grid-template-columns: repeat(2, 1fr) !important;
+			}
+			.rmm-operator-profile .rmm-profile-avatar-img {
+				width: 100px !important;
+				height: 100px !important;
+			}
+		}
+		</style>
+
 		<?php
 		return ob_get_clean();
 		}

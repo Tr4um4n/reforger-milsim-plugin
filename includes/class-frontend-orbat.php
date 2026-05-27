@@ -46,9 +46,12 @@ class RMM_Frontend_ORBAT {
 								$fecha_inicio .= ':00';
 							}
 					$dt = DateTime::createFromFormat( 'Y-m-d H:i:s', $fecha_inicio, wp_timezone() );
-			if ( ! $dt ) return '';
+					if ( ! $dt ) return '';
 		
-			return ucfirst( wp_date( 'l, j \d\e F \a \l\a\s H:i', $dt->getTimestamp() ) );
+					$offset = $dt->format('Z') / 3600;
+					$utc = 'UTC' . ($offset >= 0 ? '+' : '') . $offset;
+		
+					return ucfirst( wp_date( 'l, j \d\e F \a \l\a\s H:i', $dt->getTimestamp() ) ) . ' (' . $utc . ' Peninsular)';
 		}
 
 	public function render_legacy_orbat_shortcode( $atts ) {

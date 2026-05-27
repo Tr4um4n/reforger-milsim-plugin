@@ -1,35 +1,15 @@
-MIT License with Non-Commercial Clause
+Non-Commercial License
 
-Copyright (c) 2026 Antigravity, TRAUMAN, Gemini, DeepSeek, Zed
+Copyright (c) 2026 Tr4um4n
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, and distribute copies of the Software,
-and to permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to use, copy, modify, merge, publish, and distribute copies of the Software for personal, community, educational, and non-commercial purposes only, subject to the following conditions:
 
-1. The above copyright notice and this permission notice shall be included in all
-   copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-2. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+Commercial use of the Software is strictly prohibited without prior written permission from the copyright holder.
 
-3. NON-COMMERCIAL USE ONLY: This Software may not be used, sold, licensed, or
-   otherwise distributed for commercial purposes or financial gain. "Commercial
-   purposes" includes, but is not limited to:
-   - Selling access to the Software as a service
-   - Including the Software in a paid product
-   - Using the Software to generate revenue directly or indirectly
-   
-   Use by non-profit organizations, educational institutions, and personal
-   gaming communities is explicitly permitted.
+Commercial use includes, but is not limited to, selling the Software, selling modified versions of the Software, including the Software in paid products or services, sublicensing it for commercial purposes, monetizing it, renting it, or using it in any product, service, server, platform, or project intended to generate revenue.
 
-4. DERIVATIVE WORKS: Modifications and derivative works are permitted under
-   the same non-commercial terms. Attribution to the original authors must
-   be maintained.
+You may not remove, alter, or obscure any copyright, license, or attribution notice included with the Software.
 
----
-Proyecto: Arma Reforger MILSIM Management [=TFR=]
-Repositorio: https://github.com/Tr4um4n/reforger-milsim-plugin
+The Software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and noninfringement. In no event shall the authors or copyright holders be liable for any claim, damages, or other liability, whether in an action of contract, tort, or otherwise, arising from, out of, or in connection with the Software or the use or other dealings in the Software.

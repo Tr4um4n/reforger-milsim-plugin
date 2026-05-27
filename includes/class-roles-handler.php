@@ -185,6 +185,12 @@ class RMM_Roles_Handler {
 		$saline          = get_the_author_meta( 'rmm_saline', $user->ID ) ?: 0;
 		$morphine        = get_the_author_meta( 'rmm_morphine', $user->ID ) ?: 0;
 		$epinephrine     = get_the_author_meta( 'rmm_epinephrine', $user->ID ) ?: 0;
+		$dist_walked     = get_the_author_meta( 'rmm_dist_walked', $user->ID ) ?: 0;
+		$dist_vehicle    = get_the_author_meta( 'rmm_dist_vehicle', $user->ID ) ?: 0;
+		$dist_total      = get_the_author_meta( 'rmm_dist_total', $user->ID ) ?: 0;
+		$veh_destroyed   = get_the_author_meta( 'rmm_veh_destroyed', $user->ID ) ?: 0;
+		$veh_air         = get_the_author_meta( 'rmm_veh_air', $user->ID ) ?: 0;
+		$explosives      = get_the_author_meta( 'rmm_explosives', $user->ID ) ?: 0;
 		$history         = get_user_meta( $user->ID, 'rmm_role_history', true );
 		?>
 		<h3><?php _e( 'Información Táctica (Arma Reforger)', 'reforger-milsim' ); ?></h3>
@@ -286,6 +292,36 @@ class RMM_Roles_Handler {
 				<th><label for="rmm_epinephrine"><?php _e( 'Epinefrina aplicada', 'reforger-milsim' ); ?></label></th>
 				<td>
 					<input type="number" name="rmm_epinephrine" id="rmm_epinephrine" value="<?php echo esc_attr( $epinephrine ); ?>" min="0" class="small-text" />
+				</td>
+			</tr>
+			<tr>
+				<th><label for="rmm_dist_walked"><?php _e( 'Distancia a pie (m)', 'reforger-milsim' ); ?></label></th>
+				<td>
+					<input type="number" name="rmm_dist_walked" id="rmm_dist_walked" value="<?php echo esc_attr( $dist_walked ); ?>" min="0" class="regular-text" />
+				</td>
+			</tr>
+			<tr>
+				<th><label for="rmm_dist_vehicle"><?php _e( 'Distancia en vehiculo (m)', 'reforger-milsim' ); ?></label></th>
+				<td>
+					<input type="number" name="rmm_dist_vehicle" id="rmm_dist_vehicle" value="<?php echo esc_attr( $dist_vehicle ); ?>" min="0" class="regular-text" />
+				</td>
+			</tr>
+			<tr>
+				<th><label for="rmm_veh_destroyed"><?php _e( 'Vehiculos destruidos', 'reforger-milsim' ); ?></label></th>
+				<td>
+					<input type="number" name="rmm_veh_destroyed" id="rmm_veh_destroyed" value="<?php echo esc_attr( $veh_destroyed ); ?>" min="0" class="small-text" />
+				</td>
+			</tr>
+			<tr>
+				<th><label for="rmm_veh_air"><?php _e( 'Aeronaves derribadas', 'reforger-milsim' ); ?></label></th>
+				<td>
+					<input type="number" name="rmm_veh_air" id="rmm_veh_air" value="<?php echo esc_attr( $veh_air ); ?>" min="0" class="small-text" />
+				</td>
+			</tr>
+			<tr>
+				<th><label for="rmm_explosives"><?php _e( 'Explosivos detonados', 'reforger-milsim' ); ?></label></th>
+				<td>
+					<input type="number" name="rmm_explosives" id="rmm_explosives" value="<?php echo esc_attr( $explosives ); ?>" min="0" class="small-text" />
 				</td>
 			</tr>
 		</table>
@@ -416,6 +452,21 @@ class RMM_Roles_Handler {
 		}
 		if ( isset( $_POST['rmm_epinephrine'] ) ) {
 			update_user_meta( $user_id, 'rmm_epinephrine', intval( $_POST['rmm_epinephrine'] ) );
+		}
+		if ( isset( $_POST['rmm_dist_walked'] ) ) {
+			update_user_meta( $user_id, 'rmm_dist_walked', intval( $_POST['rmm_dist_walked'] ) );
+		}
+		if ( isset( $_POST['rmm_dist_vehicle'] ) ) {
+			update_user_meta( $user_id, 'rmm_dist_vehicle', intval( $_POST['rmm_dist_vehicle'] ) );
+		}
+		if ( isset( $_POST['rmm_veh_destroyed'] ) ) {
+			update_user_meta( $user_id, 'rmm_veh_destroyed', intval( $_POST['rmm_veh_destroyed'] ) );
+		}
+		if ( isset( $_POST['rmm_veh_air'] ) ) {
+			update_user_meta( $user_id, 'rmm_veh_air', intval( $_POST['rmm_veh_air'] ) );
+		}
+		if ( isset( $_POST['rmm_explosives'] ) ) {
+			update_user_meta( $user_id, 'rmm_explosives', intval( $_POST['rmm_explosives'] ) );
 		}
 		
 		// Detectar cambios de rol (compatible con Members plugin que usa $_POST['role'] como array)

@@ -123,6 +123,10 @@ class RMM_Calendar_Handler {
 		) );
 
 		$formatted_events = array();
+		$tz = wp_timezone();
+		$now = new DateTime( 'now', $tz );
+		$utc_offset = $now->format('Z') / 3600;
+		$utc_label = 'UTC' . ($utc_offset >= 0 ? '+' : '') . $utc_offset;
 
 		foreach ( $events_posts as $post ) {
 			$inicio = get_post_meta( $post->ID, 'fecha_inicio', true );
@@ -137,7 +141,7 @@ class RMM_Calendar_Handler {
 
 			$formatted_events[] = array(
 				'id'        => $post->ID,
-				'title'     => $post->post_title,
+				'title'     => $post->post_title . ' [' . $utc_label . ']',
 				'start'     => $start_formatted,
 				// Eliminado 'end' para que FullCalendar dibuje el evento como un punto en el tiempo y no deforme el calendario con bloques que abarcan varios días.
 				'url'       => get_permalink( $post->ID ),

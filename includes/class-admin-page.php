@@ -159,6 +159,12 @@ class RMM_Admin_Page {
 				'params'      => '—',
 			),
 			array(
+				'shortcode'   => '[rmm_tactical_map]',
+				'description' => 'Mapa tactico DAGR con posiciones de jugadores en tiempo real y marcadores de objetivos. Detecta automaticamente la partida activa o permite especificar el mapa.',
+				'context'     => 'Global (cualquier pagina)',
+				'params'      => 'map="everon|arland" height="600px"',
+			),
+			array(
 				'shortcode'   => '[clan_lista_miembros]',
 				'description' => 'Muestra una cuadrícula táctica de miembros con su avatar, nombre, pasador y overlay táctico de estadísticas al pasar el ratón. Al hacer clic, lleva al expediente detallado.',
 				'context'     => 'Global (cualquier página)',
@@ -895,7 +901,7 @@ class RMM_Admin_Page {
 					<div class="rmm-form-grid">
 						<div class="rmm-form-group">
 							<label for="rmm_orbatlink_base_url">Base URL</label>
-							<input type="url" name="rmm_orbatlink_base_url" value="<?php echo esc_url( get_option( 'rmm_orbatlink_base_url', 'https://tfrpruebas.gure.party' ) ); ?>" class="regular-text">
+							<input type="url" name="rmm_orbatlink_base_url" value="<?php echo esc_url( get_option( 'rmm_orbatlink_base_url', 'https://tfr.gure.party' ) ); ?>" class="regular-text">
 						</div>
 						<div class="rmm-form-group">
 							<label for="rmm_orbatlink_route">Ruta del Endpoint</label>

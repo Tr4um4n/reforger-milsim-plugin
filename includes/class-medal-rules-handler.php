@@ -23,7 +23,7 @@ class RMM_Medal_Rules_Handler {
 		add_action( 'wp_ajax_rmm_remove_user_medal', array( $this, 'ajax_remove_user_medal' ) );
 		
 		// Evaluar reglas tras telemetría y tras confirmar asistencia
-		add_action( 'rmm_after_telemetry_update', array( $this, 'evaluate_rules_for_user' ), 10, 2 );
+		add_action( 'rmm_after_telemetry_update', array( $this, 'evaluate_rules_for_user' ), 10, 3 );
 		add_action( 'rmm_after_attendance_update', array( $this, 'evaluate_rules_for_user' ), 10, 2 );
 		
 		// Mostrar medallas en perfil de usuario admin + botón quitar

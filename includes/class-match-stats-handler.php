@@ -9,7 +9,7 @@ class RMM_Match_Stats_Handler {
 
 	public function __construct() {
 		add_shortcode( 'rmm_last_match', array( $this, 'render_last_match' ) );
-		add_action( 'rmm_after_telemetry_update', array( $this, 'track_match_session' ), 10, 2 );
+		add_action( 'rmm_after_telemetry_update', array( $this, 'track_match_session' ), 10, 3 );
 		add_action( 'init', array( $this, 'ensure_table' ) );
 	}
 
@@ -85,7 +85,7 @@ class RMM_Match_Stats_Handler {
 			<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
 				<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 5px; padding: 10px;">
 					<span style="display: block; font-size: 0.55rem; color: #484f58; text-transform: uppercase; letter-spacing: 0.06em;">Horario</span>
-					<strong style="color: #c9d1d9; font-family: monospace; font-size: 0.8rem;"><?php echo esc_html( $time ); ?>h</strong>
+					<strong style="color: #c9d1d9; font-family: monospace; font-size: 0.8rem;"><?php echo esc_html( $time ); ?>h (UTC+2)</strong>
 				</div>
 				<div style="background: #0d1117; border: 1px solid #21262d; border-radius: 5px; padding: 10px;">
 					<span style="display: block; font-size: 0.55rem; color: #484f58; text-transform: uppercase; letter-spacing: 0.06em;">Jugadores</span>
@@ -102,14 +102,45 @@ class RMM_Match_Stats_Handler {
 			<?php if ( $has_stats ) : ?>
 			<div style="background: rgba(132,155,76,0.05); border: 1px solid rgba(132,155,76,0.15); border-radius: 5px; padding: 12px;">
 				<div style="font-size: 0.6rem; color: #849b4c; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; margin-bottom: 10px;">Estadisticas Totales</div>
-				<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
-					<div style="text-align: center;"><span style="display: block; font-size: 0.5rem; color: #484f58; text-transform: uppercase;">Bajas</span><strong style="color: #f85149; font-family: monospace;"><?php echo intval( $session->total_kills ); ?></strong></div>
-					<div style="text-align: center;"><span style="display: block; font-size: 0.5rem; color: #484f58; text-transform: uppercase;">Muertes</span><strong style="color: #8b949e; font-family: monospace;"><?php echo intval( $session->total_deaths ); ?></strong></div>
-					<div style="text-align: center;"><span style="display: block; font-size: 0.5rem; color: #484f58; text-transform: uppercase;">Disparos</span><strong style="color: #c9d1d9; font-family: monospace;"><?php echo intval( $session->total_shots_fired ); ?></strong></div>
-					<div style="text-align: center;"><span style="display: block; font-size: 0.5rem; color: #484f58; text-transform: uppercase;">Impactos</span><strong style="color: #f78166; font-family: monospace;"><?php echo intval( $session->total_shots_hit ); ?></strong></div>
-					<div style="text-align: center;"><span style="display: block; font-size: 0.5rem; color: #484f58; text-transform: uppercase;">Vendajes</span><strong style="color: #f778ba; font-family: monospace;"><?php echo intval( $session->total_bandages ); ?></strong></div>
-					<div style="text-align: center;"><span style="display: block; font-size: 0.5rem; color: #484f58; text-transform: uppercase;">Morfina</span><strong style="color: #7c3aed; font-family: monospace;"><?php echo intval( $session->total_morphine ); ?></strong></div>
+			
+				<div class="rmm-match-stats-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;">
+				
+					<div class="rmm-match-stat-card" style="background: #0d1117; border: 1px solid #21262d; border-radius: 5px; padding: 8px 5px; text-align: center; transition: transform 0.2s, border-color 0.2s;">
+						<span style="font-size: 0.5rem; color: #484f58; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Bajas</span>
+						<strong style="color: #f85149; font-family: 'JetBrains Mono', monospace; font-size: 1rem;"><?php echo intval( $session->total_kills ); ?></strong>
+					</div>
+				
+					<div class="rmm-match-stat-card" style="background: #0d1117; border: 1px solid #21262d; border-radius: 5px; padding: 8px 5px; text-align: center; transition: transform 0.2s, border-color 0.2s;">
+						<span style="font-size: 0.5rem; color: #484f58; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Muertes</span>
+						<strong style="color: #fca5a5; font-family: 'JetBrains Mono', monospace; font-size: 1rem;"><?php echo intval( $session->total_deaths ); ?></strong>
+					</div>
+				
+					<div class="rmm-match-stat-card" style="background: #0d1117; border: 1px solid #21262d; border-radius: 5px; padding: 8px 5px; text-align: center; transition: transform 0.2s, border-color 0.2s;">
+						<span style="font-size: 0.5rem; color: #484f58; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Disparos</span>
+						<strong style="color: #f59e0b; font-family: 'JetBrains Mono', monospace; font-size: 1rem;"><?php echo intval( $session->total_shots_fired ); ?></strong>
+					</div>
+				
+					<div class="rmm-match-stat-card" style="background: #0d1117; border: 1px solid #21262d; border-radius: 5px; padding: 8px 5px; text-align: center; transition: transform 0.2s, border-color 0.2s;">
+						<span style="font-size: 0.5rem; color: #484f58; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Vendajes</span>
+						<strong style="color: #f778ba; font-family: 'JetBrains Mono', monospace; font-size: 1rem;"><?php echo intval( $session->total_bandages ); ?></strong>
+					</div>
+				
+					<div class="rmm-match-stat-card" style="background: #0d1117; border: 1px solid #21262d; border-radius: 5px; padding: 8px 5px; text-align: center; transition: transform 0.2s, border-color 0.2s;">
+						<span style="font-size: 0.5rem; color: #484f58; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Vehiculos</span>
+						<strong style="color: #f78166; font-family: 'JetBrains Mono', monospace; font-size: 1rem;"><?php echo intval( $session->total_shots_hit ); ?></strong>
+					</div>
+				
 				</div>
+			
+				<style>
+				.rmm-match-stat-card:hover {
+					transform: translateY(-3px);
+					border-color: #849b4c;
+				}
+				@media (max-width: 480px) {
+					.rmm-match-stats-grid { grid-template-columns: repeat(3, 1fr) !important; }
+				}
+				</style>
 			</div>
 			<?php endif; ?>
 		</div>
@@ -117,7 +148,7 @@ class RMM_Match_Stats_Handler {
 		return ob_get_clean();
 	}
 
-	public function track_match_session( $user_id, $context ) {
+	public function track_match_session( $user_id, $context, $player_data = array() ) {
 		global $wpdb;
 		$table = $wpdb->prefix . 'rmm_match_sessions';
 		$now = current_time( 'mysql' );
@@ -139,10 +170,37 @@ class RMM_Match_Stats_Handler {
 			$active_id = $active->id;
 		}
 
-		$wpdb->query( $wpdb->prepare(
-			"UPDATE $table SET player_count = player_count + 1 WHERE id = %d AND player_count < 100",
-			$active_id
-		) );
+		// Acumular stats del jugador en la sesion activa
+		$updates = array();
+		$stat_map = array(
+			'kills' => 'total_kills', 'deaths' => 'total_deaths',
+			'shots_fired' => 'total_shots_fired', 'shots_hit' => 'total_shots_hit',
+			'medical_bandages_applied' => 'total_bandages', 'medical_tourniquets_applied' => 'total_tourniquets',
+			'medical_saline_applied' => 'total_saline', 'medical_morphine_applied' => 'total_morphine',
+			'medical_epinephrine_applied' => 'total_epinephrine',
+			'vehicles_destroyed_total' => 'total_shots_hit',
+		);
+		
+		foreach ( $stat_map as $data_key => $col ) {
+			if ( isset( $player_data[ $data_key ] ) && intval( $player_data[ $data_key ] ) > 0 ) {
+				$val = intval( $player_data[ $data_key ] );
+				$updates[] = "$col = $col + $val";
+			}
+		}
+		
+		// Playtime
+		if ( isset( $player_data['playtime_seconds'] ) ) {
+			$updates[] = 'total_playtime_seconds = total_playtime_seconds + ' . intval( $player_data['playtime_seconds'] );
+		} elseif ( isset( $player_data['playtime_minutes'] ) ) {
+			$updates[] = 'total_playtime_seconds = total_playtime_seconds + ' . ( intval( $player_data['playtime_minutes'] ) * 60 );
+		}
+		
+		// Incrementar player_count (1 por usuario unico por sesion, simplificado)
+		$updates[] = 'player_count = CASE WHEN player_count < 100 THEN player_count + 1 ELSE player_count END';
+		
+		if ( ! empty( $updates ) ) {
+			$wpdb->query( "UPDATE $table SET " . implode( ', ', $updates ) . " WHERE id = $active_id" );
+		}
 	}
 
 	public static function finalize_session( $session_id ) {

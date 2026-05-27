@@ -118,6 +118,25 @@ class RMM_DB_Handler {
 			KEY started_at (started_at)
 		) $charset_collate;";
 
+		// Table 7: wp_rmm_dagr_maps
+		$table_dagr = $wpdb->prefix . 'rmm_dagr_maps';
+		$sql7 = "CREATE TABLE $table_dagr (
+			id bigint(20) NOT NULL AUTO_INCREMENT,
+			map_name varchar(100) NOT NULL,
+			display_name varchar(200) DEFAULT '' NOT NULL,
+			tiles_path varchar(500) DEFAULT '' NOT NULL,
+			min_x float DEFAULT 0 NOT NULL,
+			min_y float DEFAULT 0 NOT NULL,
+			max_x float DEFAULT 12800 NOT NULL,
+			max_y float DEFAULT 12800 NOT NULL,
+			scale_factor float DEFAULT 0.08 NOT NULL,
+			edge_offset int(11) DEFAULT 50 NOT NULL,
+			max_zoom int(11) DEFAULT 5 NOT NULL,
+			enabled tinyint(1) DEFAULT 1 NOT NULL,
+			PRIMARY KEY (id),
+			UNIQUE KEY map_name (map_name)
+		) $charset_collate;";
+
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql1 );
 		dbDelta( $sql2 );
@@ -125,5 +144,6 @@ class RMM_DB_Handler {
 		dbDelta( $sql4 );
 		dbDelta( $sql5 );
 		dbDelta( $sql6 );
+		dbDelta( $sql7 );
 	}
 }

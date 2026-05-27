@@ -15,7 +15,6 @@ class RMM_Intel_Handler {
 	}
 
 	public function enqueue_zulu_js() {
-		// Enganchar a jQuery para que Elementor no lo bloquee
 		wp_add_inline_script( 'jquery', '
 			jQuery(function($) {
 				function pad(n) { return n < 10 ? "0" + n : n; }
@@ -25,8 +24,11 @@ class RMM_Intel_Handler {
 					var hh = pad(d.getHours());
 					var mm = pad(d.getMinutes());
 					var dtg = pad(d.getDate()) + hh + mm + "L " + months[d.getMonth()] + " " + d.getFullYear();
+					var offset = -d.getTimezoneOffset() / 60;
+					var utc = "UTC" + (offset >= 0 ? "+" : "") + offset;
 					$(".rmm-zulu-time-val").text(hh + ":" + mm);
 					$(".rmm-zulu-dtg").text(dtg);
+					$(".rmm-zulu-utc").text(utc);
 				}
 				updateZulu();
 				setInterval(updateZulu, 60000);
@@ -143,6 +145,7 @@ class RMM_Intel_Handler {
 				<div class="rmm-zulu-time" style="display:inline-block;font-family:'JetBrains Mono','SF Mono',monospace;font-size:1rem;color:<?php echo esc_attr( $atts['color'] ); ?>;background:rgba(0,0,0,0.45);border:1px solid rgba(207,220,53,0.3);border-radius:4px;padding:8px 16px;letter-spacing:0.06em;backdrop-filter:blur(4px);">
 					<span style="opacity:0.6;font-size:0.7rem;text-transform:uppercase;">⌚ HORA LOCAL •</span>
 					<strong class="rmm-zulu-time-val" style="font-size:1.3rem;letter-spacing:0.08em;">--:--</strong>
+					<span class="rmm-zulu-utc" style="font-size:0.6rem;opacity:0.7;margin:0 4px;">UTC</span>
 					<span class="rmm-zulu-dtg" style="font-size:0.65rem;opacity:0.5;margin-left:6px;">------ --</span>
 				</div>
 				<?php
