@@ -468,91 +468,214 @@ class RMM_DAGR_Handler {
 	}
 
 	public function render_admin_page() {
-		global $wpdb;
-		$table = $wpdb->prefix . 'rmm_dagr_presets';
+			global $wpdb;
+			$table = $wpdb->prefix . 'rmm_dagr_presets';
 
-		// Handle save
-		if ( isset( $_POST['rmm_dagr_save'] ) && check_admin_referer( 'rmm_dagr_nonce' ) ) {
-			$id = intval( $_POST['preset_id'] );
-			$data = array(
-				'title'     => sanitize_text_field( $_POST['title'] ),
-				'map_name'  => sanitize_text_field( $_POST['map_name'] ),
-				'markers'   => wp_unslash( $_POST['markers'] ),
-				'positions' => wp_unslash( $_POST['positions'] ),
-				'height'    => sanitize_text_field( $_POST['height'] ),
-			);
-			if ( $id > 0 ) {
-				$wpdb->update( $table, $data, array( 'id' => $id ) );
-			} else {
-				$wpdb->insert( $table, $data );
-				$id = $wpdb->insert_id;
+			// Handle save
+			if ( isset( $_POST['rmm_dagr_save'] ) && check_admin_referer( 'rmm_dagr_nonce' ) ) {
+				$id = intval( $_POST['preset_id'] );
+				$data = array(
+					'title'     => sanitize_text_field( $_POST['title'] ),
+					'map_name'  => sanitize_text_field( $_POST['map_name'] ),
+					'markers'   => wp_unslash( $_POST['markers'] ),
+					'positions' => wp_unslash( $_POST['positions'] ),
+					'height'    => sanitize_text_field( $_POST['height'] ),
+				);
+				if ( $id > 0 ) {
+					$wpdb->update( $table, $data, array( 'id' => $id ) );
+				} else {
+					$wpdb->insert( $table, $data );
+					$id = $wpdb->insert_id;
+				}
+				echo '<div class="notice notice-success"><p>Mapa guardado. Shortcode: <code>[rmm_tactical_map id="' . $id . '"]</code></p></div>';
 			}
-			echo '<div class="notice notice-success"><p>Mapa guardado. Shortcode: <code>[rmm_tactical_map id="' . $id . '"]</code></p></div>';
-		}
 
-		// Handle delete
-		if ( isset( $_GET['delete'] ) && wp_verify_nonce( $_GET['_wpnonce'], 'rmm_dagr_delete' ) ) {
-			$wpdb->delete( $table, array( 'id' => intval( $_GET['delete'] ) ) );
-			echo '<div class="notice notice-success"><p>Mapa eliminado.</p></div>';
-		}
+			// Handle delete
+			if ( isset( $_GET['delete'] ) && wp_verify_nonce( $_GET['_wpnonce'], 'rmm_dagr_delete' ) ) {
+				$wpdb->delete( $table, array( 'id' => intval( $_GET['delete'] ) ) );
+				echo '<div class="notice notice-success"><p>Mapa eliminado.</p></div>';
+			}
 
-		// Load presets
-		$presets = $wpdb->get_results( "SELECT * FROM $table ORDER BY updated_at DESC" );
+			// Load presets
+			$presets = $wpdb->get_results( "SELECT * FROM $table ORDER BY updated_at DESC" );
 
-		// Load for edit
-		$editing = null;
-		if ( isset( $_GET['edit'] ) ) {
-			$editing = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE id = %d", intval( $_GET['edit'] ) ) );
-		}
+			// Load for edit
+			$editing = null;
+			if ( isset( $_GET['edit'] ) ) {
+				$editing = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE id = %d", intval( $_GET['edit'] ) ) );
+			}
 
-		?>
-		<div class="wrap">
-			<h1>🗺️ Mapas DAGR</h1>
+			// Parse existing data for builder
+			$edit_markers = $editing ? json_decode( $editing->markers, true ) : array(
+				array( 'id' => 'obj1', 'type' => 'objective', 'label' => 'Base', 'pos_x' => 5000, 'pos_y' => 3000 )
+			);
+			$edit_positions = $editing ? json_decode( $editing->positions, true ) : array();
 
-			<div class="card" style="max-width:100%; padding:20px; margin-bottom:20px;">
-				<h2><?php echo $editing ? 'Editar' : 'Nuevo'; ?> Mapa</h2>
-				<form method="post">
-					<?php wp_nonce_field( 'rmm_dagr_nonce' ); ?>
-					<input type="hidden" name="preset_id" value="<?php echo $editing ? $editing->id : 0; ?>">
-					<table class="form-table">
-						<tr><th>Título</th><td><input type="text" name="title" value="<?php echo $editing ? esc_attr($editing->title) : ''; ?>" class="regular-text" required></td></tr>
-						<tr><th>Mapa</th><td><select name="map_name"><option value="everon" <?php selected( $editing ? $editing->map_name : 'everon', 'everon' ); ?>>Everon</option><option value="arland" <?php selected( $editing ? $editing->map_name : '', 'arland' ); ?>>Arland</option></select></td></tr>
-						<tr><th>Marcadores (JSON)</th><td><textarea name="markers" class="large-text" rows="6"><?php echo $editing ? esc_textarea($editing->markers) : '[{"id":"obj1","type":"objective","label":"Base","pos_x":5000,"pos_y":3000}]'; ?></textarea><p class="description">Array JSON. Tipos: objective, completed, danger, info, marker. Campos: id, type, label, pos_x, pos_y</p></td></tr>
-						<tr><th>Posiciones (JSON)</th><td><textarea name="positions" class="large-text" rows="4"><?php echo $editing ? esc_textarea($editing->positions) : '[]'; ?></textarea><p class="description">Array JSON. Campos: name, pos_x, pos_y, color</p></td></tr>
-						<tr><th>Altura</th><td><input type="text" name="height" value="<?php echo $editing ? esc_attr($editing->height) : '600px'; ?>" class="small-text"></td></tr>
+			?>
+			<div class="wrap">
+				<h1>🗺️ Mapas DAGR</h1>
+
+				<div class="card" style="max-width:100%; padding:20px; margin-bottom:20px;">
+					<h2><?php echo $editing ? 'Editar' : 'Nuevo'; ?> Mapa</h2>
+					<form method="post" id="rmm-dagr-form">
+						<?php wp_nonce_field( 'rmm_dagr_nonce' ); ?>
+						<input type="hidden" name="preset_id" value="<?php echo $editing ? $editing->id : 0; ?>">
+						<input type="hidden" name="markers" id="dagr_markers_json" value="<?php echo $editing ? esc_attr($editing->markers) : esc_attr('[{"id":"obj1","type":"objective","label":"Base","pos_x":5000,"pos_y":3000}]'); ?>">
+						<input type="hidden" name="positions" id="dagr_positions_json" value="<?php echo $editing ? esc_attr($editing->positions) : '[]'; ?>">
+
+						<table class="form-table">
+							<tr><th>Título</th><td><input type="text" name="title" value="<?php echo $editing ? esc_attr($editing->title) : ''; ?>" class="regular-text" required></td></tr>
+							<tr><th>Mapa</th><td><select name="map_name" id="dagr_map_select"><option value="everon">Everon</option><option value="arland">Arland</option></select></td></tr>
+							<tr><th>Altura</th><td><input type="text" name="height" value="<?php echo $editing ? esc_attr($editing->height) : '600px'; ?>" class="small-text" placeholder="600px"></td></tr>
+						</table>
+
+						<!-- Builder de Marcadores -->
+						<div style="background:#f9f9f9; border:1px solid #ccd0d4; border-radius:8px; padding:16px; margin:16px 0;">
+							<h3 style="margin-top:0;">🎯 Marcadores</h3>
+							<table class="widefat" id="dagr-markers-table">
+								<thead><tr><th>Tipo</th><th style="width:180px;">Etiqueta</th><th style="width:100px;">X</th><th style="width:100px;">Y</th><th style="width:60px;"></th></tr></thead>
+								<tbody></tbody>
+							</table>
+							<button type="button" class="button" id="dagr-add-marker" style="margin-top:10px;">+ Añadir Marcador</button>
+						</div>
+
+						<!-- Builder de Posiciones -->
+						<div style="background:#f9f9f9; border:1px solid #ccd0d4; border-radius:8px; padding:16px; margin:16px 0;">
+							<h3 style="margin-top:0;">📍 Posiciones</h3>
+							<table class="widefat" id="dagr-positions-table">
+								<thead><tr><th>Nombre</th><th style="width:100px;">X</th><th style="width:100px;">Y</th><th style="width:100px;">Color</th><th style="width:60px;"></th></tr></thead>
+								<tbody></tbody>
+							</table>
+							<button type="button" class="button" id="dagr-add-position" style="margin-top:10px;">+ Añadir Posición</button>
+						</div>
+
+						<p class="submit">
+							<button type="submit" name="rmm_dagr_save" class="button button-primary">Guardar</button>
+							<?php if ( $editing ) : ?>
+								<a href="?page=rmm-dagr-maps" class="button">Cancelar</a>
+							<?php endif; ?>
+						</p>
+					</form>
+				</div>
+
+				<div class="card" style="max-width:100%; padding:20px;">
+					<h2>Mapas Guardados</h2>
+					<table class="wp-list-table widefat striped">
+						<thead><tr><th>ID</th><th>Título</th><th>Mapa</th><th>Shortcode</th><th>Acciones</th></tr></thead>
+						<tbody>
+						<?php if ( empty( $presets ) ) : ?>
+							<tr><td colspan="5">No hay mapas guardados.</td></tr>
+						<?php else : foreach ( $presets as $p ) : ?>
+							<tr>
+								<td><?php echo $p->id; ?></td>
+								<td><?php echo esc_html( $p->title ); ?></td>
+								<td><?php echo esc_html( $p->map_name ); ?></td>
+								<td><code>[rmm_tactical_map id="<?php echo $p->id; ?>"]</code>
+									<button class="button button-small" onclick="navigator.clipboard.writeText('[rmm_tactical_map id=&quot;<?php echo $p->id; ?>&quot;]')">📋 Copiar</button></td>
+								<td>
+									<a href="?page=rmm-dagr-maps&edit=<?php echo $p->id; ?>" class="button button-small">Editar</a>
+									<a href="?page=rmm-dagr-maps&delete=<?php echo $p->id; ?>&_wpnonce=<?php echo wp_create_nonce('rmm_dagr_delete'); ?>" class="button button-small" onclick="return confirm('¿Eliminar?')">Eliminar</a>
+								</td>
+							</tr>
+						<?php endforeach; endif; ?>
+						</tbody>
 					</table>
-					<p class="submit">
-						<button type="submit" name="rmm_dagr_save" class="button button-primary">Guardar</button>
-						<?php if ( $editing ) : ?>
-							<a href="?page=rmm-dagr-maps" class="button">Cancelar</a>
-						<?php endif; ?>
-					</p>
-				</form>
+				</div>
 			</div>
 
-			<div class="card" style="max-width:100%; padding:20px;">
-				<h2>Mapas Guardados</h2>
-				<table class="wp-list-table widefat striped">
-					<thead><tr><th>ID</th><th>Título</th><th>Mapa</th><th>Shortcode</th><th>Acciones</th></tr></thead>
-					<tbody>
-					<?php if ( empty( $presets ) ) : ?>
-						<tr><td colspan="5">No hay mapas guardados.</td></tr>
-					<?php else : foreach ( $presets as $p ) : ?>
-						<tr>
-							<td><?php echo $p->id; ?></td>
-							<td><?php echo esc_html( $p->title ); ?></td>
-							<td><?php echo esc_html( $p->map_name ); ?></td>
-							<td><code>[rmm_tactical_map id="<?php echo $p->id; ?>"]</code> <button class="button button-small" onclick="navigator.clipboard.writeText('[rmm_tactical_map id=&quot;<?php echo $p->id; ?>&quot;]')">📋 Copiar</button></td>
-							<td>
-								<a href="?page=rmm-dagr-maps&edit=<?php echo $p->id; ?>" class="button button-small">Editar</a>
-								<a href="?page=rmm-dagr-maps&delete=<?php echo $p->id; ?>&_wpnonce=<?php echo wp_create_nonce('rmm_dagr_delete'); ?>" class="button button-small" onclick="return confirm('¿Eliminar?')">Eliminar</a>
-							</td>
-						</tr>
-					<?php endforeach; endif; ?>
-					</tbody>
-				</table>
-			</div>
-		</div>
-		<?php
-	}
+			<script>
+			jQuery(function($) {
+				var markerTypes = ['objective','completed','danger','info','marker'];
+				var markerIcons = { objective:'🟢', completed:'🟡', danger:'🔴', info:'🔵', marker:'🟣' };
+				var nextId = 1;
+
+				function updateMarkersJSON() {
+					var markers = [];
+					$('#dagr-markers-table tbody tr').each(function() {
+						var row = $(this);
+						markers.push({
+							id: row.data('id') || ('m'+nextId++),
+							type: row.find('.m-type').val(),
+							label: row.find('.m-label').val(),
+							pos_x: parseFloat(row.find('.m-x').val()) || 0,
+							pos_y: parseFloat(row.find('.m-y').val()) || 0
+						});
+					});
+					$('#dagr_markers_json').val(JSON.stringify(markers));
+				}
+
+				function updatePositionsJSON() {
+					var positions = [];
+					$('#dagr-positions-table tbody tr').each(function() {
+						var row = $(this);
+						positions.push({
+							name: row.find('.p-name').val(),
+							pos_x: parseFloat(row.find('.p-x').val()) || 0,
+							pos_y: parseFloat(row.find('.p-y').val()) || 0,
+							color: row.find('.p-color').val()
+						});
+					});
+					$('#dagr_positions_json').val(JSON.stringify(positions));
+				}
+
+				function addMarkerRow(data) {
+					data = data || { id: 'm'+(nextId++), type:'info', label:'', pos_x:6400, pos_y:6400 };
+					var options = markerTypes.map(function(t) {
+						return '<option value="'+t+'"'+(t===data.type?' selected':'')+'>'+ (markerIcons[t]||'') +' '+t+'</option>';
+					}).join('');
+					var row = '<tr data-id="'+data.id+'">' +
+						'<td><select class="m-type" style="width:100%;">'+options+'</select></td>' +
+						'<td><input type="text" class="m-label" value="'+ (data.label||'') +'" placeholder="Label" style="width:100%;"></td>' +
+						'<td><input type="number" class="m-x" value="'+ (data.pos_x||6400) +'" step="0.1" style="width:100%;"></td>' +
+						'<td><input type="number" class="m-y" value="'+ (data.pos_y||6400) +'" step="0.1" style="width:100%;"></td>' +
+						'<td><button type="button" class="button button-small dagr-remove-row">✕</button></td>' +
+						'</tr>';
+					$('#dagr-markers-table tbody').append(row);
+					updateMarkersJSON();
+				}
+
+				function addPositionRow(data) {
+					data = data || { name:'', pos_x:6400, pos_y:6400, color:'#58a6ff' };
+					var row = '<tr>' +
+						'<td><input type="text" class="p-name" value="'+ (data.name||'') +'" placeholder="Nombre" style="width:100%;"></td>' +
+						'<td><input type="number" class="p-x" value="'+ (data.pos_x||6400) +'" step="0.1" style="width:100%;"></td>' +
+						'<td><input type="number" class="p-y" value="'+ (data.pos_y||6400) +'" step="0.1" style="width:100%;"></td>' +
+						'<td><input type="color" class="p-color" value="'+ (data.color||'#58a6ff') +'" style="width:50px;"></td>' +
+						'<td><button type="button" class="button button-small dagr-remove-row">✕</button></td>' +
+						'</tr>';
+					$('#dagr-positions-table tbody').append(row);
+					updatePositionsJSON();
+				}
+
+				// Init from existing data
+				var initMarkers = <?php echo json_encode( $edit_markers ); ?>;
+				var initPositions = <?php echo json_encode( $edit_positions ); ?>;
+				if ( initMarkers && initMarkers.length ) {
+					initMarkers.forEach(addMarkerRow);
+				} else {
+					addMarkerRow(); // default
+				}
+				if ( initPositions && initPositions.length ) {
+					initPositions.forEach(addPositionRow);
+				}
+
+				// Event handlers
+				$('#dagr-add-marker').on('click', function() { addMarkerRow(); });
+				$('#dagr-add-position').on('click', function() { addPositionRow(); });
+				$(document).on('click', '.dagr-remove-row', function() {
+					$(this).closest('tr').remove();
+					updateMarkersJSON();
+					updatePositionsJSON();
+				});
+				$(document).on('change input', '#dagr-markers-table input, #dagr-markers-table select', updateMarkersJSON);
+				$(document).on('change input', '#dagr-positions-table input', updatePositionsJSON);
+
+				// Set map select value
+				<?php if ( $editing ) : ?>
+				$('#dagr_map_select').val('<?php echo esc_js( $editing->map_name ); ?>');
+				<?php endif; ?>
+			});
+			</script>
+			<?php
+		}
 }
