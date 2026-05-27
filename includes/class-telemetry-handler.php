@@ -223,6 +223,9 @@ class RMM_Telemetry_Handler {
 			'rmm_explosives'  => array( 'placed_explosives_detonated' ),
 			'rmm_pos_x'      => array( 'pos_x' ),
 			'rmm_pos_y'      => array( 'pos_y' ),
+			'rmm_pos_z'      => array( 'pos_z' ),
+			'rmm_heading'    => array( 'heading' ),
+			'rmm_map'        => array( 'map' ),
 		);
 
 		// Convertir tiempo a horas como float (NO int) para no perder precisión
@@ -246,14 +249,18 @@ class RMM_Telemetry_Handler {
 					if ( $value === null ) continue;
 
 					// Para horas y posiciones usamos floatval, el resto intval
-					if ( $meta_key === 'rmm_hours' || $meta_key === 'rmm_pos_x' || $meta_key === 'rmm_pos_y' ) {
+					if ( $meta_key === 'rmm_hours' || str_starts_with( $meta_key, 'rmm_pos_' ) || $meta_key === 'rmm_heading' ) {
 						$current = floatval( get_user_meta( $user_id, $meta_key, true ) ?: 0 );
-						// Posiciones NUNCA se acumulan (son ubicacion actual, no total)
-						if ( $cumulative && $meta_key !== 'rmm_pos_x' && $meta_key !== 'rmm_pos_y' ) {
+						// Posiciones y heading NUNCA se acumulan (son estado actual, no total)
+						$no_accumulate = str_starts_with( $meta_key, 'rmm_pos_' ) || $meta_key === 'rmm_heading';
+						if ( $cumulative && ! $no_accumulate ) {
 							update_user_meta( $user_id, $meta_key, round( $current + floatval( $value ), 4 ) );
 						} else {
 							update_user_meta( $user_id, $meta_key, round( floatval( $value ), 4 ) );
 						}
+					} elseif ( $meta_key === 'rmm_map' ) {
+						// String: guardar tal cual
+						update_user_meta( $user_id, $meta_key, sanitize_text_field( $value ) );
 					} else {
 						$current = intval( get_user_meta( $user_id, $meta_key, true ) ?: 0 );
 						if ( $cumulative ) {
