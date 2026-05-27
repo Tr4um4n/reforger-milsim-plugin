@@ -268,23 +268,16 @@ class RMM_DAGR_Handler {
 				infinite: true
 			});
 
-			// TileLayer con Y invertido
-			L.TileLayer.InvertedY = L.TileLayer.extend({
-				getTileUrl: function(c) {
-					c.y = -(c.y + 1);
-					return L.TileLayer.prototype.getTileUrl.call(this, c);
-				}
-			});
+			// TileLayer estandar (sin invertir Y, para tiles CDN de recoil.org)
+						var map = L.map(container, {
+							crs: L.CRS.CustomSimple,
+							zoom: 3,
+							center: [(minY+maxY)/2 + edgeOffset, (minX+maxX)/2 + edgeOffset],
+							zoomControl: true,
+							attributionControl: false
+						});
 
-			var map = L.map(container, {
-				crs: L.CRS.CustomSimple,
-				zoom: 3,
-				center: [(minY+maxY)/2 + edgeOffset, (minX+maxX)/2 + edgeOffset],
-				zoomControl: true,
-				attributionControl: false
-			});
-
-			new L.TileLayer.InvertedY(tilesUrl, {
+						new L.TileLayer(tilesUrl, {
 				maxZoom: maxZoom,
 				minZoom: 0,
 				zoomReverse: true,
