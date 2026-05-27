@@ -265,43 +265,52 @@ class RMM_DAGR_Handler {
 				updatePositions();
 			});
 
-			// CRS Simple con bounds para tiles LODS
+			// CRS personalizado de EnfusionMapMaker (1/12.5 scale, InvertedY, zoomReverse)
+						L.CRS.CustomSimple = L.Util.extend({}, L.CRS, {
+							projection: L.Projection.LonLat,
+							transformation: new L.Transformation(1/12.5, 0, -1/12.5, 0),
+							scale: function(z) { return Math.pow(2, z); },
+							zoom: function(s) { return Math.log(s) / Math.LN2; },
+							distance: function(a, b) { return Math.sqrt(Math.pow(b.lng-a.lng,2) + Math.pow(b.lat-a.lat,2)); },
+							infinite: true
+						});
+
+						// Invertir Y para tiles LODS (igual que el juego)
+						L.TileLayer.InvertedY = L.TileLayer.extend({
+							getTileUrl: function(c) {
+								c.y = -(c.y + 1);
+								return L.TileLayer.prototype.getTileUrl.call(this, c);
+							}
+						});
+
+						// Bounds del mapa Everon (0,0 a 12800,12800 + offset 50)
+						var bounds = L.latLngBounds(
+							L.latLng([0 + edgeOffset, 0 + edgeOffset]),
+							L.latLng([maxY + edgeOffset, maxX + edgeOffset])
+						);
+
 						var map = L.map(container, {
-							crs: L.CRS.Simple,
-							center: [128, 128],  // Centro del mapa en coordenadas de tile zoom 0
-							zoom: 2,
+							crs: L.CRS.CustomSimple,
+							zoom: 3,
+							center: bounds.getCenter(),
+							maxZoom: maxZoom,
 							minZoom: 0,
-							maxZoom: 5,
 							zoomControl: true,
 							attributionControl: false
 						});
 
-						// Bounds: 5x5 tiles de 256px a zoom 0 = 1280x1280
-									map.setMaxBounds([[0, 0], [1280, 1280]]);
+						new L.TileLayer.InvertedY(tilesUrl, {
+							maxZoom: maxZoom,
+							minZoom: 0,
+							zoomReverse: true,
+							bounds: bounds,
+							errorTileUrl: ''
+						}).addTo(map);
 
-						// LODS inverso: Leaflet zoom N → LODS level (maxZoom - N)
-									var maxLODS = 5;
-									var lodsUrl = tilesUrl; // URL con {z}/{x}/{y}
-
-									// TileLayer custom que invierte el zoom para LODS
-									var LODSTileLayer = L.TileLayer.extend({
-										getTileUrl: function(coords) {
-											coords.z = maxLODS - coords.z; // invertir zoom
-											return L.TileLayer.prototype.getTileUrl.call(this, coords);
-										}
-									});
-
-									new LODSTileLayer(tilesUrl, { maxZoom: 5, minZoom: 0, tileSize: 256, noWrap: true, errorTileUrl: '' }).addTo(map);
-
-			// Conversion de coordenadas de juego a LatLng (CRS Simple: 12800 game = 256px zoom 0)
-						var gameScale = 256 / 12800; // 0.02 — un pixel en zoom 0 cubre 50 unidades de juego
+			// Conversion de coordenadas de juego (EnfusionMapMaker: +50 offset)
 						function gameToLatLng(x, y) {
-							// En CRS Simple, lat=y, lng=x. Escalar de juego a pixeles zoom 0
-							return L.latLng(y * gameScale, x * gameScale);
+							return L.latLng([y + edgeOffset, x + edgeOffset]);
 						}
-
-						// Centrar en el medio del mapa
-						map.setView(gameToLatLng(6400, 6400), 2);
 
 			// Marcadores de jugadores
 			var playerMarkers = {};
