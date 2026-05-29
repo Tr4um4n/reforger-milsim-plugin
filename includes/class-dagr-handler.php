@@ -410,10 +410,15 @@ class RMM_DAGR_Handler {
 						container.appendChild(coordDiv);
 
 						map.on('mousemove', function(e) {
-										var x = Math.round((e.latlng.lng - edgeOffset) / 100);
-										var y = Math.round((e.latlng.lat - edgeOffset) / 100);
-										coordDiv.textContent = 'X:' + String(x).padStart(3,'0') + ' Y:' + String(y).padStart(3,'0');
+										var x = Math.round(e.latlng.lng - edgeOffset);
+										var y = Math.round(e.latlng.lat - edgeOffset);
+										coordDiv.textContent = 'X:' + padCoord(x) + ' Y:' + padCoord(y);
 									});
+
+									function padCoord(v) {
+										var s = String(Math.max(0, Math.min(v, 12800)));
+										return s.padEnd(5, '0');
+									}
 
 			function updatePositions() {
 				if ( hasStaticData ) {
@@ -806,7 +811,12 @@ class RMM_DAGR_Handler {
 					$('#dagr_positions_json').val(JSON.stringify(positions));
 				}
 
-				function g2m(v) { return Math.round(parseFloat(v)) || 0; } // metros directos (0-12800)
+				function g2m(v) {
+					var n = Math.round(parseFloat(v) || 0);
+					// Padding de coordenada: 22 → 22000, 225 → 22500, 22555 → 22555
+					var s = String(Math.max(0, Math.min(n, 12800)));
+					return parseInt(s.padEnd(5, '0'));
+				}
 
 						function addMarkerRow(data) {
 				data = data || { id: 'm'+(nextId++), type:'info', label:'', pos_x:5000, pos_y:3000 };
@@ -816,8 +826,8 @@ class RMM_DAGR_Handler {
 				var row = '<tr data-id="'+data.id+'">' +
 					'<td><select class="m-type" style="width:100%;">'+options+'</select></td>' +
 					'<td><input type="text" class="m-label" value="'+ (data.label||'') +'" placeholder="Label" style="width:100%;"></td>' +
-					'<td><input type="text" class="m-x" value="'+ String(data.pos_x||5000).padStart(4,'0') +'" placeholder="0000" maxlength="5" style="width:100%;" title="Coordenada X en metros (0-12800)"></td>' +
-					'<td><input type="text" class="m-y" value="'+ String(data.pos_y||3000).padStart(4,'0') +'" placeholder="0000" maxlength="5" style="width:100%;" title="Coordenada Y en metros (0-12800)"></td>' +
+					'<td><input type="text" class="m-x" value="'+ (data.pos_x||5000) +'" placeholder="0-12800" maxlength="5" style="width:100%;" title="Coordenada X (1-5 dígitos)"></td>' +
+					'<td><input type="text" class="m-y" value="'+ (data.pos_y||3000) +'" placeholder="0-12800" maxlength="5" style="width:100%;" title="Coordenada Y (1-5 dígitos)"></td>' +
 					'<td><button type="button" class="button button-small dagr-remove-row">✕</button></td>' +
 				'</tr>';
 					$('#dagr-markers-table tbody').append(row);
@@ -828,8 +838,8 @@ class RMM_DAGR_Handler {
 				data = data || { name:'', pos_x:5000, pos_y:3000, color:'#58a6ff' };
 				var row = '<tr>' +
 					'<td><input type="text" class="p-name" value="'+ (data.name||'') +'" placeholder="Nombre" style="width:100%;"></td>' +
-					'<td><input type="text" class="p-x" value="'+ String(data.pos_x||5000).padStart(4,'0') +'" placeholder="0000" maxlength="5" style="width:100%;" title="Coordenada X en metros (0-12800)"></td>' +
-					'<td><input type="text" class="p-y" value="'+ String(data.pos_y||3000).padStart(4,'0') +'" placeholder="0000" maxlength="5" style="width:100%;" title="Coordenada Y en metros (0-12800)"></td>' +
+					'<td><input type="text" class="p-x" value="'+ (data.pos_x||5000) +'" placeholder="0-12800" maxlength="5" style="width:100%;" title="Coordenada X (1-5 dígitos)"></td>' +
+					'<td><input type="text" class="p-y" value="'+ (data.pos_y||3000) +'" placeholder="0-12800" maxlength="5" style="width:100%;" title="Coordenada Y (1-5 dígitos)"></td>' +
 					'<td><input type="color" class="p-color" value="'+ (data.color||'#58a6ff') +'" style="width:50px;"></td>' +
 					'<td><button type="button" class="button button-small dagr-remove-row">✕</button></td>' +
 				'</tr>';
