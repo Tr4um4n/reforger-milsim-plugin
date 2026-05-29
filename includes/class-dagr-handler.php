@@ -416,8 +416,13 @@ class RMM_DAGR_Handler {
 									});
 
 									function padCoord(v) {
-										var s = String(Math.max(0, Math.min(v, 12800)));
-										return s.padEnd(5, '0');
+										var m = Math.max(0, Math.min(Math.round(v), 12800));
+										// Convertir metros a grid: quitar ceros finales
+										var s = String(m);
+										if (m % 1000 === 0) return String(m / 1000).padStart(1, '0'); // 4000 → 4 (1-2 dígitos)
+										if (m % 100 === 0) return String(m / 100).padStart(3, '0');   // 4800 → 048 (3 dígitos)
+										if (m % 10 === 0) return String(m / 10).padStart(4, '0');    // 4890 → 0489 (4 dígitos)
+										return s.padStart(5, '0');                                      // 4895 → 04895 (5 dígitos)
 									}
 
 			function updatePositions() {
@@ -812,22 +817,37 @@ class RMM_DAGR_Handler {
 				}
 
 				function g2m(v) {
-					var n = Math.round(parseFloat(v) || 0);
-					// Padding de coordenada: 22 → 22000, 225 → 22500, 22555 → 22555
-					var s = String(Math.max(0, Math.min(n, 12800)));
-					return parseInt(s.padEnd(5, '0'));
+					var s = String(Math.round(parseFloat(v) || 0));
+					if (s.length === 0) return 0;
+					var n = parseInt(s);
+					// NO se eliminan ceros iniciales — definen la precisión
+					if (s.length <= 2) return Math.min(n * 1000, 12800);
+					if (s.length === 3) return Math.min(n * 100, 12800);
+					if (s.length === 4) return Math.min(n * 10, 12800);
+					return Math.min(n, 12800);
 				}
 
-						function addMarkerRow(data) {
+				function m2g(m) {
+					// Convertir metros a formato grid (igual que padCoord del mapa)
+					var v = Math.max(0, Math.min(Math.round(m), 12800));
+					if (v % 1000 === 0) return String(v / 1000);
+					if (v % 100 === 0) return String(v / 100).padStart(3, '0');
+					if (v % 10 === 0) return String(v / 10).padStart(4, '0');
+					return String(v).padStart(5, '0');
+				}
+
+				function addMarkerRow(data) {
 				data = data || { id: 'm'+(nextId++), type:'info', label:'', pos_x:5000, pos_y:3000 };
+				var px = m2g(data.pos_x || 5000);
+				var py = m2g(data.pos_y || 3000);
 				var options = markerTypes.map(function(t) {
 					return '<option value="'+t+'"'+(t===data.type?' selected':'')+'>'+ (markerIcons[t]||'') +' '+t+'</option>';
 				}).join('');
 				var row = '<tr data-id="'+data.id+'">' +
 					'<td><select class="m-type" style="width:100%;">'+options+'</select></td>' +
 					'<td><input type="text" class="m-label" value="'+ (data.label||'') +'" placeholder="Label" style="width:100%;"></td>' +
-					'<td><input type="text" class="m-x" value="'+ (data.pos_x||5000) +'" placeholder="0-12800" maxlength="5" style="width:100%;" title="Coordenada X (1-5 dígitos)"></td>' +
-					'<td><input type="text" class="m-y" value="'+ (data.pos_y||3000) +'" placeholder="0-12800" maxlength="5" style="width:100%;" title="Coordenada Y (1-5 dígitos)"></td>' +
+					'<td><input type="text" class="m-x" value="'+ px +'" placeholder="00000-12800" maxlength="5" style="width:100%;" title="Grid 1-5 dígitos"></td>' +
+					'<td><input type="text" class="m-y" value="'+ py +'" placeholder="00000-12800" maxlength="5" style="width:100%;" title="Grid 1-5 dígitos"></td>' +
 					'<td><button type="button" class="button button-small dagr-remove-row">✕</button></td>' +
 				'</tr>';
 					$('#dagr-markers-table tbody').append(row);
@@ -836,13 +856,15 @@ class RMM_DAGR_Handler {
 
 				function addPositionRow(data) {
 				data = data || { name:'', pos_x:5000, pos_y:3000, color:'#58a6ff' };
-				var row = '<tr>' +
-					'<td><input type="text" class="p-name" value="'+ (data.name||'') +'" placeholder="Nombre" style="width:100%;"></td>' +
-					'<td><input type="text" class="p-x" value="'+ (data.pos_x||5000) +'" placeholder="0-12800" maxlength="5" style="width:100%;" title="Coordenada X (1-5 dígitos)"></td>' +
-					'<td><input type="text" class="p-y" value="'+ (data.pos_y||3000) +'" placeholder="0-12800" maxlength="5" style="width:100%;" title="Coordenada Y (1-5 dígitos)"></td>' +
-					'<td><input type="color" class="p-color" value="'+ (data.color||'#58a6ff') +'" style="width:50px;"></td>' +
-					'<td><button type="button" class="button button-small dagr-remove-row">✕</button></td>' +
-				'</tr>';
+					var px = m2g(data.pos_x || 5000);
+					var py = m2g(data.pos_y || 3000);
+					var row = '<tr>' +
+						'<td><input type="text" class="p-name" value="'+ (data.name||'') +'" placeholder="Nombre" style="width:100%;"></td>' +
+						'<td><input type="text" class="p-x" value="'+ px +'" placeholder="00000-12800" maxlength="5" style="width:100%;" title="Grid 1-5 dígitos"></td>' +
+						'<td><input type="text" class="p-y" value="'+ py +'" placeholder="00000-12800" maxlength="5" style="width:100%;" title="Grid 1-5 dígitos"></td>' +
+						'<td><input type="color" class="p-color" value="'+ (data.color||'#58a6ff') +'" style="width:50px;"></td>' +
+						'<td><button type="button" class="button button-small dagr-remove-row">✕</button></td>' +
+					'</tr>';
 					$('#dagr-positions-table tbody').append(row);
 					updatePositionsJSON();
 				}
