@@ -504,7 +504,13 @@ class RMM_DAGR_Handler {
 						var latlng = gameToLatLng(m.pos_x, m.pos_y);
 						var html = markerIcons[m.type] || markerIcons['marker'];
 						var icon = L.divIcon({ className: 'dagr-map-marker', html: html, iconSize: [20,20], iconAnchor: [10,10] });
-						L.marker(latlng, { icon: icon }).addTo(map).bindTooltip(m.label || m.type, { direction:'top', offset:[0,-12] });
+						// Tooltip con coordenadas grid
+						var prec = m.precision || 5;
+						var gx = prec <= 2 ? Math.round(m.pos_x / 1000) : prec === 3 ? Math.round(m.pos_x / 100) : prec === 4 ? Math.round(m.pos_x / 10) : m.pos_x;
+						var gy = prec <= 2 ? Math.round(m.pos_y / 1000) : prec === 3 ? Math.round(m.pos_y / 100) : prec === 4 ? Math.round(m.pos_y / 10) : m.pos_y;
+						var gridStr = String(gx).padStart(prec <= 2 ? 2 : prec, '0') + ' ' + String(gy).padStart(prec <= 2 ? 2 : prec, '0');
+						var tip = (m.label || m.type) + ' [' + gridStr + ']';
+						L.marker(latlng, { icon: icon }).addTo(map).bindTooltip(tip, { direction:'top', offset:[0,-12] });
 					});
 					return;
 				}
@@ -528,8 +534,12 @@ class RMM_DAGR_Handler {
 								iconAnchor: [10, 10]
 							});
 							mapMarkers[m.id] = L.marker(latlng, { icon: icon }).addTo(map);
-							var tip = m.label ? (m.label + (m.author ? ' - ' + m.author : '')) : '';
-							if (tip) mapMarkers[m.id].bindTooltip(tip, { direction: 'top', offset: [0, -12] });
+								var prec = m.precision || 5;
+								var gx = prec <= 2 ? Math.round(m.pos_x / 1000) : prec === 3 ? Math.round(m.pos_x / 100) : prec === 4 ? Math.round(m.pos_x / 10) : m.pos_x;
+								var gy = prec <= 2 ? Math.round(m.pos_y / 1000) : prec === 3 ? Math.round(m.pos_y / 100) : prec === 4 ? Math.round(m.pos_y / 10) : m.pos_y;
+								var gridStr = String(gx).padStart(prec <= 2 ? 2 : prec, '0') + ' ' + String(gy).padStart(prec <= 2 ? 2 : prec, '0');
+								var tip = m.label ? (m.label + (m.author ? ' - ' + m.author : '') + ' [' + gridStr + ']') : '';
+								if (tip) mapMarkers[m.id].bindTooltip(tip, { direction: 'top', offset: [0, -12] });
 						}
 					});
 
@@ -793,26 +803,27 @@ class RMM_DAGR_Handler {
 						var row = $(this);
 						var rawX = $.trim(row.find('.m-x').val()) || '0';
 						var rawY = $.trim(row.find('.m-y').val()) || '0';
-						// Contar dígitos SIN eliminar ceros iniciales — definen la precisión
 						var cleanX = rawX.replace(/[^0-9]/g, '') || '0';
 						var cleanY = rawY.replace(/[^0-9]/g, '') || '0';
 						var precX = cleanX.length;
 						var precY = cleanY.length;
-						// Auto-ajustar a la menor precisión
 						var prec = Math.min(Math.max(1, precX), Math.max(1, precY));
-						// Truncar al nivel menor
 						var adjX = cleanX.substring(0, prec) || '0';
 						var adjY = cleanY.substring(0, prec) || '0';
+						var mx = g2m(adjX);
+						var my = g2m(adjY);
 						markers.push({
 							id: row.data('id') || ('m'+nextId++),
 							type: row.find('.m-type').val(),
 							label: row.find('.m-label').val(),
-							pos_x: g2m(adjX),
-							pos_y: g2m(adjY),
+							pos_x: mx,
+							pos_y: my,
 							precision: prec
 						});
 					});
-					$('#dagr_markers_json').val(JSON.stringify(markers));
+					var json = JSON.stringify(markers);
+					$('#dagr_markers_json').val(json);
+					console.log('Markers JSON:', json);
 				}
 
 				function updatePositionsJSON() {
@@ -836,14 +847,16 @@ class RMM_DAGR_Handler {
 							precision: prec
 						});
 					});
-					$('#dagr_positions_json').val(JSON.stringify(positions));
+					var json = JSON.stringify(positions);
+					$('#dagr_positions_json').val(json);
+					console.log('Positions JSON:', json);
 				}
 
 				function g2m(v) {
-					var s = String(Math.round(parseFloat(v) || 0));
+					// Trabajar con string directo para preservar ceros iniciales
+					var s = String(v).replace(/[^0-9]/g, '');
 					if (s.length === 0) return 0;
 					var n = parseInt(s);
-					// NO se eliminan ceros iniciales — definen la precisión
 					if (s.length <= 2) return Math.min(n * 1000, 12800);
 					if (s.length === 3) return Math.min(n * 100, 12800);
 					if (s.length === 4) return Math.min(n * 10, 12800);
