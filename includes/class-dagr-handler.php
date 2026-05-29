@@ -851,13 +851,13 @@ class RMM_DAGR_Handler {
 				}
 
 				function m2g(m, prec) {
-					// prec: 1-5 dígitos de precisión guardada
-					if (!prec) prec = 5; // fallback
+					if (!prec) prec = 5;
 					var v = Math.max(0, Math.min(Math.round(m), 12800));
-					if (prec <= 2) return String(Math.round(v / 1000));
-					if (prec === 3) return String(Math.round(v / 100)).padStart(3, '0');
-					if (prec === 4) return String(Math.round(v / 10)).padStart(4, '0');
-					return String(v).padStart(5, '0');
+					// Siempre formatear con EXACTAMENTE `prec` dígitos
+					if (prec === 2) return String(Math.round(v / 1000)).padStart(2, '0'); // 8000 → 08
+					if (prec === 3) return String(Math.round(v / 100)).padStart(3, '0');   // 8400 → 084
+					if (prec === 4) return String(Math.round(v / 10)).padStart(4, '0');    // 8420 → 0842
+					return String(v).padStart(5, '0');                                        // 8429 → 08429
 				}
 
 				function addMarkerRow(data) {
