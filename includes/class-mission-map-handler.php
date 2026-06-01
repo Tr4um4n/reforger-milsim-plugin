@@ -490,112 +490,92 @@ class RMM_Mission_Map_Handler {
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 	<title>MicroDAGR — <?= esc_html( $map_name ) ?></title>
 	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 	<style>
 		* { margin: 0; padding: 0; box-sizing: border-box; }
-		html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1117; font-family: monospace; }
-		#map { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+		html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1117; font-family: monospace; -webkit-tap-highlight-color: transparent; }
+		#map { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+		/* UI overlay */
+		.dagr-ui { position: fixed; z-index: 100; pointer-events: none; top: 0; left: 0; width: 100%; height: 100%; }
+		.dagr-ui > * { pointer-events: auto; }
 		#hud {
-			position: fixed; bottom: 0; left: 0; right: 0;
+			position: absolute; bottom: 0; left: 0; right: 0;
 			background: rgba(0,0,0,0.85); color: #CFDC35;
-			padding: 8px 12px; z-index: 1000; font-size: 12px;
+			padding: 6px 10px; font-size: 11px;
 			display: flex; justify-content: space-between; align-items: center;
 		}
-		#center-btn {
-			position: fixed; bottom: 80px; right: 16px; z-index: 1001;
-			background: #22c55e; color: #fff; border: 2px solid #fff;
-			border-radius: 50%; width: 44px; height: 44px;
-			font-size: 20px; cursor: pointer; display: flex;
-			align-items: center; justify-content: center;
-		}
-		#center-btn.active { background: #ef4444; border-color: #ef4444; }
-		#layer-btn {
-			position: fixed; bottom: 80px; left: 16px; z-index: 1001;
-			background: rgba(0,0,0,0.7); color: #fff; border: 2px solid #CFDC35;
-			border-radius: 50%; width: 44px; height: 44px;
-			font-size: 18px; cursor: pointer; display: flex;
-			align-items: center; justify-content: center;
-		}
-		#layer-panel {
-			display: none; position: fixed; bottom: 130px; left: 16px;
-			z-index: 1001; background: rgba(0,0,0,0.9); color: #fff;
-			padding: 12px; border-radius: 8px; min-width: 180px;
-			font-size: 12px; border: 1px solid #333;
-		}
-		#layer-panel.show { display: block; }
-		.layer-toggle { display: flex; align-items: center; padding: 4px 0; gap: 8px; }
-		.layer-toggle input { accent-color: #22c55e; }
+		#hud-left div { line-height: 1.4; }
 		#compass-ring {
-			width: 80px; height: 80px; border-radius: 50%;
+			width: 70px; height: 70px; border-radius: 50%;
 			border: 2px solid #CFDC35; position: relative;
 			display: flex; align-items: center; justify-content: center;
 		}
 		#compass-arrow {
 			width: 0; height: 0;
-			border-left: 6px solid transparent;
-			border-right: 6px solid transparent;
-			border-bottom: 30px solid #ef4444;
-			transition: transform 0.2s;
+			border-left: 5px solid transparent;
+			border-right: 5px solid transparent;
+			border-bottom: 24px solid #ef4444;
+			transition: transform 0.15s;
 		}
-		#compass-label {
-			position: absolute; top: 2px; font-size: 10px; color: #fff;
-		}
+		#compass-label { position: absolute; top: 1px; font-size: 9px; color: #fff; }
 		#wp-list {
-			position: fixed; top: 10px; right: 10px; z-index: 1000;
-			background: rgba(0,0,0,0.8); color: #fff; padding: 8px;
-			border-radius: 8px; max-height: 50vh; overflow-y: auto;
-			font-size: 11px; min-width: 150px;
+			position: absolute; top: 8px; right: 8px;
+			background: rgba(0,0,0,0.8); color: #fff; padding: 6px 8px;
+			border-radius: 6px; max-height: 40vh; overflow-y: auto;
+			font-size: 10px; min-width: 120px;
 		}
-		#wp-list h4 { margin-bottom: 5px; color: #22c55e; }
-		.wp-item {
-			padding: 3px 0; border-bottom: 1px solid #333;
-			display: flex; justify-content: space-between; align-items: center;
-		}
+		#wp-list h4 { margin-bottom: 4px; color: #22c55e; font-size: 11px; }
+		.wp-item { padding: 2px 0; border-bottom: 1px solid #333; display: flex; justify-content: space-between; gap: 6px; }
 		.wp-item .wp-num { color: #d2a850; font-weight: bold; }
-		#wp-add-btn {
-			position: fixed; top: 10px; left: 10px; z-index: 1000;
-			background: #22c55e; color: #fff; border: none;
-			border-radius: 50%; width: 44px; height: 44px;
-			font-size: 24px; cursor: pointer;
+		.dagr-btn {
+			position: absolute; border-radius: 50%; border: none; cursor: pointer;
+			font-size: 20px; display: flex; align-items: center; justify-content: center;
 		}
-		#mode-toggle {
-			position: fixed; top: 10px; left: 64px; z-index: 1000;
-			background: rgba(0,0,0,0.7); color: #fff; border: 1px solid #CFDC35;
-			padding: 8px 12px; border-radius: 8px; font-size: 12px; cursor: pointer;
+		#wp-add-btn { top: 8px; left: 8px; width: 40px; height: 40px; background: rgba(34,197,94,0.9); color: #fff; }
+		#wp-add-btn.active { background: rgba(239,68,68,0.9); }
+		#mode-toggle { top: 8px; left: 56px; width: auto; height: 40px; padding: 0 12px; border-radius: 8px; background: rgba(0,0,0,0.7); color: #fff; border: 1px solid #CFDC35; font-size: 12px; }
+		#center-btn { bottom: 70px; right: 12px; width: 40px; height: 40px; background: rgba(34,197,94,0.9); color: #fff; }
+		#center-btn.active { background: rgba(239,68,68,0.9); }
+		#layer-btn { bottom: 70px; left: 12px; width: 40px; height: 40px; background: rgba(0,0,0,0.7); color: #fff; border: 1px solid #CFDC35; }
+		#layer-panel {
+			display: none; position: absolute; bottom: 120px; left: 12px;
+			background: rgba(0,0,0,0.9); color: #fff; padding: 10px;
+			border-radius: 8px; min-width: 160px; font-size: 11px; border: 1px solid #333;
 		}
-		.compass-mode #map { filter: saturate(0.3); }
-		.compass-mode #compass-ring {
-			position: fixed; top: 50%; left: 50%;
-			transform: translate(-50%, -50%);
-			width: 120px; height: 120px; z-index: 999;
-		}
+		#layer-panel.show { display: block; }
+		.layer-toggle { display: flex; align-items: center; padding: 3px 0; gap: 6px; }
+		.layer-toggle input { accent-color: #22c55e; }
+		.compass-mode .dagr-ui .dagr-btn:not(#center-btn) { opacity: 0.4; }
 	</style>
 </head>
 <body>
 	<div id="map"></div>
-	<button id="wp-add-btn" title="Añadir waypoint">+</button>
-	<button id="mode-toggle">🧭 Brújula</button>
-	<button id="layer-btn">📑</button>
-	<div id="layer-panel">
-		<h4 style="margin:0 0 8px;color:#CFDC35;">Capas</h4>
-		<label class="layer-toggle"><input type="checkbox" checked data-layer="players"> 👥 Jugadores</label>
-		<label class="layer-toggle"><input type="checkbox" checked data-layer="objective"> 🟢 Objetivos</label>
-		<label class="layer-toggle"><input type="checkbox" checked data-layer="completed"> 🟡 Completados</label>
-		<label class="layer-toggle"><input type="checkbox" checked data-layer="enemy"> 🔴 Enemigos</label>
-		<label class="layer-toggle"><input type="checkbox" checked data-layer="friendly"> 🔵 Aliados</label>
-		<label class="layer-toggle"><input type="checkbox" checked data-layer="waypoints"> 📍 Waypoints</label>
-	</div>
-	<button id="center-btn" title="Centrar en mí">◎</button>
-	<div id="wp-list"><h4>Waypoints</h4><div id="wp-items"></div></div>
-	<div id="hud">
-		<div>
-			<div>X: <span id="hud-x">----</span> Y: <span id="hud-y">----</span></div>
-			<div>Z: <span id="hud-z">--</span>m | Spd: <span id="hud-speed">0</span> km/h</div>
+	<div class="dagr-ui">
+		<button id="wp-add-btn" class="dagr-btn" title="Añadir waypoint">+</button>
+		<button id="mode-toggle" class="dagr-btn">🧭 Brújula</button>
+		<button id="layer-btn" class="dagr-btn">📑</button>
+		<div id="layer-panel">
+			<h4 style="margin:0 0 6px;color:#CFDC35;">Capas</h4>
+			<label class="layer-toggle"><input type="checkbox" checked data-layer="players"> 👥 Jugadores</label>
+			<label class="layer-toggle"><input type="checkbox" checked data-layer="objective"> 🟢 Objetivos</label>
+			<label class="layer-toggle"><input type="checkbox" checked data-layer="completed"> 🟡 Completados</label>
+			<label class="layer-toggle"><input type="checkbox" checked data-layer="enemy"> 🔴 Enemigos</label>
+			<label class="layer-toggle"><input type="checkbox" checked data-layer="friendly"> 🔵 Aliados</label>
+			<label class="layer-toggle"><input type="checkbox" checked data-layer="waypoints"> 📍 Waypoints</label>
 		</div>
-		<div id="compass-ring">
-			<div id="compass-label">N</div>
-			<div id="compass-arrow"></div>
+		<button id="center-btn" class="dagr-btn" title="Centrar">◎</button>
+		<div id="wp-list"><h4>Waypoints</h4><div id="wp-items"></div></div>
+		<div id="hud">
+			<div id="hud-left">
+				<div>X: <span id="hud-x">----</span> Y: <span id="hud-y">----</span></div>
+				<div>Z: <span id="hud-z">--</span>m | Spd: <span id="hud-speed">0</span></div>
+			</div>
+			<div id="compass-ring">
+				<div id="compass-label">N</div>
+				<div id="compass-arrow"></div>
+			</div>
 		</div>
 	</div>
 
