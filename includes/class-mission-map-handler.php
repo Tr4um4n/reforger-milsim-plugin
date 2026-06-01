@@ -599,25 +599,17 @@ class RMM_Mission_Map_Handler {
 			attributionControl: false
 		});
 
-		L.TileLayer.InvertedY = L.TileLayer.extend({
-			getTileUrl: function(c) {
-				c.y = -(c.y + 1);
-				return L.TileLayer.prototype.getTileUrl.call(this, c);
-			}
-		});
-		new L.TileLayer.InvertedY('<?= esc_js( $tiles_url ) ?>', {
+		// Sin InvertedY — tiles en disco con Y positivo
+		L.tileLayer('<?= esc_js( $tiles_url ) ?>', {
 			maxZoom: <?= $max_zoom ?>,
 			minZoom: 0,
-			zoomReverse: true,
-			bounds: bounds,
-			errorTileUrl: ''
+			noWrap: true,
+			bounds: bounds
 		}).addTo(map);
 
-		function gameToLatLng(x, y) { return [((<?= $max_y ?> - y + <?= $edge_offset ?>) * <?= $scale_factor ?>), ((x - <?= $edge_offset ?>) * <?= $scale_factor ?>)]; }
+		function gameToLatLng(x, y) { return [(y * <?= $scale_factor ?>), (x * <?= $scale_factor ?>)]; }
 		function latLngToGame(lat, lng) {
-			var x = (lng / scaleFactor) + edgeOffset;
-			var y = maxY - ((lat / scaleFactor) - edgeOffset);
-			return { x: Math.round(x), y: Math.round(y) };
+			return { x: Math.round(lng / <?= $scale_factor ?>), y: Math.round(lat / <?= $scale_factor ?>) };
 		}
 
 		// Mi marcador
