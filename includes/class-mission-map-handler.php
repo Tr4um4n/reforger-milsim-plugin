@@ -718,6 +718,29 @@ class RMM_Mission_Map_Handler {
 			<button class="dagr-icon-btn" id="btn-center" style="position:absolute;bottom:60px;right:8px" title="CENTRAR">◎</button>
 			<button class="dagr-icon-btn" id="btn-add-wp" style="position:absolute;bottom:110px;right:8px" title="AÑADIR WP">+</button>
 
+			<!-- WP creation form (replaces prompt) -->
+			<div id="dagr-wp-form" style="display:none;position:absolute;bottom:62px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.95);border:2px solid #FFB000;border-radius:6px;padding:12px;z-index:99999;min-width:220px;text-align:center;box-shadow:0 0 20px rgba(255,176,0,.2)">
+				<div style="color:#FFB000;font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">NUEVO WAYPOINT</div>
+				<input id="wp-x" type="number" placeholder="X (este)" min="0" max="12800" style="width:100%;margin:3px 0;padding:8px;background:#111;border:1px solid #333;color:#FFB000;font-family:monospace;font-size:14px;text-align:center;border-radius:3px;outline:none">
+				<input id="wp-y" type="number" placeholder="Y (norte)" min="0" max="12800" style="width:100%;margin:3px 0;padding:8px;background:#111;border:1px solid #333;color:#FFB000;font-family:monospace;font-size:14px;text-align:center;border-radius:3px;outline:none">
+				<input id="wp-name" type="text" placeholder="Nombre" maxlength="30" style="width:100%;margin:3px 0;padding:8px;background:#111;border:1px solid #333;color:#FFB000;font-family:monospace;font-size:14px;text-align:center;border-radius:3px;outline:none">
+				<div style="display:flex;gap:4px;margin-top:8px">
+					<button id="wp-btn-tap" class="dagr-phys-btn" style="flex:1;font-size:10px">TOCAR MAPA</button>
+					<button id="wp-btn-add" class="dagr-phys-btn" style="flex:1;font-size:10px">AÑADIR</button>
+				</div>
+				<button id="wp-btn-cancel" class="dagr-phys-btn" style="width:100%;margin-top:4px;font-size:10px">CANCELAR</button>
+			</div>
+
+			<!-- Compass overlay (shown when CMP active) -->
+			<div id="dagr-compass-overlay" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;text-align:center;z-index:9998">
+				<div style="width:140px;height:140px;border-radius:50%;border:3px solid #FFB000;position:relative;margin:0 auto;background:rgba(0,0,0,.7);box-shadow:0 0 30px rgba(255,176,0,.15)">
+					<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:36px;font-weight:bold;color:#FFB000" id="dagr-cmp-hdg">---</div>
+					<div class="north" style="font-size:14px!important">N</div>
+					<div class="needle" id="dagr-cmp-needle" style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:50px solid #ef4444;transition:transform .15s;position:absolute;bottom:50%;left:50%;margin-left:-7px;transform-origin:bottom center"></div>
+				</div>
+				<div style="color:#FFB000;font-size:10px;margin-top:4px;letter-spacing:.05em">HEADING</div>
+			</div>
+
 			<!-- HUD -->
 			<div id="dagr-hud">
 				<div class="hud-block"><span class="hud-label">E</span><span class="hud-value" id="hud-grid-e">-----</span></div>
@@ -783,7 +806,7 @@ class RMM_Mission_Map_Handler {
 		}
 	}
 
-	/* ── HUD update ── */
+	/* ── HUD update + compass overlay ── */
 	function updHUD(p){
 		if(!p)return;
 		$('#hud-grid-e').textContent=pad(Math.round(p.pos_x),5);
@@ -793,6 +816,9 @@ class RMM_Mission_Map_Handler {
 		var h=Math.round(p.heading||0);
 		$('#dagr-needle').style.transform='rotate('+h+'deg)';
 		$('#dagr-hdg-txt').textContent=pad(h,3);
+		// Update large compass overlay if visible
+		$('#dagr-cmp-needle').style.transform='rotate('+h+'deg)';
+		$('#dagr-cmp-hdg').textContent=pad(h,3)+'°';
 	}
 
 	/* ── Toast feedback ── */
@@ -826,19 +852,17 @@ class RMM_Mission_Map_Handler {
 		});
 	}
 
-	function addWP(ll){
-		var g=ll2g(ll);
-		var lb=prompt('Nombre del waypoint:');
-		if(!lb)return;
-		fetch('/wp-json/clan/v1/microdagr/waypoints',{
-			method:'POST',
-			headers:{'Content-Type':'application/json'},
-			body:JSON.stringify({token:TOKEN,label:lb,pos_x:g.x,pos_y:g.y})
-		}).then(function(r){return r.json()}).then(function(){
+	function doAddWP(ll_or_x, y_opt, nm_opt){
+		// Legacy: called as addWP(ll) from old code paths
+		if(typeof y_opt==='undefined'){var g=ll2g(ll_or_x);doAddWP(g.x,g.y,nm_opt||'WP');return}
+		var x=ll_or_x,y=y_opt,nm=nm_opt||'WP';
+		fetch('/wp-json/clan/v1/microdagr/waypoints',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:TOKEN,label:nm,pos_x:x,pos_y:y})}).then(function(r){return r.json()}).then(function(){
 			loadWP();
-			toast('WP "'+lb+'" añadido en '+pad(g.x,4)+' '+pad(g.y,4));
+			toast('WP "'+nm+'" añadido en '+pad(x,4)+' '+pad(y,4));
 		});
 	}
+	// Keep addWP alias for backward compat
+	var addWP=function(ll){doAddWP(ll)};
 
 	/* ── Marker icons ── */
 	var mkIcons={objective:'<div style="width:14px;height:14px;background:#FFB000;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 8px rgba(255,176,0,.6)"></div>',completed:'<div style="width:12px;height:12px;background:#FFB000;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(255,176,0,.4)"></div>',enemy:'<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid #ef4444;filter:drop-shadow(0 0 4px rgba(239,68,68,.6))"></div>',friendly:'<div style="width:12px;height:12px;background:#60a5fa;border:2px solid #fff;border-radius:2px;box-shadow:0 0 8px rgba(96,165,250,.6)"></div>'},mkDef='<div style="width:12px;height:12px;background:#a78bfa;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(167,139,250,.5)"></div>';
@@ -854,6 +878,18 @@ class RMM_Mission_Map_Handler {
 		// Clock
 		setInterval(function(){$('#dagr-clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})},10000);
 		$('#dagr-clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+
+		/* ── SIMULACIÓN automática para sesiones test_* ── */
+		var isTestSession=SID.indexOf('test_')===0;
+		if(isTestSession){
+			toast('MODO SIMULACIÓN — datos falsos cada 2s');
+			// Crear datos iniciales si no hay
+			fetch('/wp-json/clan/v1/mission/simulate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:SID})});
+			// Seguir enviando ticks cada 2s
+			setInterval(function(){
+				fetch('/wp-json/clan/v1/mission/simulate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:SID})});
+			},2000);
+		}
 
 		/* ── Poll positions (every 4s for snappier updates) ── */
 		setInterval(function(){
@@ -894,40 +930,82 @@ class RMM_Mission_Map_Handler {
 		loadWP();
 	});
 
-	/* ── Button handlers (all guarded) ── */
-	$('#btn-center').onclick=function(){followMe=!followMe;this.classList.toggle('active',followMe);if(dagrMap&&mePos&&followMe)dagrMap.panTo(g2ll(mePos.x,mePos.y))};
+	/* ── Button handlers ── */
+	$('#btn-center').onclick=function(){followMe=!followMe;this.classList.toggle('active',followMe);if(dagrMap&&mePos&&followMe)dagrMap.panTo(g2ll(mePos.x,mePos.y));toast(followMe?'Siguiendo':'Libre')};
 
+	// + button: show WP form
 	$('#btn-add-wp').onclick=function(){
-		if(!dagrMap){toast('Espera a que cargue el mapa...');return}
-		addingWP=!addingWP;
-		this.classList.toggle('active',addingWP);
-		if(addingWP){dagrMap.getContainer().style.cursor='crosshair';dagrMap.on('click',addWP);toast('Toca el mapa para añadir WP')}
-		else{dagrMap.getContainer().style.cursor='';dagrMap.off('click',addWP)}
+		var f=$('#dagr-wp-form');
+		if(f.style.display==='block'){f.style.display='none';this.classList.remove('active');return}
+		f.style.display='block';this.classList.add('active');
+		$('#wp-x').value='';$('#wp-y').value='';$('#wp-name').value='';
+		setTimeout(function(){$('#wp-x').focus()},100);
 	};
 
+	// WP form: AÑADIR button (manual coords)
+	$('#wp-btn-add').onclick=function(){
+		var x=parseInt($('#wp-x').value),y=parseInt($('#wp-y').value),nm=$('#wp-name').value||'WP';
+		if(isNaN(x)||isNaN(y)||x<0||x>12800||y<0||y>12800){toast('Coordenadas inválidas (0-12800)');return}
+		doAddWP(x,y,nm);
+	};
+
+	// WP form: TOCAR MAPA button
+	$('#wp-btn-tap').onclick=function(){
+		if(!dagrMap){toast('Mapa no cargado aún');return}
+		$('#dagr-wp-form').style.display='none';
+		addingWP=true;dagrMap.getContainer().style.cursor='crosshair';
+		toast('Toca el mapa para seleccionar coordenadas...');
+		dagrMap.once('click',function(e){
+			var g=ll2g(e.latlng);
+			$('#wp-x').value=g.x;$('#wp-y').value=g.y;
+			$('#dagr-wp-form').style.display='block';
+			$('#wp-name').focus();
+			dagrMap.getContainer().style.cursor='';addingWP=false;
+		});
+	};
+
+	// WP form: CANCELAR
+	$('#wp-btn-cancel').onclick=function(){
+		$('#dagr-wp-form').style.display='none';$('#btn-add-wp').classList.remove('active');
+		if(addingWP){dagrMap.getContainer().style.cursor='';addingWP=false}
+	};
+
+	// Shared add-WP function (used by form + MARK)
+	function doAddWP(x,y,nm){
+		fetch('/wp-json/clan/v1/microdagr/waypoints',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:TOKEN,label:nm,pos_x:x,pos_y:y})}).then(function(r){return r.json()}).then(function(){
+			loadWP();
+			toast('WP "'+nm+'" en '+pad(x,4)+' '+pad(y,4));
+			$('#dagr-wp-form').style.display='none';$('#btn-add-wp').classList.remove('active');
+		});
+	}
+
+	// MARK button: open form pre-filled with current position (or empty if no GPS)
+	$('#btn-mark').onclick=function(){
+		var f=$('#dagr-wp-form');
+		f.style.display='block';$('#btn-add-wp').classList.add('active');
+		if(mePos){$('#wp-x').value=Math.round(mePos.x);$('#wp-y').value=Math.round(mePos.y);$('#wp-name').value='';toast('Posición actual cargada')}
+		else{$('#wp-x').value='';$('#wp-y').value='';$('#wp-name').value='';toast('Sin GPS — introduce coords manualmente')}
+		setTimeout(function(){$('#wp-name').focus()},100);
+	};
+
+	// WP menu button
 	$('#btn-wp-menu').onclick=function(){this.classList.toggle('on');$('#dagr-wp-panel').classList.toggle('open')};
 
+	// LAY button
 	$('#btn-layers').onclick=function(){this.classList.toggle('on');$('#dagr-layer-panel').classList.toggle('open')};
 
+	// MAP button: center on player or cycle zoom
 	$('#btn-map').onclick=function(){
 		if(!dagrMap)return;
-		var z=dagrMap.getZoom();
-		var levels=[2,4,6,8];
-		var next=levels.find(function(l){return l>z})||levels[0];
-		dagrMap.setZoom(next,{animate:true});
-		toast('ZOOM '+next);
+		if(mePos){dagrMap.panTo(g2ll(mePos.x,mePos.y),{animate:true});toast('Centrado en posición')}
+		else{var z=dagrMap.getZoom(),l=[2,4,6,8],n=l.find(function(v){return v>z})||l[0];dagrMap.setZoom(n,{animate:true});toast('ZOOM '+n)}
 	};
 
-	$('#btn-compass').onclick=function(){followMe=!followMe;this.classList.toggle('on',followMe);$('#btn-center').classList.toggle('active',followMe);if(dagrMap&&mePos&&followMe)dagrMap.panTo(g2ll(mePos.x,mePos.y));toast(followMe?'Siguiendo posición':'Brújula libre')};
-
-	$('#btn-mark').onclick=function(){
-		if(!mePos){toast('Sin posición GPS aún...');return}
-		var lb=prompt('Nombre de la marca:');
-		if(!lb)return;
-		fetch('/wp-json/clan/v1/microdagr/waypoints',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:TOKEN,label:lb,pos_x:mePos.x,pos_y:mePos.y})}).then(function(r){return r.json()}).then(function(){
-			loadWP();
-			toast('Posición marcada como "'+lb+'"');
-		});
+	// CMP button: toggle compass overlay
+	$('#btn-compass').onclick=function(){
+		var ov=$('#dagr-compass-overlay');
+		if(ov.style.display==='block'){ov.style.display='none';this.classList.remove('on');toast('Brújula oculta')}
+		else{ov.style.display='block';this.classList.add('on');if(mePos){updHUD({pos_x:mePos.x,pos_y:mePos.y,pos_z:mePos.z,heading:mePos.h,speed:mePos.s})};toast('Brújula visible')}
 	};
 
 	/* ── WP delete ── */
@@ -1012,6 +1090,13 @@ class RMM_Mission_Map_Handler {
 		register_rest_route( 'clan/v1', '/mission/test-session', array(
 			'methods'  => 'POST',
 			'callback' => array( $this, 'create_test_session' ),
+			'permission_callback' => '__return_true',
+		) );
+
+		// Simular telemetría (para testing sin addon)
+		register_rest_route( 'clan/v1', '/mission/simulate', array(
+			'methods'  => 'POST',
+			'callback' => array( $this, 'simulate_telemetry_tick' ),
 			'permission_callback' => '__return_true',
 		) );
 
@@ -1337,6 +1422,133 @@ class RMM_Mission_Map_Handler {
 			'qr_url'      => 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . urlencode( $mobile_url ),
 			'players'     => count( $test_players ),
 			'markers'     => count( $test_markers ),
+		) );
+	}
+
+	/**
+	 * Simular tick de telemetría — movimiento circular con payload JSON configurable
+	 * POST /wp-json/clan/v1/mission/simulate
+	 * Body: { "session_id": "test_xxx" }
+	 */
+	public function simulate_telemetry_tick( $request ) {
+		global $wpdb;
+		$data = $request->get_json_params() ?: $request->get_params();
+		$session_id = sanitize_text_field( $data['session_id'] ?? 'test_circle' );
+
+		$table_positions = $wpdb->prefix . 'rmm_mission_positions';
+		$table_sessions  = $wpdb->prefix . 'rmm_mission_sessions';
+		$table_markers   = $wpdb->prefix . 'rmm_mission_markers';
+
+		// Cargar payload desde BD
+		$payload_raw = get_option( 'rmm_simulate_payload', '' );
+		$payload     = json_decode( $payload_raw, true );
+		if ( ! $payload ) {
+			$payload = array(
+				'session_id' => $session_id,
+				'map'        => 'everon',
+				'players'    => array(
+					array( 'name' => 'TRAUMAN',     'steamid' => '76561198000000001', 'x' => 5000, 'y' => 3000, 'radius' => 300, 'omega' => 2 ),
+					array( 'name' => 'ANTIGRAVITY', 'steamid' => '76561198000000002', 'x' => 5200, 'y' => 3200, 'radius' => 200, 'omega' => -3 ),
+					array( 'name' => 'ZULU_1',      'steamid' => '76561198000000003', 'x' => 6000, 'y' => 4500, 'radius' => 400, 'omega' => 1.5 ),
+					array( 'name' => 'ENEMY_1',     'steamid' => '76561198000000004', 'x' => 7200, 'y' => 5800, 'radius' => 250, 'omega' => -2 ),
+					array( 'name' => 'ENEMY_2',     'steamid' => '76561198000000005', 'x' => 7400, 'y' => 5600, 'radius' => 350, 'omega' => 2.5 ),
+				),
+				'markers' => array(
+					array( 'type' => 'objective', 'label' => 'Base Alpha',    'x' => 5000, 'y' => 3000 ),
+					array( 'type' => 'enemy',     'label' => 'Tanque T-72',   'x' => 7200, 'y' => 5800 ),
+				),
+			);
+		}
+
+		$map_name    = $payload['map'] ?? 'everon';
+		$players_cfg = $payload['players'] ?? array();
+		$markers_cfg = $payload['markers'] ?? array();
+
+		// Contador de ticks (para ángulo continuo)
+		$tick_key  = 'rmm_sim_tick_' . $session_id;
+		$tick      = intval( get_option( $tick_key, 0 ) ) + 1;
+		$tick_time = current_time( 'mysql' );
+
+		// Asegurar sesión activa
+		$wpdb->replace( $table_sessions, array(
+			'session_id' => $session_id,
+			'post_id'    => 0,
+			'map_name'   => $map_name,
+			'status'     => 'active',
+		) );
+
+		// Insertar marcadores (solo primera vez)
+		$existing_markers = $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM $table_markers WHERE session_id = %s", $session_id
+		) );
+		if ( ! $existing_markers && ! empty( $markers_cfg ) ) {
+			foreach ( $markers_cfg as $m ) {
+				$wpdb->insert( $table_markers, array(
+					'session_id' => $session_id,
+					'marker_id'  => uniqid( 'sim_' ),
+					'type'       => sanitize_text_field( $m['type'] ?? 'marker' ),
+					'label'      => sanitize_text_field( $m['label'] ?? '' ),
+					'pos_x'      => floatval( $m['x'] ?? 0 ),
+					'pos_y'      => floatval( $m['y'] ?? 0 ),
+					'color'      => sanitize_text_field( $m['color'] ?? '#FFB000' ),
+				) );
+			}
+		}
+
+		// Movimiento circular para cada jugador
+		$moved = 0;
+		foreach ( $players_cfg as $cfg ) {
+			$steamid = sanitize_text_field( $cfg['steamid'] ?? ( 'sim_' . $moved ) );
+			$name    = sanitize_text_field( $cfg['name'] ?? ( 'Player_' . $moved ) );
+			$cx      = floatval( $cfg['x'] ?? 5000 );
+			$cy      = floatval( $cfg['y'] ?? 5000 );
+			$radius  = floatval( $cfg['radius'] ?? 300 );
+			$omega   = floatval( $cfg['omega'] ?? 2 );         // °/s
+
+			// Ángulo acumulado: omega (°/s) × 5s por tick = omega*5 grados por tick
+			$angle_deg = fmod( $omega * $tick * 5, 360 );
+			$angle_rad = deg2rad( $angle_deg );
+
+			// Posición circular
+			$new_x = $cx + $radius * cos( $angle_rad );
+			$new_y = $cy + $radius * sin( $angle_rad );
+
+			// Heading: tangente al círculo (perpendicular al radio)
+			$heading = fmod( $angle_deg + 90 + 360, 360 );
+
+			// Velocidad simulada: |omega| * radius / 10 (aproximación km/h)
+			$speed = abs( $omega ) * $radius / 10;
+
+			// Mantener dentro del mapa
+			$new_x = max( 50, min( 12750, $new_x ) );
+			$new_y = max( 50, min( 12750, $new_y ) );
+
+			$wpdb->insert( $table_positions, array(
+				'session_id'  => $session_id,
+				'steamid'     => $steamid,
+				'player_name' => $name,
+				'squad'       => sanitize_text_field( $cfg['squad'] ?? 'Alpha' ),
+				'faction'     => sanitize_text_field( $cfg['faction'] ?? 'BLUFOR' ),
+				'role'        => sanitize_text_field( $cfg['role'] ?? 'Operador' ),
+				'pos_x'       => round( $new_x, 1 ),
+				'pos_y'       => round( $new_y, 1 ),
+				'pos_z'       => floatval( $cfg['z'] ?? rand( 5, 25 ) ),
+				'heading'     => round( $heading, 1 ),
+				'speed'       => round( $speed, 1 ),
+				'is_alive'    => 1,
+			) );
+			$moved++;
+		}
+
+		// Guardar contador de ticks
+		update_option( $tick_key, $tick, false );
+
+		return rest_ensure_response( array(
+			'status'     => 'tick',
+			'tick'       => $tick,
+			'moved'      => $moved,
+			'session_id' => $session_id,
+			'time'       => $tick_time,
 		) );
 	}
 }

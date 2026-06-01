@@ -14,6 +14,10 @@ class RMM_DAGR_Handler {
 		add_action( 'rest_api_init', array( $this, 'register_rest_endpoints' ) );
 		add_action( 'admin_menu', array( $this, 'register_admin_pages' ) );
 		add_action( 'admin_init', array( $this, 'handle_map_actions' ) );
+
+		// Simulación cron
+		add_filter( 'cron_schedules', array( $this, 'add_cron_intervals' ) );
+		add_action( 'rmm_simulate_tick', array( $this, 'run_simulation_tick' ) );
 	}
 
 	public function ensure_table() {
@@ -625,8 +629,9 @@ class RMM_DAGR_Handler {
 				<?php
 				$tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'presets';
 				$tabs = array(
-					'maps'    => '🗺️ Mapas',
-					'presets' => '📋 Presets',
+					'maps'       => '🗺️ Mapas',
+					'presets'    => '📋 Presets',
+					'simulation' => '🔄 Simulación',
 				);
 				echo '<h2 class="nav-tab-wrapper">';
 				foreach ( $tabs as $slug => $label ) {
@@ -708,6 +713,106 @@ class RMM_DAGR_Handler {
 							<?php endforeach; endif; ?>
 							</tbody>
 						</table>
+					</div>
+
+				<?php elseif ( $tab === 'simulation' ) : ?>
+					<?php
+					// Handle form actions
+					if ( isset( $_POST['rmm_sim_save'] ) && check_admin_referer( 'rmm_sim_nonce' ) ) {
+						$payload = wp_unslash( $_POST['sim_payload'] );
+						json_decode( $payload );
+						if ( json_last_error() !== JSON_ERROR_NONE ) {
+							echo '<div class="notice notice-error"><p>JSON inválido: ' . esc_html( json_last_error_msg() ) . '</p></div>';
+						} else {
+							update_option( 'rmm_simulate_payload', $payload, false );
+							echo '<div class="notice notice-success"><p>Payload guardado correctamente.</p></div>';
+						}
+					}
+
+					if ( isset( $_POST['rmm_sim_toggle'] ) && check_admin_referer( 'rmm_sim_nonce' ) ) {
+						$active = get_option( 'rmm_simulate_active', false );
+						if ( $active ) {
+							wp_clear_scheduled_hook( 'rmm_simulate_tick' );
+							update_option( 'rmm_simulate_active', false, false );
+							echo '<div class="notice notice-warning"><p>⏸ Simulación DESACTIVADA. El cron se ha detenido.</p></div>';
+						} else {
+							if ( ! wp_next_scheduled( 'rmm_simulate_tick' ) ) {
+								wp_schedule_event( time(), 'every_5_seconds', 'rmm_simulate_tick' );
+							}
+							update_option( 'rmm_simulate_active', true, false );
+							echo '<div class="notice notice-success"><p>▶ Simulación ACTIVADA. Jugadores moviéndose en círculos cada 5s.</p></div>';
+						}
+					}
+
+					$active   = get_option( 'rmm_simulate_active', false );
+					$payload  = get_option( 'rmm_simulate_payload', '' );
+					$next_cron = wp_next_scheduled( 'rmm_simulate_tick' );
+
+					if ( empty( $payload ) ) {
+						$payload = '{
+  "session_id": "test_circle",
+  "map": "everon",
+  "players": [
+    {"name": "TRAUMAN", "steamid": "76561198000000001", "x": 5000, "y": 3000, "radius": 300, "omega": 2},
+    {"name": "ANTIGRAVITY", "steamid": "76561198000000002", "x": 5200, "y": 3200, "radius": 200, "omega": -3},
+    {"name": "ZULU_1", "steamid": "76561198000000003", "x": 6000, "y": 4500, "radius": 400, "omega": 1.5},
+    {"name": "ENEMY_1", "steamid": "76561198000000004", "x": 7200, "y": 5800, "radius": 250, "omega": -2},
+    {"name": "ENEMY_2", "steamid": "76561198000000005", "x": 7400, "y": 5600, "radius": 350, "omega": 2.5}
+  ],
+  "markers": [
+    {"type": "objective", "label": "Base Alpha", "x": 5000, "y": 3000},
+    {"type": "enemy", "label": "Tanque T-72", "x": 7200, "y": 5800}
+  ]
+}';
+					}
+					?>
+
+					<div class="card" style="max-width:960px; padding:24px; margin-bottom:20px;">
+						<h2>🔄 Simulación de Telemetría</h2>
+						<p style="color:#555;font-size:14px;">Genera datos de jugadores moviéndose <strong>en círculos</strong> con rotación continua del heading. Ideal para probar el MicroDAGR sin el addon del juego.</p>
+
+						<div style="display:flex; gap:20px; margin:20px 0; align-items:center; flex-wrap:wrap;">
+							<div style="background:<?php echo $active ? '#d4edda' : '#f8d7da'; ?>; padding:12px 24px; border-radius:6px; font-weight:bold; font-size:16px; border:1px solid <?php echo $active ? '#c3e6cb' : '#f5c6cb'; ?>">
+								<?php echo $active ? '✅ SIMULACIÓN ACTIVA' : '⏸ SIMULACIÓN INACTIVA'; ?>
+							</div>
+							<?php if ( $next_cron ) : ?>
+							<div style="color:#666; font-size:13px;">
+								🕐 Próximo tick: <?php echo human_time_diff( $next_cron ); ?><br>
+								⏱ Intervalo: cada 5 segundos
+							</div>
+							<?php endif; ?>
+						</div>
+
+						<form method="post" style="margin-bottom:0;">
+							<?php wp_nonce_field( 'rmm_sim_nonce' ); ?>
+							<button type="submit" name="rmm_sim_toggle" class="button <?php echo $active ? 'button-secondary' : 'button-primary'; ?>" style="font-size:16px!important; padding:12px 36px!important; height:auto!important;">
+								<?php echo $active ? '⏸ DESACTIVAR Simulación' : '▶ ACTIVAR Simulación'; ?>
+							</button>
+						</form>
+					</div>
+
+					<div class="card" style="max-width:960px; padding:24px;">
+						<h2>📋 Payload JSON</h2>
+						<p style="color:#555; margin-bottom:12px;">
+							Define jugadores y marcadores.<br>
+							<strong>Cada jugador se mueve en círculo:</strong> <code>x,y</code> = centro, <code>radius</code> = radio (metros), <code>omega</code> = velocidad angular (°/s).<br>
+							El <strong>heading</strong> rota continuamente 360°/s. La <strong>velocidad</strong> se calcula como <code>|omega| × radio / 10</code> km/h.
+						</p>
+
+						<form method="post">
+							<?php wp_nonce_field( 'rmm_sim_nonce' ); ?>
+							<textarea name="sim_payload" rows="18" style="width:100%; font-family:'Courier New',monospace; font-size:13px; background:#1a1a2e; color:#e0e0e0; padding:12px; border-radius:4px; border:1px solid #333;"><?php echo esc_textarea( $payload ); ?></textarea>
+							<p class="submit">
+								<button type="submit" name="rmm_sim_save" class="button button-primary">💾 Guardar Payload</button>
+								<a href="?page=rmm-dagr-maps&tab=simulation" class="button">🔄 Recargar</a>
+							</p>
+						</form>
+
+						<div style="background:#f0f6fc; border-left:4px solid #0073aa; padding:12px; margin-top:16px;">
+							<strong>📱 URL para probar en móvil (con auto-simulación):</strong><br>
+							<code style="word-break:break-all;font-size:12px;"><?php echo site_url('/microdagr?token=test_microdagr&session=test_circle'); ?></code>
+							<br><small style="color:#666;">Al ser sesión <code>test_*</code>, el cliente activa auto-simulación cada 2s sin esperar al cron del servidor.</small>
+						</div>
 					</div>
 
 				<?php else : ?>
@@ -937,4 +1042,30 @@ class RMM_DAGR_Handler {
 			</script>
 			<?php
 		}
-}
+
+		/**
+		 * Añadir intervalo de 5 segundos al cron de WordPress
+		 */
+		public function add_cron_intervals( $schedules ) {
+			$schedules['every_5_seconds'] = array(
+				'interval' => 5,
+				'display'  => __( 'Cada 5 segundos', 'reforger-milsim' ),
+			);
+			return $schedules;
+		}
+
+		/**
+		 * Ejecutar un tick de simulación desde el cron
+		 */
+		public function run_simulation_tick() {
+			$map_handler = new RMM_Mission_Map_Handler();
+			// Usar el session_id del payload guardado
+			$payload = get_option( 'rmm_simulate_payload', '' );
+			$data    = json_decode( $payload, true );
+			$session_id = $data['session_id'] ?? 'test_circle';
+
+			$request = new WP_REST_Request( 'POST', '/clan/v1/mission/simulate' );
+			$request->set_body_params( array( 'session_id' => $session_id ) );
+			$map_handler->simulate_telemetry_tick( $request );
+		}
+	}
