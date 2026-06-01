@@ -177,11 +177,11 @@ class RMM_Mission_Map_Handler {
 			if ( ! empty( $steamid ) ) {
 				$show_microdagr = true;
 				// Generar o recuperar token
-				$table_tokens = $wpdb->prefix . 'rmm_microdagr_tokens';
-				$existing = $wpdb->get_row( $wpdb->prepare(
-					"SELECT token FROM $table_tokens WHERE user_id = %d AND session_id = %s AND (expires_at IS NULL OR expires_at > NOW())",
-					$current_user_id, $session_id
-				) );
+					$table_tokens = $wpdb->prefix . 'rmm_microdagr_tokens';
+					$existing = $wpdb->get_row( $wpdb->prepare(
+						"SELECT token FROM $table_tokens WHERE user_id = %d AND session_id = %s",
+						$current_user_id, $session_id
+					) );
 				if ( $existing ) {
 					$microdagr_token = $existing->token;
 				} else {
@@ -383,7 +383,7 @@ class RMM_Mission_Map_Handler {
 
 		$table_tokens = $wpdb->prefix . 'rmm_microdagr_tokens';
 		$existing = $wpdb->get_row( $wpdb->prepare(
-			"SELECT token FROM $table_tokens WHERE user_id = %d AND session_id = %s AND (expires_at IS NULL OR expires_at > NOW())",
+			"SELECT token FROM $table_tokens WHERE user_id = %d AND session_id = %s",
 			$current_user_id, $session_id
 		) );
 
