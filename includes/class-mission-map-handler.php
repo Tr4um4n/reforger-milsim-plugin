@@ -556,7 +556,17 @@ class RMM_Mission_Map_Handler {
 		var meMarker=null, dagrMap=null, followMe=false, compassMode=false;
 		var layers={players:[],markers:[],waypoints:[]};
 
-		function waitForMap(cb){var t=setInterval(function(){var ms=Object.values(window).filter(function(v){return v&&v._leaflet_id});if(ms.length){clearInterval(t);dagrMap=ms[0];cb()}},200);}
+		function waitForMap(cb){
+			var t=setInterval(function(){
+				var el=document.querySelector('.leaflet-container');
+				if(el&&el._leaflet_id){
+					clearInterval(t);
+					// Encontrar la instancia de Leaflet
+					for(var k in L){if(L[k]&&L[k]._leaflet_id===el._leaflet_id&&L[k].addLayer){dagrMap=L[k];break}}
+					if(dagrMap)cb();else console.error('No se encontró instancia Leaflet');
+				}
+			},200);
+		}
 
 		waitForMap(function(){
 			var ic=L.divIcon({html:'<div style="width:14px;height:14px;background:#22c55e;border:2px solid #fff;border-radius:50%;box-shadow:0 0 10px #22c55e;"></div>',iconSize:[18,18],iconAnchor:[9,9]});
