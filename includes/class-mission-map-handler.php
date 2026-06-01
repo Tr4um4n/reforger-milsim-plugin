@@ -1058,15 +1058,22 @@ class RMM_Mission_Map_Handler {
 		/* ── Poll positions (every 4s for snappier updates) ── */
 		setInterval(function(){
 			fetch('/wp-json/clan/v1/mission/positions?session='+SID).then(function(r){return r.json()}).then(function(d){
-				if(!d||!d.players)return;
+				if(!d||!d.players){$('#dagr-status').textContent='SIN DATOS';return}
 				layers.players.forEach(function(m){dagrMap.removeLayer(m)});layers.players=[];
+				var foundMe=false;
 				d.players.forEach(function(p){
 					var ll=g2ll(p.pos_x,p.pos_y);
-					if(p.steamid===MY_STEAM){
+					var sid=String(p.steamid||'').trim();
+					// Debug: mostrar steamids en status
+					if(!foundMe)$('#dagr-status').textContent='BUSCANDO mi='+MY_STEAM.substr(-6)+' vs '+sid.substr(-6);
+					if(sid===MY_STEAM){
+						foundMe=true;
 						mePos={x:Number(p.pos_x),y:Number(p.pos_y),z:Number(p.pos_z||0),h:Number(p.heading||0),s:Number(p.speed||0)};
 						meMarker.setLatLng(ll);
 						if(followMe)dagrMap.panTo(ll,{animate:true});
 						updHUD(p);
+						$('#dagr-status').textContent='MAPA OK | GPS OK';
+						$('#dagr-status').style.color='#4ade80';
 					}else{
 						var cl=p.is_alive?'#FFB000':'#ef4444';
 						var ic=L.divIcon({html:'<div style="width:9px;height:9px;background:'+cl+';border:2px solid #fff;border-radius:50%"></div>',iconSize:[13,13],iconAnchor:[6,6]});
@@ -1075,6 +1082,7 @@ class RMM_Mission_Map_Handler {
 						if($('#dagr-layer-panel [data-layer=players]').checked)mk.addTo(dagrMap);
 					}
 				});
+				if(!foundMe){$('#dagr-status').textContent='NO ENCONTRADO: mi steamid no coincide con ningún jugador';$('#dagr-status').style.color='#ef4444'}
 				loadWP();
 			});
 		},4000);
