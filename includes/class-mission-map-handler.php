@@ -485,15 +485,12 @@ class RMM_Mission_Map_Handler {
 
 			// Usar el shortcode de preset que FUNCIONA
 			$dagr_handler = new RMM_DAGR_Handler();
+			$preset_id = $session_data ? intval( $session_data->post_id ) : 0;
 			$map_html = $dagr_handler->render_tactical_map( array(
 				'map'    => $map_name,
-				'height' => '100%',
-				'id'     => $preset_id, // Cargar marcadores del preset
+				'height' => '100vh',
+				'id'     => $preset_id,
 			) );
-
-			// Injectar CSS para fullscreen y overlay
-			$map_html = str_replace( '</div>', '', $map_html );
-			$map_html = preg_replace( '/style="[^"]*height:[^"]*"[^>]*/', 'style="width:100%;height:100%"', $map_html, 1 );
 
 			header( 'Content-Type: text/html; charset=utf-8' );
 			?>
@@ -506,58 +503,120 @@ class RMM_Mission_Map_Handler {
 	<title>MicroDAGR</title>
 	<style>
 		*{margin:0;padding:0;box-sizing:border-box}
-		html,body{width:100%;height:100%;overflow:hidden;background:#0d1117}
+		html,body{width:100%;height:100%;overflow:hidden;background:#0d1117;font-family:monospace}
 		.leaflet-container{width:100%!important;height:100%!important}
-		#hud{position:fixed;bottom:0;left:0;right:0;z-index:9999;background:rgba(0,0,0,.85);color:#CFDC35;padding:6px 10px;font-size:11px;display:flex;justify-content:space-between;align-items:center;font-family:monospace}
+		#dagr-ui{position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;pointer-events:none}
+		#dagr-ui>*{pointer-events:auto}
+		#hud{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.85);color:#CFDC35;padding:6px 10px;font-size:11px;display:flex;justify-content:space-between;align-items:center}
 		#compass-ring{width:50px;height:50px;border-radius:50%;border:2px solid #CFDC35;position:relative;display:flex;align-items:center;justify-content:center}
 		#compass-arrow{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:16px solid #ef4444;transition:transform .2s}
 		#compass-label{position:absolute;top:1px;font-size:9px;color:#fff}
+		.dagr-btn{position:absolute;border-radius:50%;border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;width:36px;height:36px}
+		#wp-add-btn{top:8px;left:8px;background:rgba(34,197,94,.85);color:#fff}
+		#wp-add-btn.active{background:rgba(239,68,68,.85)}
+		#center-btn{bottom:64px;right:8px;background:rgba(34,197,94,.85);color:#fff}
+		#center-btn.active{background:rgba(239,68,68,.85)}
+		#mode-btn{top:52px;left:8px;width:auto;padding:0 10px;border-radius:8px;background:rgba(0,0,0,.7);color:#fff;border:1px solid #CFDC35;font-size:11px}
+		#layer-btn{top:8px;right:8px;background:rgba(0,0,0,.7);color:#fff;border:1px solid #CFDC35}
+		#wp-panel{position:absolute;top:8px;right:52px;background:rgba(0,0,0,.85);color:#fff;padding:6px 8px;border-radius:6px;max-height:45vh;overflow-y:auto;font-size:10px;min-width:120px}
+		#wp-panel h4{margin:0 0 4px;color:#22c55e;font-size:11px}
+		.wp-row{display:flex;justify-content:space-between;align-items:center;padding:2px 0;border-bottom:1px solid #333;gap:4px}
+		.wp-row .wp-num{color:#d2a850;font-weight:bold}
+		.wp-row .wp-del{color:#ef4444;cursor:pointer;font-size:12px}
+		#layer-panel{display:none;position:absolute;top:52px;right:8px;background:rgba(0,0,0,.9);color:#fff;padding:8px 10px;border-radius:6px;font-size:10px;border:1px solid #333;min-width:140px}
+		#layer-panel.show{display:block}
+		#layer-panel label{display:flex;align-items:center;padding:2px 0;gap:4px}
+		#layer-panel input{accent-color:#22c55e}
 	</style>
 </head>
 <body>
 	<?php echo $map_html; ?>
-	<div id="hud">
-		<div><span>X:<b id="hud-x">---</b> Y:<b id="hud-y">---</b> Z:<b id="hud-z">--</b>m</span></div>
-		<div id="compass-ring"><div id="compass-label">N</div><div id="compass-arrow"></div></div>
+	<div id="dagr-ui">
+		<button id="wp-add-btn" class="dagr-btn" title="Añadir waypoint">+</button>
+		<button id="mode-btn">🧭 Brújula</button>
+		<button id="layer-btn" class="dagr-btn">📑</button>
+		<div id="layer-panel">
+			<h4 style="margin:0 0 6px;color:#CFDC35;">Capas</h4>
+			<label><input type="checkbox" checked data-layer="players"> 👥 Jugadores</label>
+			<label><input type="checkbox" checked data-layer="markers"> 📍 Marcas</label>
+			<label><input type="checkbox" checked data-layer="waypoints"> 🎯 Waypoints</label>
+		</div>
+		<button id="center-btn" class="dagr-btn" title="Seguir mi posición">◎</button>
+		<div id="wp-panel"><h4>Waypoints</h4><div id="wp-items"></div></div>
+		<div id="hud">
+			<div><span>X:<b id="hud-x">---</b> Y:<b id="hud-y">---</b> Z:<b id="hud-z">--</b>m</span></div>
+			<div id="compass-ring"><div id="compass-label">N</div><div id="compass-arrow"></div></div>
+		</div>
 	</div>
 	<script>
 	(function(){
 		var token='<?php echo esc_js( $token ); ?>';
 		var sessionId='<?php echo esc_js( $session ); ?>';
 		var steamid='<?php echo esc_js( $valid->steamid ); ?>';
-		var meMarker=null;
+		var meMarker=null, dagrMap=null, followMe=false, compassMode=false;
+		var layers={players:[],markers:[],waypoints:[]};
 
-		// Esperar a que Leaflet inicialice
-		var checkMap = setInterval(function(){
-			var maps = Object.values(window).filter(function(v){ return v && v._leaflet_id; });
-			if(maps.length){
-				clearInterval(checkMap);
-				var m = maps[0];
-				// Crear marcador propio
-				var ic = L.divIcon({html:'<div style="width:14px;height:14px;background:#22c55e;border:2px solid #fff;border-radius:50%;box-shadow:0 0 10px #22c55e;"></div>',iconSize:[18,18],iconAnchor:[9,9]});
-				meMarker = L.marker([0,0],{icon:ic,zIndexOffset:9999}).addTo(m);
-				// Polling
-				setInterval(function(){
-					fetch('/wp-json/clan/v1/mission/positions?session='+sessionId)
-						.then(function(r){return r.json()})
-						.then(function(d){
-							if(!d.players)return;
-							for(var i=0;i<d.players.length;i++){
-								if(d.players[i].steamid===steamid){
-									var p=d.players[i];
-									var ll = L.latLng([Number(p.pos_y)+50,Number(p.pos_x)+50]);
-									meMarker.setLatLng(ll);
-									document.getElementById('hud-x').textContent=Math.round(p.pos_x);
-									document.getElementById('hud-y').textContent=Math.round(p.pos_y);
-									document.getElementById('hud-z').textContent=Math.round(p.pos_z||0);
-									if(p.heading)document.getElementById('compass-arrow').style.transform='rotate('+p.heading+'deg)';
-									break;
-								}
+		function waitForMap(cb){var t=setInterval(function(){var ms=Object.values(window).filter(function(v){return v&&v._leaflet_id});if(ms.length){clearInterval(t);dagrMap=ms[0];cb()}},200);}
+
+		waitForMap(function(){
+			var ic=L.divIcon({html:'<div style="width:14px;height:14px;background:#22c55e;border:2px solid #fff;border-radius:50%;box-shadow:0 0 10px #22c55e;"></div>',iconSize:[18,18],iconAnchor:[9,9]});
+			meMarker=L.marker([0,0],{icon:ic,zIndexOffset:9999}).addTo(dagrMap);
+
+			// Polling posicion
+			setInterval(function(){
+				fetch('/wp-json/clan/v1/mission/positions?session='+sessionId)
+					.then(function(r){return r.json()})
+					.then(function(d){
+						if(!d||!d.players)return;
+						var me=null;
+						layers.players.forEach(function(m){dagrMap.removeLayer(m)});layers.players=[];
+						d.players.forEach(function(p){
+							var ll=L.latLng([Number(p.pos_y)+50,Number(p.pos_x)+50]);
+							var isMe=(p.steamid===steamid);
+							if(isMe){me=p;meMarker.setLatLng(ll);if(followMe)dagrMap.panTo(ll,{animate:true});
+								document.getElementById('hud-x').textContent=Math.round(p.pos_x);
+								document.getElementById('hud-y').textContent=Math.round(p.pos_y);
+								document.getElementById('hud-z').textContent=Math.round(p.pos_z||0);
+								if(p.heading)document.getElementById('compass-arrow').style.transform='rotate('+p.heading+'deg)';
+							}else{
+								var pc=p.is_alive?'#3b82f6':'#ef4444';
+								var pi=L.divIcon({html:'<div style="width:10px;height:10px;background:'+pc+';border:2px solid #fff;border-radius:50%;"></div>',iconSize:[14,14],iconAnchor:[7,7]});
+								var pm=L.marker(ll,{icon:pi}).bindTooltip(p.player_name||'');
+								layers.players.push(pm);if(docSel('[data-layer=players]').checked)pm.addTo(dagrMap);
 							}
 						});
-				},5000);
-			}
-		},200);
+					});
+			},5000);
+
+			// Marcadores
+			fetch('/wp-json/clan/v1/mission/markers?session='+sessionId).then(function(r){return r.json()}).then(function(d){
+				if(!d||!d.markers)return;
+				var im={objective:'<div style="width:14px;height:14px;background:#22c55e;border:2px solid #fff;border-radius:3px;transform:rotate(45deg);"></div>',completed:'<div style="width:12px;height:12px;background:#d2a850;border:2px solid #fff;border-radius:50%;"></div>',enemy:'<div style="width:12px;height:12px;background:#ef4444;border:2px solid #fff;border-radius:50%;"></div>'},df='<div style="width:12px;height:12px;background:#3b82f6;border:2px solid #fff;border-radius:50%;"></div>';
+				d.markers.forEach(function(mk){var ll=L.latLng([Number(mk.pos_y)+50,Number(mk.pos_x)+50]);var ic=L.divIcon({html:im[mk.type]||df,iconSize:[18,18],iconAnchor:[9,9]});var mkr=L.marker(ll,{icon:ic}).bindTooltip(mk.label||mk.type);layers.markers.push(mkr);if(docSel('[data-layer=markers]').checked)mkr.addTo(dagrMap)});
+			});
+
+			// Waypoints
+			loadWaypoints();
+		});
+
+		function docSel(s){return document.querySelector(s)}
+
+		// Waypoint list
+		function loadWaypoints(){
+			fetch('/wp-json/clan/v1/microdagr/waypoints?token='+token).then(function(r){return r.json()}).then(function(d){
+				var h='';layers.waypoints.forEach(function(m){dagrMap.removeLayer(m)});layers.waypoints=[];
+				(d.waypoints||[]).forEach(function(w,i){h+='<div class="wp-row"><span class="wp-num">'+(i+1)+'.</span><span>'+w.label+'</span><span class="wp-del" data-id="'+w.id+'">✕</span></div>'});
+				document.getElementById('wp-items').innerHTML=h||'<em>vacío</em>';
+			});
+		}
+
+		document.getElementById('wp-add-btn').onclick=function(){this.classList.toggle('active');if(this.classList.contains('active')){dagrMap.on('click',addWP)}else{dagrMap.off('click',addWP)}};
+		function addWP(e){var x=Math.round(e.latlng.lng-50);var y=Math.round(e.latlng.lat-50);var lb=prompt('Waypoint:');if(!lb)return;fetch('/wp-json/clan/v1/microdagr/waypoints',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:token,label:lb,pos_x:x,pos_y:y})}).then(function(r){return r.json()}).then(function(){loadWaypoints()})}
+
+		document.getElementById('center-btn').onclick=function(){followMe=!followMe;this.classList.toggle('active',followMe)};
+		document.getElementById('mode-btn').onclick=function(){compassMode=!compassMode;this.textContent=compassMode?'🗺️':'🧭'};
+		document.getElementById('layer-btn').onclick=function(){document.getElementById('layer-panel').classList.toggle('show')};
+		document.querySelectorAll('#layer-panel input').forEach(function(cb){cb.onchange=function(){var k=cb.dataset.layer;var v=cb.checked;layers[k].forEach(function(m){v?m.addTo(dagrMap):dagrMap.removeLayer(m)})}});
 	})();
 	</script>
 </body>
