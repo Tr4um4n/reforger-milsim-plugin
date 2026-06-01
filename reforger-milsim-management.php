@@ -34,6 +34,7 @@ $rmm_includes = array(
 	'class-medal-rules-handler.php',
 	'class-match-stats-handler.php',
 	'class-dagr-handler.php',
+	'class-mission-map-handler.php',
 	'class-admin-page.php',
 	'class-intel-handler.php',
 	'class-raid-handler.php',

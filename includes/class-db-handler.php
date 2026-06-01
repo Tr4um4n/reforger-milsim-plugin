@@ -160,5 +160,118 @@ class RMM_DB_Handler {
 		dbDelta( $sql6 );
 		dbDelta( $sql7 );
 		dbDelta( $sql_dagr_presets );
+
+		// Table 8: wp_rmm_mission_maps — Vincula misión WP con mapa DAGR
+		$table_mission_maps = $wpdb->prefix . 'rmm_mission_maps';
+		$sql_mission_maps = "CREATE TABLE $table_mission_maps (
+			id bigint(20) NOT NULL AUTO_INCREMENT,
+			post_id bigint(20) NOT NULL,
+			map_name varchar(100) NOT NULL,
+			preset_id bigint(20) DEFAULT NULL,
+			height varchar(20) DEFAULT '600px',
+			enabled tinyint(1) DEFAULT 1,
+			created_at datetime DEFAULT CURRENT_TIMESTAMP,
+			updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY post_id (post_id)
+		) $charset_collate;";
+		dbDelta( $sql_mission_maps );
+
+		// Table 9: wp_rmm_mission_sessions — Sesiones de partida (multi-day)
+		$table_mission_sessions = $wpdb->prefix . 'rmm_mission_sessions';
+		$sql_mission_sessions = "CREATE TABLE $table_mission_sessions (
+			id bigint(20) NOT NULL AUTO_INCREMENT,
+			session_id varchar(100) NOT NULL,
+			post_id bigint(20) NOT NULL,
+			map_name varchar(100) NOT NULL,
+			day int(11) DEFAULT 1,
+			is_multi_day tinyint(1) DEFAULT 0,
+			started_at datetime DEFAULT CURRENT_TIMESTAMP,
+			ended_at datetime DEFAULT NULL,
+			status varchar(20) DEFAULT 'active',
+			created_at datetime DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY session_id (session_id),
+			KEY post_id (post_id)
+		) $charset_collate;";
+		dbDelta( $sql_mission_sessions );
+
+		// Table 10: wp_rmm_mission_positions — Posiciones en tiempo real
+		$table_mission_positions = $wpdb->prefix . 'rmm_mission_positions';
+		$sql_mission_positions = "CREATE TABLE $table_mission_positions (
+			id bigint(20) NOT NULL AUTO_INCREMENT,
+			session_id varchar(100) NOT NULL,
+			steamid varchar(50) NOT NULL,
+			bohemia_uid varchar(100) DEFAULT NULL,
+			player_name varchar(200) DEFAULT NULL,
+			faction varchar(50) DEFAULT NULL,
+			squad varchar(50) DEFAULT NULL,
+			role varchar(50) DEFAULT NULL,
+			pos_x decimal(10,2) DEFAULT 0,
+			pos_y decimal(10,2) DEFAULT 0,
+			pos_z decimal(10,2) DEFAULT 0,
+			heading decimal(5,2) DEFAULT 0,
+			speed decimal(5,2) DEFAULT 0,
+			is_alive tinyint(1) DEFAULT 1,
+			recorded_at datetime DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY session_id (session_id),
+			KEY steamid (steamid),
+			KEY session_steamid (session_id, steamid)
+		) $charset_collate;";
+		dbDelta( $sql_mission_positions );
+
+		// Table 11: wp_rmm_mission_markers — Marcadores de misión
+		$table_mission_markers = $wpdb->prefix . 'rmm_mission_markers';
+		$sql_mission_markers = "CREATE TABLE $table_mission_markers (
+			id bigint(20) NOT NULL AUTO_INCREMENT,
+			session_id varchar(100) NOT NULL,
+			marker_id varchar(50) NOT NULL,
+			type varchar(50) DEFAULT 'marker',
+			label varchar(200) DEFAULT NULL,
+			pos_x decimal(10,2) DEFAULT 0,
+			pos_y decimal(10,2) DEFAULT 0,
+			reported_by varchar(50) DEFAULT NULL,
+			color varchar(20) DEFAULT '#d2a850',
+			recorded_at datetime DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY session_id (session_id),
+			KEY marker_id (marker_id)
+		) $charset_collate;";
+		dbDelta( $sql_mission_markers );
+
+		// Table 12: wp_rmm_microdagr_tokens — Tokens QR para MicroDAGR
+		$table_mdagr_tokens = $wpdb->prefix . 'rmm_microdagr_tokens';
+		$sql_mdagr_tokens = "CREATE TABLE $table_mdagr_tokens (
+			id bigint(20) NOT NULL AUTO_INCREMENT,
+			token varchar(100) NOT NULL,
+			user_id bigint(20) NOT NULL,
+			steamid varchar(50) NOT NULL,
+			session_id varchar(100) DEFAULT NULL,
+			expires_at datetime DEFAULT NULL,
+			created_at datetime DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY token (token),
+			KEY user_id (user_id),
+			KEY steamid (steamid)
+		) $charset_collate;";
+		dbDelta( $sql_mdagr_tokens );
+
+		// Table 13: wp_rmm_waypoints — Waypoints para MicroDAGR
+		$table_waypoints = $wpdb->prefix . 'rmm_waypoints';
+		$sql_waypoints = "CREATE TABLE $table_waypoints (
+			id bigint(20) NOT NULL AUTO_INCREMENT,
+			token varchar(100) NOT NULL,
+			label varchar(200) DEFAULT NULL,
+			pos_x decimal(10,2) DEFAULT 0,
+			pos_y decimal(10,2) DEFAULT 0,
+			order_index int(11) DEFAULT 0,
+			is_active tinyint(1) DEFAULT 1,
+			created_at datetime DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY token (token),
+			KEY token_order (token, order_index)
+		) $charset_collate;";
+		dbDelta( $sql_waypoints );
 	}
 }
