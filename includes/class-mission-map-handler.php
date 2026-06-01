@@ -572,17 +572,28 @@ class RMM_Mission_Map_Handler {
 
 				// Si la sesión no existe, crearla + datos iniciales
 				if ( ! $test_session ) {
-					// Llamar al simulador para que cree la sesión y jugadores
 					$sim_request = new WP_REST_Request( 'POST', '/clan/v1/mission/simulate' );
 					$sim_request->set_body_params( array( 'session_id' => $session ) );
 					$this->simulate_telemetry_tick( $sim_request );
 				}
 
-				// Crear token
+				// Leer steamid del payload (primer jugador) o de la URL
+				$payload_raw  = get_option( 'rmm_simulate_payload', '' );
+				$payload_data = json_decode( $payload_raw, true );
+				$auto_steamid = '76561198000000001'; // fallback
+				if ( $payload_data && ! empty( $payload_data['players'][0]['steamid'] ) ) {
+					$auto_steamid = $payload_data['players'][0]['steamid'];
+				}
+				// Permitir override por URL: ?steamid=76561198...
+				if ( ! empty( $_GET['steamid'] ) ) {
+					$auto_steamid = sanitize_text_field( $_GET['steamid'] );
+				}
+
+				// Crear token con el steamid correcto
 				$wpdb->insert( $table_tokens, array(
 					'token'      => $token,
 					'user_id'    => 0,
-					'steamid'    => '76561198000000001',
+					'steamid'    => $auto_steamid,
 					'session_id' => $session,
 					'expires_at' => date( 'Y-m-d H:i:s', strtotime( '+24 hours' ) ),
 				) );
