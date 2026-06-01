@@ -288,6 +288,7 @@ class RMM_Mission_Map_Handler {
 				center: [<?php echo ($max_y * $scale_factor) / 2; ?>, <?php echo ($max_x * $scale_factor) / 2; ?>],
 				zoom: Math.floor(maxZoom / 2)
 			});
+			document.getElementById('<?php echo $uid; ?>')._rmmMap = map;
 
 			L.TileLayer.InvertedY = L.TileLayer.extend({
 				getTileUrl: function(c) {
@@ -820,23 +821,33 @@ class RMM_Mission_Map_Handler {
 	var dagrMap=null, mePos=null, followMe=false, addingWP=false;
 	var layers={players:[],markers:[],waypoints:[]};
 
-	/* ── Find Leaflet instance (with timeout) ── */
+	/* ── Find Leaflet instance via _rmmMap reference ── */
 	function waitMap(cb){
-		var tries=0, maxTries=50; // 50 * 200ms = 10s timeout
+		var tries=0, maxTries=50;
 		var t=setInterval(function(){
 			tries++;
 			var el=document.querySelector('.leaflet-container');
-			if(el&&el._leaflet_id){
+			if(el&&el._rmmMap){
 				clearInterval(t);
-				for(var k in L){if(L[k]&&L[k]._leaflet_id===el._leaflet_id&&L[k].addLayer){dagrMap=L[k];break}}
-				if(dagrMap){$('#dagr-status').textContent='MAPA OK';$('#dagr-status').style.color='#4ade80';cb()}
-				else{$('#dagr-status').textContent='ERROR: Leaflet no encontrado';$('#dagr-status').style.color='#ef4444'}
+				dagrMap=el._rmmMap;
+				$('#dagr-status').textContent='MAPA OK';
+				$('#dagr-status').style.color='#4ade80';
+				cb();
+				return;
+			}
+			if(el&&el._leaflet_id&&!el._rmmMap){
+				// Fallback: buscar en L (por si _rmmMap no está)
+				try{
+					for(var k in L){var v=L[k];if(v&&v._leaflet_id===el._leaflet_id&&typeof v.addLayer==='function'){dagrMap=v;break}}
+				}catch(e){}
+				if(dagrMap){clearInterval(t);$('#dagr-status').textContent='MAPA OK (fallback)';$('#dagr-status').style.color='#4ade80';cb();return}
 			}
 			if(tries>=maxTries){
 				clearInterval(t);
-				$('#dagr-status').textContent='ERROR: Mapa no cargó en 10s';
 				$('#dagr-status').style.color='#ef4444';
-				if(!el)$('#dagr-status').textContent='ERROR: No hay .leaflet-container (¿falló render_tactical_map?)';
+				if(!el)$('#dagr-status').textContent='ERROR: No hay .leaflet-container';
+				else if(!el._rmmMap&&!el._leaflet_id)$('#dagr-status').textContent='ERROR: Mapa sin inicializar';
+				else $('#dagr-status').textContent='ERROR: Mapa no cargó en 10s';
 			}
 		},200);
 	}

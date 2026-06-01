@@ -391,6 +391,7 @@ class RMM_DAGR_Handler {
 				zoomControl: true,
 				attributionControl: false
 			});
+			container._rmmMap = map; // Exponer para MicroDAGR mobile
 
 			new L.TileLayer.InvertedY(tilesUrl, {
 				maxZoom: maxZoom,
