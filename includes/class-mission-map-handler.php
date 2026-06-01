@@ -709,9 +709,17 @@ class RMM_Mission_Map_Handler {
 		) );
 
 		// Endpoint de TEST — simular telemetría
+		// Test session
 		register_rest_route( 'clan/v1', '/mission/test-session', array(
 			'methods'  => 'POST',
 			'callback' => array( $this, 'create_test_session' ),
+			'permission_callback' => '__return_true',
+		) );
+
+		// Finalizar sesión
+		register_rest_route( 'clan/v1', '/mission/end-session', array(
+			'methods'  => 'POST',
+			'callback' => array( $this, 'end_session' ),
 			'permission_callback' => '__return_true',
 		) );
 	}
@@ -881,6 +889,24 @@ class RMM_Mission_Map_Handler {
 		), ARRAY_A );
 
 		return rest_ensure_response( array( 'waypoints' => $wps ) );
+	}
+
+	/**
+	 * Finalizar sesión
+	 */
+	public function end_session( $request ) {
+		global $wpdb;
+		$data = $request->get_json_params() ?: $request->get_params();
+		$session_id = sanitize_text_field( $data['session_id'] ?? '' );
+		if ( empty( $session_id ) ) return rest_ensure_response( array( 'error' => 'No session_id' ) );
+
+		$table_sessions = $wpdb->prefix . 'rmm_mission_sessions';
+		$updated = $wpdb->update( $table_sessions, array(
+			'status'   => 'ended',
+			'ended_at' => current_time( 'mysql' ),
+		), array( 'session_id' => $session_id ) );
+
+		return rest_ensure_response( array( 'status' => $updated ? 'ended' : 'not found', 'session_id' => $session_id ) );
 	}
 
 	/**
