@@ -494,8 +494,8 @@ class RMM_Mission_Map_Handler {
 	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 	<style>
 		* { margin: 0; padding: 0; box-sizing: border-box; }
-		body { background: #0d1117; overflow: hidden; font-family: monospace; }
-		#map { width: 100vw; height: 100vh; }
+		html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1117; font-family: monospace; }
+		#map { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
 		#hud {
 			position: fixed; bottom: 0; left: 0; right: 0;
 			background: rgba(0,0,0,0.85); color: #CFDC35;
@@ -607,39 +607,32 @@ class RMM_Mission_Map_Handler {
 		var edgeOffset = <?= $edge_offset ?>;
 		var scaleFactor = <?= $scale_factor ?>;
 		var maxY = <?= $max_y ?>;
-		var maxZoom = <?= $max_zoom ?>;
+		var maxTileZoom = <?= $max_zoom ?>;
 
-		var bounds = [[<?= $min_y * $scale_factor ?>, <?= $min_x * $scale_factor ?>], [<?= $max_y * $scale_factor ?>, <?= $max_x * $scale_factor ?>]];
 		var map = L.map('map', {
+			center: [512, 512],
+			zoom: <?= max(0, $max_zoom) ?>,
 			zoomControl: true,
 			attributionControl: false,
-			maxBounds: bounds,
-			center: [<?= ($max_y * $scale_factor) / 2 ?>, <?= ($max_x * $scale_factor) / 2 ?>],
-			zoom: <?= max(0, maxZoom - 2) ?>
+			maxBoundsViscosity: 1.0
 		});
 
-		L.TileLayer.InvertedY = L.TileLayer.extend({
-			getTileUrl: function(c) {
-				var max = Math.pow(2, c.z) - 1;
-				c.y = max - c.y;
-				// Clamp para evitar negativos
-				if (c.y < 0) c.y = 0;
-				if (c.y > max) c.y = max;
-				if (c.x < 0) c.x = 0;
-				if (c.x > max) c.x = max;
-				return L.TileLayer.prototype.getTileUrl.call(this, c);
-			}
-		});
-		new L.TileLayer.InvertedY('<?= esc_js( $tiles_url ) ?>', {
-			maxZoom: maxZoom,
+		// Tile layer SIN zoomReverse ni InvertedY
+		L.tileLayer('<?= esc_js( $tiles_url ) ?>', {
 			minZoom: 0,
-			zoomReverse: true,
-			bounds: bounds,
-			noWrap: true,
-			tms: false
+			maxZoom: maxTileZoom,
+			tms: true,
+			continuousWorld: true,
+			noWrap: true
 		}).addTo(map);
 
-		function gameToLatLng(x, y) { return [((maxY - y + edgeOffset) * scaleFactor), ((x - edgeOffset) * scaleFactor)]; }
+		// Forzar bounds después de cargar
+		setTimeout(function() {
+			map.setMaxBounds([[0, 0], [<?= $max_y * $scale_factor ?>, <?= $max_x * $scale_factor ?>]]);
+			map.fitBounds([[0, 0], [<?= $max_y * $scale_factor ?>, <?= $max_x * $scale_factor ?>]]);
+		}, 500);
+
+		function gameToLatLng(x, y) { return [((<?= $max_y ?> - y + <?= $edge_offset ?>) * <?= $scale_factor ?>), ((x - <?= $edge_offset ?>) * <?= $scale_factor ?>)]; }
 		function latLngToGame(lat, lng) {
 			var x = (lng / scaleFactor) + edgeOffset;
 			var y = maxY - ((lat / scaleFactor) - edgeOffset);
