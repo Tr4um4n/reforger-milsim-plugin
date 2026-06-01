@@ -562,8 +562,39 @@ class RMM_Mission_Map_Handler {
 				$token
 			) );
 
+			// Auto-crear token Y sesión para testing
+			if ( ! $valid && strpos( $session, 'test_' ) === 0 ) {
+				$table_sessions_check = $wpdb->prefix . 'rmm_mission_sessions';
+				$test_session = $wpdb->get_row( $wpdb->prepare(
+					"SELECT * FROM $table_sessions_check WHERE session_id = %s", $session
+				) );
+
+				// Si la sesión no existe, crearla + datos iniciales
+				if ( ! $test_session ) {
+					// Llamar al simulador para que cree la sesión y jugadores
+					$sim_request = new WP_REST_Request( 'POST', '/clan/v1/mission/simulate' );
+					$sim_request->set_body_params( array( 'session_id' => $session ) );
+					$this->simulate_telemetry_tick( $sim_request );
+				}
+
+				// Crear token
+				$wpdb->insert( $table_tokens, array(
+					'token'      => $token,
+					'user_id'    => 0,
+					'steamid'    => '76561198000000001',
+					'session_id' => $session,
+					'expires_at' => date( 'Y-m-d H:i:s', strtotime( '+24 hours' ) ),
+				) );
+				$valid = $wpdb->get_row( $wpdb->prepare(
+					"SELECT t.* FROM $table_tokens t
+					INNER JOIN {$wpdb->prefix}rmm_mission_sessions s ON t.session_id = s.session_id
+					WHERE t.token = %s AND s.status = 'active'",
+					$token
+				) );
+			}
+
 			if ( ! $valid ) {
-				wp_die( 'Token inválido o expirado.' );
+				wp_die( 'Token inválido o expirado. Para testing, usa <code>test_circle</code> como session y <code>test_microdagr</code> como token.' );
 			}
 
 			// Datos de la sesión
@@ -660,6 +691,8 @@ class RMM_Mission_Map_Handler {
 		.dagr-wp-item .wp-name{font-weight:bold;color:#FFB000;font-size:11px;display:flex;justify-content:space-between}
 		.dagr-wp-item .wp-info{font-size:9px;color:#999}
 		.dagr-wp-item .wp-del{color:#ef4444;cursor:pointer;font-size:14px;padding:0 4px}
+		.wp-reorder{color:#FFB000;cursor:pointer;font-size:10px;padding:0 3px;user-select:none;opacity:.6}
+		.wp-reorder:active{color:#fff;opacity:1}
 
 		/* ── Layers panel (appears to the right of buttons) ── */
 		#dagr-layer-panel{position:absolute;top:40px;left:60px;background:rgba(0,0,0,.93);border:1px solid #333;border-radius:4px;color:#FFB000;padding:8px 10px;font-size:11px;display:none;min-width:120px;z-index:10000}
@@ -843,7 +876,7 @@ class RMM_Mission_Map_Handler {
 					dst=dist(mePos,wp)+'m';
 				}
 				gx=pad(Math.round(w.pos_x),4);gy=pad(Math.round(w.pos_y),4);
-				h+='<div class="dagr-wp-item"><div class="wp-name"><span>'+(i+1)+'. '+w.label+'</span><span class="wp-del" data-id="'+w.id+'">✕</span></div><div class="wp-info">GRID '+gx+' '+gy+' | BRG '+brg+' | DST '+dst+'</div></div>';
+				h+='<div class="dagr-wp-item" data-wp-id="'+w.id+'"><div class="wp-name"><span class="wp-reorder wp-up" data-dir="up">▲</span><span class="wp-reorder wp-down" data-dir="down">▼</span><span>'+(i+1)+'. '+w.label+'</span><span class="wp-del">✕</span></div><div class="wp-info">GRID '+gx+' '+gy+' | BRG '+brg+' | DST '+dst+'</div></div>';
 				var ic=L.divIcon({html:'<div style="width:10px;height:10px;background:#FFB000;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 6px rgba(255,176,0,.6)"></div>',iconSize:[16,16],iconAnchor:[8,8]});
 				var mk=L.marker(g2ll(w.pos_x,w.pos_y),{icon:ic}).bindTooltip(w.label,{direction:'top',offset:[0,-10]});
 				layers.waypoints.push(mk);if($('#dagr-layer-panel [data-layer=waypoints]').checked)mk.addTo(dagrMap);
@@ -1008,15 +1041,29 @@ class RMM_Mission_Map_Handler {
 		else{ov.style.display='block';this.classList.add('on');if(mePos){updHUD({pos_x:mePos.x,pos_y:mePos.y,pos_z:mePos.z,heading:mePos.h,speed:mePos.s})};toast('Brújula visible')}
 	};
 
-	/* ── WP delete ── */
+	/* ── WP delete + reorder ── */
 	$('#dagr-wp-items').addEventListener('click',function(e){
-		var del=e.target.closest('.wp-del');if(!del)return;
-		var id=del.dataset.id;
-		if(!confirm('¿Borrar waypoint?'))return;
-		fetch('/wp-json/clan/v1/microdagr/waypoints/'+id,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:TOKEN})}).then(function(){
-			loadWP();
-			toast('Waypoint eliminado');
-		});
+		var del=e.target.closest('.wp-del');
+		var reo=e.target.closest('.wp-reorder');
+		var item=e.target.closest('.dagr-wp-item');
+		if(!item)return;
+		var id=item.dataset.wpId;
+
+		if(del){
+			if(!confirm('¿Borrar waypoint?'))return;
+			fetch('/wp-json/clan/v1/microdagr/waypoints/'+id,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:TOKEN})}).then(function(){
+				loadWP();
+				toast('Waypoint eliminado');
+			});
+		}
+
+		if(reo){
+			var dir=reo.dataset.dir;
+			fetch('/wp-json/clan/v1/microdagr/waypoints/reorder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:TOKEN,id:id,direction:dir})}).then(function(r){return r.json()}).then(function(d){
+				if(d.status==='ok')loadWP();
+				else if(d.msg)toast(d.msg);
+			});
+		}
 	});
 
 	/* ── Layer toggles ── */
@@ -1082,6 +1129,13 @@ class RMM_Mission_Map_Handler {
 		register_rest_route( 'clan/v1', '/microdagr/waypoints', array(
 			'methods'  => 'POST',
 			'callback' => array( $this, 'create_waypoint' ),
+			'permission_callback' => '__return_true',
+		) );
+
+		// Reordenar waypoints
+		register_rest_route( 'clan/v1', '/microdagr/waypoints/reorder', array(
+			'methods'  => 'POST',
+			'callback' => array( $this, 'reorder_waypoints' ),
 			'permission_callback' => '__return_true',
 		) );
 
@@ -1310,6 +1364,51 @@ class RMM_Mission_Map_Handler {
 			'pos_y'       => floatval( $data['pos_y'] ?? 0 ),
 			'order_index' => intval( $data['order_index'] ?? 0 ),
 		) );
+
+		return rest_ensure_response( array( 'status' => 'ok' ) );
+	}
+
+	/**
+	 * Reordenar waypoints — intercambia order_index entre dos
+	 */
+	public function reorder_waypoints( $request ) {
+		global $wpdb;
+		$data = $request->get_json_params() ?: $request->get_params();
+		$token = sanitize_text_field( $data['token'] ?? '' );
+		$wp_id = intval( $data['id'] ?? 0 );
+		$dir   = sanitize_text_field( $data['direction'] ?? 'up' );
+
+		if ( empty( $token ) || ! $wp_id ) {
+			return rest_ensure_response( array( 'error' => 'Faltan parámetros' ) );
+		}
+
+		$table = $wpdb->prefix . 'rmm_waypoints';
+
+		// Obtener el waypoint actual
+		$current = $wpdb->get_row( $wpdb->prepare(
+			"SELECT id, order_index FROM $table WHERE id = %d AND token = %s",
+			$wp_id, $token
+		) );
+		if ( ! $current ) return rest_ensure_response( array( 'error' => 'WP no encontrado' ) );
+
+		// Buscar el waypoint adyacente
+		if ( $dir === 'up' ) {
+			$adjacent = $wpdb->get_row( $wpdb->prepare(
+				"SELECT id, order_index FROM $table WHERE token = %s AND is_active = 1 AND order_index < %d ORDER BY order_index DESC LIMIT 1",
+				$token, $current->order_index
+			) );
+		} else {
+			$adjacent = $wpdb->get_row( $wpdb->prepare(
+				"SELECT id, order_index FROM $table WHERE token = %s AND is_active = 1 AND order_index > %d ORDER BY order_index ASC LIMIT 1",
+				$token, $current->order_index
+			) );
+		}
+
+		if ( ! $adjacent ) return rest_ensure_response( array( 'status' => 'noop', 'msg' => 'Ya está en el extremo' ) );
+
+		// Intercambiar order_index
+		$wpdb->update( $table, array( 'order_index' => $adjacent->order_index ), array( 'id' => $current->id ) );
+		$wpdb->update( $table, array( 'order_index' => $current->order_index ), array( 'id' => $adjacent->id ) );
 
 		return rest_ensure_response( array( 'status' => 'ok' ) );
 	}
