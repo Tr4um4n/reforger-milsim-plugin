@@ -721,8 +721,6 @@ class RMM_Mission_Map_Handler {
 		.dagr-wp-item .wp-name{font-weight:bold;color:#FFB000;font-size:11px;display:flex;justify-content:space-between}
 		.dagr-wp-item .wp-info{font-size:9px;color:#999}
 		.dagr-wp-item .wp-del{color:#ef4444;cursor:pointer;font-size:14px;padding:0 4px}
-		.wp-reorder{color:#FFB000;cursor:pointer;font-size:10px;padding:0 3px;user-select:none;opacity:.6}
-		.wp-reorder:active{color:#fff;opacity:1}
 
 		/* ── Layers panel (appears to the right of buttons) ── */
 		#dagr-layer-panel{position:absolute;top:40px;left:60px;background:rgba(0,0,0,.93);border:1px solid #333;border-radius:4px;color:#FFB000;padding:8px 10px;font-size:11px;display:none;min-width:120px;z-index:10000}
@@ -995,24 +993,41 @@ class RMM_Mission_Map_Handler {
 	}
 
 	/* ── Waypoints ── */
+	var activeWpIdx=0;
 	function loadWP(){
 		fetch('/wp-json/clan/v1/microdagr/waypoints?token='+TOKEN).then(function(r){return r.json()}).then(function(d){
 			layers.waypoints.forEach(function(m){dagrMap.removeLayer(m)});layers.waypoints=[];
 			var wps=d.waypoints||[];
-			var h='';wps.forEach(function(w,i){
-				var brg='--',dst='--',gx='-',gy='-';
+			if(activeWpIdx>=wps.length)activeWpIdx=Math.max(0,wps.length-1);
+
+			// Render ALL WPs as map markers, but only show active one in panel
+			var h='',total=wps.length;
+			wps.forEach(function(w,i){
+				var brg='--',dst='--',gx=metersToGrid(w.pos_x),gy=metersToGrid(w.pos_y);
 				if(mePos){
 					var wp={x:Number(w.pos_x),y:Number(w.pos_y)};
 					brg=Math.round(bearing(mePos,wp))+'°';
 					dst=dist(mePos,wp)+'m';
 				}
-				gx=metersToGrid(w.pos_x);gy=metersToGrid(w.pos_y);
-				h+='<div class="dagr-wp-item" data-wp-id="'+w.id+'"><div class="wp-name"><span class="wp-reorder wp-up" data-dir="up">▲</span><span class="wp-reorder wp-down" data-dir="down">▼</span><span>'+(i+1)+'. '+w.label+'</span><span class="wp-del">✕</span></div><div class="wp-info">GRID '+gx+' '+gy+' | BRG '+brg+' | DST '+dst+'</div></div>';
-				var ic=L.divIcon({html:'<div style="width:10px;height:10px;background:#FFB000;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 6px rgba(255,176,0,.6)"></div>',iconSize:[16,16],iconAnchor:[8,8]});
-				var mk=L.marker(g2ll(w.pos_x,w.pos_y),{icon:ic}).bindTooltip(w.label,{direction:'top',offset:[0,-10]});
+				// Map marker for all WPs
+				var isActive=(i===activeWpIdx);
+				var ic=L.divIcon({html:'<div style="width:'+(isActive?14:10)+'px;height:'+(isActive?14:10)+'px;background:#FFB000;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 '+(isActive?10:6)+'px rgba(255,176,0,.6)"></div>',iconSize:[18,18],iconAnchor:[9,9]});
+				var mk=L.marker(g2ll(w.pos_x,w.pos_y),{icon:ic,zIndexOffset:isActive?9998:0}).bindTooltip(w.label,{direction:'top',offset:[0,-10]});
 				layers.waypoints.push(mk);if($('#dagr-layer-panel [data-layer=waypoints]').checked)mk.addTo(dagrMap);
+
+				// Only render active WP in panel (or all if total<=1 with nav hidden)
+				if(i===activeWpIdx){
+					h='<div class="dagr-wp-item" data-wp-id="'+w.id+'"><div class="wp-name"><span>◆ '+(i+1)+'/'+total+' '+w.label+'</span><span class="wp-del">✕</span></div><div class="wp-info">BRG '+brg+' | DST '+dst+'</div><div class="wp-info">GRID '+gx+' '+gy+'</div></div>';
+				}
 			});
-			$('#dagr-wp-items').innerHTML=h||'<em style="color:#555">VACÍO</em>';
+
+			// Navigation row
+			var nav='';
+			if(total>1){
+				nav='<div style="display:flex;gap:4px;margin-top:4px;border-top:1px solid #1a1a1a;padding-top:4px"><button class="dagr-phys-btn wp-nav-btn" data-dir="prev" style="flex:1;font-size:9px;min-height:28px;padding:4px">▲ ANT</button><button class="dagr-phys-btn wp-nav-btn" data-dir="next" style="flex:1;font-size:9px;min-height:28px;padding:4px">▼ SIG</button></div>';
+			}
+
+			$('#dagr-wp-items').innerHTML=(h||'<em style="color:#555">VACÍO</em>')+nav;
 		});
 	}
 
@@ -1191,27 +1206,30 @@ class RMM_Mission_Map_Handler {
 		else{ov.style.display='block';this.classList.add('on');if(mePos){updHUD({pos_x:mePos.x,pos_y:mePos.y,pos_z:mePos.z,heading:mePos.h,speed:mePos.s})};toast('Brújula visible')}
 	};
 
-	/* ── WP delete + reorder ── */
+	/* ── WP actions: delete + navigate (ANT/SIG) ── */
 	$('#dagr-wp-items').addEventListener('click',function(e){
 		var del=e.target.closest('.wp-del');
-		var reo=e.target.closest('.wp-reorder');
-		var item=e.target.closest('.dagr-wp-item');
-		if(!item)return;
-		var id=item.dataset.wpId;
+		var nav=e.target.closest('.wp-nav-btn');
 
-		if(del){
-			if(!confirm('¿Borrar waypoint?'))return;
-			fetch('/wp-json/clan/v1/microdagr/waypoints/'+id,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:TOKEN})}).then(function(){
-				loadWP();
-				toast('Waypoint eliminado');
-			});
+		// Navegación entre WPs
+		if(nav){
+			var dir=nav.dataset.dir;
+			if(dir==='prev')activeWpIdx=Math.max(0,activeWpIdx-1);
+			else activeWpIdx++;
+			loadWP();
+			return;
 		}
 
-		if(reo){
-			var dir=reo.dataset.dir;
-			fetch('/wp-json/clan/v1/microdagr/waypoints/reorder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:TOKEN,id:id,direction:dir})}).then(function(r){return r.json()}).then(function(d){
-				if(d.status==='ok')loadWP();
-				else if(d.msg)toast(d.msg);
+		// Borrar WP activo
+		if(del){
+			var item=document.querySelector('#dagr-wp-items .dagr-wp-item');
+			if(!item)return;
+			var id=item.dataset.wpId;
+			if(!confirm('¿Borrar este waypoint?'))return;
+			fetch('/wp-json/clan/v1/microdagr/waypoints/'+id,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:TOKEN})}).then(function(){
+				if(activeWpIdx>0)activeWpIdx--;
+				loadWP();
+				toast('Waypoint eliminado');
 			});
 		}
 	});
