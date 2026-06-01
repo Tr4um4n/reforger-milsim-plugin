@@ -564,7 +564,7 @@ class RMM_Mission_Map_Handler {
 			) );
 
 			// Auto-crear token Y sesión para testing
-			if ( ! $valid && strpos( $session, 'test_' ) === 0 ) {
+			if ( strpos( $session, 'test_' ) === 0 ) {
 				$table_sessions_check = $wpdb->prefix . 'rmm_mission_sessions';
 				$test_session = $wpdb->get_row( $wpdb->prepare(
 					"SELECT * FROM $table_sessions_check WHERE session_id = %s", $session
@@ -580,23 +580,30 @@ class RMM_Mission_Map_Handler {
 				// Leer steamid del payload (primer jugador) o de la URL
 				$payload_raw  = get_option( 'rmm_simulate_payload', '' );
 				$payload_data = json_decode( $payload_raw, true );
-				$auto_steamid = '76561198000000001'; // fallback
+				$auto_steamid = '76561198000000001';
 				if ( $payload_data && ! empty( $payload_data['players'][0]['steamid'] ) ) {
 					$auto_steamid = $payload_data['players'][0]['steamid'];
 				}
-				// Permitir override por URL: ?steamid=76561198...
 				if ( ! empty( $_GET['steamid'] ) ) {
 					$auto_steamid = sanitize_text_field( $_GET['steamid'] );
 				}
 
-				// Crear token con el steamid correcto
-				$wpdb->insert( $table_tokens, array(
-					'token'      => $token,
-					'user_id'    => 0,
-					'steamid'    => $auto_steamid,
-					'session_id' => $session,
-					'expires_at' => date( 'Y-m-d H:i:s', strtotime( '+24 hours' ) ),
-				) );
+				if ( ! $valid ) {
+					// Crear token nuevo
+					$wpdb->insert( $table_tokens, array(
+						'token'      => $token,
+						'user_id'    => 0,
+						'steamid'    => $auto_steamid,
+						'session_id' => $session,
+						'expires_at' => date( 'Y-m-d H:i:s', strtotime( '+24 hours' ) ),
+					) );
+				} elseif ( $valid->steamid !== $auto_steamid ) {
+					// Token existe pero steamid no coincide → actualizar
+					$wpdb->update( $table_tokens,
+						array( 'steamid' => $auto_steamid ),
+						array( 'token' => $token )
+					);
+				}
 				$valid = $wpdb->get_row( $wpdb->prepare(
 					"SELECT t.* FROM $table_tokens t
 					INNER JOIN {$wpdb->prefix}rmm_mission_sessions s ON t.session_id = s.session_id
@@ -959,28 +966,29 @@ class RMM_Mission_Map_Handler {
 		updateCompassWPs(h);
 	}
 
-	/* ── Show WP bearings on compass overlay ── */
+	/* ── Show WP bearing on compass overlay (active WP only) ── */
 	function updateCompassWPs(myHeading){
 		if(!mePos)return;
 		var container=$('#dagr-compass-overlay');
 		if(container.style.display!=='block')return;
-		// Remove old WP indicators
 		container.querySelectorAll('.dagr-cmp-wp').forEach(function(el){el.remove()});
-		var ring=container.querySelector('div'); // the 140px ring
-		var cx=70,cy=70,r=62; // ring radius
-		(layers.waypoints||[]).forEach(function(m){
-			var ll=m.getLatLng();
-			var wp={x:ll.lng-<?php echo $edge_offset; ?>,y:ll.lat-<?php echo $edge_offset; ?>};
-			var brg=bearing(mePos,wp);
-			var rel=(brg-myHeading+360)%360;
-			var rad=rel*Math.PI/180;
-			var x=cx+r*Math.sin(rad)-5;
-			var y=cy-r*Math.cos(rad)-5;
-			var dot=document.createElement('div');
-			dot.className='dagr-cmp-wp';
-			dot.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:10px;height:10px;background:#FFB000;border:1px solid #fff;border-radius:2px;transform:rotate(45deg);pointer-events:none';
-			ring.appendChild(dot);
-		});
+		var ring=container.querySelector('div');
+		var cx=70,cy=70,r=62;
+		// Solo el WP activo
+		var wps=layers.waypoints||[];
+		if(wps.length===0||activeWpIdx>=wps.length)return;
+		var m=wps[activeWpIdx];
+		var ll=m.getLatLng();
+		var wp={x:ll.lng-<?php echo $edge_offset; ?>,y:ll.lat-<?php echo $edge_offset; ?>};
+		var brg=bearing(mePos,wp);
+		var rel=(brg-myHeading+360)%360;
+		var rad=rel*Math.PI/180;
+		var x=cx+r*Math.sin(rad)-6;
+		var y=cy-r*Math.cos(rad)-6;
+		var dot=document.createElement('div');
+		dot.className='dagr-cmp-wp';
+		dot.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:12px;height:12px;background:#FFB000;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 8px #FFB000;pointer-events:none';
+		ring.appendChild(dot);
 	}
 
 	/* ── Toast feedback ── */
@@ -1012,7 +1020,7 @@ class RMM_Mission_Map_Handler {
 				// Map marker for all WPs
 				var isActive=(i===activeWpIdx);
 				var ic=L.divIcon({html:'<div style="width:'+(isActive?14:10)+'px;height:'+(isActive?14:10)+'px;background:#FFB000;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 '+(isActive?10:6)+'px rgba(255,176,0,.6)"></div>',iconSize:[18,18],iconAnchor:[9,9]});
-				var mk=L.marker(g2ll(w.pos_x,w.pos_y),{icon:ic,zIndexOffset:isActive?9998:0}).bindTooltip(w.label,{direction:'top',offset:[0,-10]});
+				var mk=L.marker(g2ll(w.pos_x,w.pos_y),{icon:ic,zIndexOffset:isActive?9998:0}).bindTooltip('WP: '+w.label,{direction:'top',offset:[0,-10]});
 				layers.waypoints.push(mk);if($('#dagr-layer-panel [data-layer=waypoints]').checked)mk.addTo(dagrMap);
 
 				// Only render active WP in panel (or all if total<=1 with nav hidden)
