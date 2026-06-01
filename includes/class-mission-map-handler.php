@@ -671,6 +671,9 @@ class RMM_Mission_Map_Handler {
 		/* Screen - amber military tint (NOT green) */
 		#dagr-screen-wrap{flex:1;position:relative;overflow:hidden;border:2px solid #0a0a0a;border-radius:3px;background:#0d0d0d}
 		#dagr-screen-wrap .leaflet-container{filter:sepia(.25) brightness(.7) contrast(1.1) saturate(.9)!important;background:#111!important}
+		#dagr-screen-wrap .leaflet-div-icon{background:transparent!important;border:none!important}
+		#dagr-screen-wrap .leaflet-tooltip{background:rgba(0,0,0,.85)!important;border:1px solid #FFB000!important;color:#FFB000!important;font-family:monospace!important;font-size:10px!important;padding:3px 6px!important;border-radius:3px!important;box-shadow:none!important}
+		#dagr-screen-wrap .leaflet-tooltip::before{border-top-color:#FFB000!important}
 		#dagr-screen-wrap .leaflet-control-zoom{border:1px solid #333!important;box-shadow:none!important;margin:8px!important}
 		#dagr-screen-wrap .leaflet-control-zoom a{background:#1c1c1c!important;color:#FFB000!important;border-color:#333!important;width:36px!important;height:36px!important;line-height:36px!important;font-size:20px!important;border-radius:3px!important}
 		#dagr-screen-wrap .leaflet-control-zoom a:hover{color:#fff!important;background:#2a2a2a!important}
@@ -789,7 +792,7 @@ class RMM_Mission_Map_Handler {
 
 			<!-- Compass overlay (shown when CMP active) -->
 			<div id="dagr-compass-overlay" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;text-align:center;z-index:9998">
-				<div style="width:140px;height:140px;border-radius:50%;border:3px solid #FFB000;position:relative;margin:0 auto;background:rgba(0,0,0,.7);box-shadow:0 0 30px rgba(255,176,0,.15)">
+				<div style="width:140px;height:140px;border-radius:50%;border:3px solid #FFB000;position:relative;margin:0 auto;background:rgba(0,0,0,.7);box-shadow:0 0 30px rgba(255,176,0,.15);overflow:hidden">
 					<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:36px;font-weight:bold;color:#FFB000" id="dagr-cmp-hdg">---</div>
 					<div class="north" style="font-size:14px!important">N</div>
 					<div class="needle" id="dagr-cmp-needle" style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:50px solid #ef4444;transition:transform .15s;position:absolute;bottom:50%;left:50%;margin-left:-7px;transform-origin:bottom center"></div>
@@ -803,6 +806,7 @@ class RMM_Mission_Map_Handler {
 				<div class="hud-block"><span class="hud-label">N</span><span class="hud-value" id="hud-grid-n">-----</span></div>
 				<div class="hud-block"><span class="hud-label">ALT</span><span class="hud-value" id="hud-alt">---</span></div>
 				<div class="hud-block"><span class="hud-label">SPD</span><span class="hud-value" id="hud-spd">--</span></div>
+				<div class="hud-block" id="hud-gps-status" style="min-width:30px"><span class="hud-label" style="color:#ef4444">GPS</span><span class="hud-value" style="color:#ef4444;font-size:10px">--</span></div>
 				<div id="dagr-compass">
 					<div class="north">N</div>
 					<div class="needle" id="dagr-needle" style="transform:rotate(0deg)"></div>
@@ -938,6 +942,36 @@ class RMM_Mission_Map_Handler {
 		// Update large compass overlay if visible
 		$('#dagr-cmp-needle').style.transform='rotate('+h+'deg)';
 		$('#dagr-cmp-hdg').textContent=pad(h,3)+'°';
+		// GPS status
+		$('#hud-gps-status .hud-label').style.color='#4ade80';
+		$('#hud-gps-status .hud-value').style.color='#4ade80';
+		$('#hud-gps-status .hud-value').textContent='OK';
+		// Update WP bearings on compass overlay
+		updateCompassWPs(h);
+	}
+
+	/* ── Show WP bearings on compass overlay ── */
+	function updateCompassWPs(myHeading){
+		if(!mePos)return;
+		var container=$('#dagr-compass-overlay');
+		if(container.style.display!=='block')return;
+		// Remove old WP indicators
+		container.querySelectorAll('.dagr-cmp-wp').forEach(function(el){el.remove()});
+		var ring=container.querySelector('div'); // the 140px ring
+		var cx=70,cy=70,r=62; // ring radius
+		(layers.waypoints||[]).forEach(function(m){
+			var ll=m.getLatLng();
+			var wp={x:ll.lng-<?php echo $edge_offset; ?>,y:ll.lat-<?php echo $edge_offset; ?>};
+			var brg=bearing(mePos,wp);
+			var rel=(brg-myHeading+360)%360;
+			var rad=rel*Math.PI/180;
+			var x=cx+r*Math.sin(rad)-5;
+			var y=cy-r*Math.cos(rad)-5;
+			var dot=document.createElement('div');
+			dot.className='dagr-cmp-wp';
+			dot.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:10px;height:10px;background:#FFB000;border:1px solid #fff;border-radius:2px;transform:rotate(45deg);pointer-events:none';
+			ring.appendChild(dot);
+		});
 	}
 
 	/* ── Toast feedback ── */
@@ -1097,7 +1131,7 @@ class RMM_Mission_Map_Handler {
 	function doAddWP(x,y,nm){
 		fetch('/wp-json/clan/v1/microdagr/waypoints',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:TOKEN,label:nm,pos_x:x,pos_y:y})}).then(function(r){return r.json()}).then(function(){
 			loadWP();
-			toast('WP "'+nm+'" en '+pad(x,4)+' '+pad(y,4));
+			toast('WP "'+nm+'" en '+metersToGrid(x)+' '+metersToGrid(y));
 			$('#dagr-wp-form').style.display='none';$('#btn-add-wp').classList.remove('active');
 		});
 	}
@@ -1233,6 +1267,13 @@ class RMM_Mission_Map_Handler {
 		register_rest_route( 'clan/v1', '/microdagr/waypoints/reorder', array(
 			'methods'  => 'POST',
 			'callback' => array( $this, 'reorder_waypoints' ),
+			'permission_callback' => '__return_true',
+		) );
+
+		// Borrar waypoint
+		register_rest_route( 'clan/v1', '/microdagr/waypoints/(?P<id>\d+)', array(
+			'methods'  => 'DELETE',
+			'callback' => array( $this, 'delete_waypoint' ),
 			'permission_callback' => '__return_true',
 		) );
 
@@ -1506,6 +1547,27 @@ class RMM_Mission_Map_Handler {
 		// Intercambiar order_index
 		$wpdb->update( $table, array( 'order_index' => $adjacent->order_index ), array( 'id' => $current->id ) );
 		$wpdb->update( $table, array( 'order_index' => $current->order_index ), array( 'id' => $adjacent->id ) );
+
+		return rest_ensure_response( array( 'status' => 'ok' ) );
+	}
+
+	/**
+	 * Borrar waypoint
+	 */
+	public function delete_waypoint( $request ) {
+		global $wpdb;
+		$id    = intval( $request->get_param( 'id' ) );
+		// Token viene en body (DELETE con body)
+		$body  = $request->get_json_params() ?: array();
+		$token = sanitize_text_field( $body['token'] ?? $request->get_param( 'token' ) ?? '' );
+
+		if ( ! $id || ! $token ) {
+			return rest_ensure_response( array( 'error' => 'Faltan parámetros' ) );
+		}
+
+		$table = $wpdb->prefix . 'rmm_waypoints';
+		// Soft delete: marcar inactivo en vez de borrar físicamente
+		$wpdb->update( $table, array( 'is_active' => 0 ), array( 'id' => $id, 'token' => $token ) );
 
 		return rest_ensure_response( array( 'status' => 'ok' ) );
 	}
