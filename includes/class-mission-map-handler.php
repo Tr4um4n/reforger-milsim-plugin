@@ -534,7 +534,7 @@ class RMM_Mission_Map_Handler {
 	</style>
 </head>
 <body>
-	<div id="frame"><?php echo str_replace('<div','<div style="width:100%;height:100%"',$map_html,1); ?></div>
+	<div id="frame"><?php echo preg_replace('/<div/','<div style="width:100%;height:100%"',$map_html,1); ?></div>
 	<div id="dagr-ui">
 		<button id="mode-btn">🧭 Brújula</button>
 		<button id="layer-btn" class="dagr-btn">📑</button>
