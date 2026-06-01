@@ -610,17 +610,33 @@ class RMM_Mission_Map_Handler {
 		var maxZoom = <?= $max_zoom ?>;
 
 		var bounds = [[<?= $min_y * $scale_factor ?>, <?= $min_x * $scale_factor ?>], [<?= $max_y * $scale_factor ?>, <?= $max_x * $scale_factor ?>]];
-		var map = L.map('map', { zoomControl: true, attributionControl: false, maxBounds: bounds });
+		var map = L.map('map', {
+			zoomControl: true,
+			attributionControl: false,
+			maxBounds: bounds,
+			center: [<?= ($max_y * $scale_factor) / 2 ?>, <?= ($max_x * $scale_factor) / 2 ?>],
+			zoom: <?= max(0, maxZoom - 2) ?>
+		});
 
 		L.TileLayer.InvertedY = L.TileLayer.extend({
 			getTileUrl: function(c) {
 				var max = Math.pow(2, c.z) - 1;
 				c.y = max - c.y;
+				// Clamp para evitar negativos
+				if (c.y < 0) c.y = 0;
+				if (c.y > max) c.y = max;
+				if (c.x < 0) c.x = 0;
+				if (c.x > max) c.x = max;
 				return L.TileLayer.prototype.getTileUrl.call(this, c);
 			}
 		});
 		new L.TileLayer.InvertedY('<?= esc_js( $tiles_url ) ?>', {
-			maxZoom: maxZoom, minZoom: 0, zoomReverse: true, bounds: bounds
+			maxZoom: maxZoom,
+			minZoom: 0,
+			zoomReverse: true,
+			bounds: bounds,
+			noWrap: true,
+			tms: false
 		}).addTo(map);
 
 		function gameToLatLng(x, y) { return [((maxY - y + edgeOffset) * scaleFactor), ((x - edgeOffset) * scaleFactor)]; }
