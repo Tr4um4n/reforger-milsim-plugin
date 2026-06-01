@@ -447,8 +447,10 @@ class RMM_Mission_Map_Handler {
 			global $wpdb;
 			$table_tokens = $wpdb->prefix . 'rmm_microdagr_tokens';
 			$valid = $wpdb->get_row( $wpdb->prepare(
-				"SELECT * FROM $table_tokens WHERE token = %s AND session_id = %s AND (expires_at IS NULL OR expires_at > NOW())",
-				$token, $session
+				"SELECT t.* FROM $table_tokens t
+				INNER JOIN {$wpdb->prefix}rmm_mission_sessions s ON t.session_id = s.session_id
+				WHERE t.token = %s AND s.status = 'active'",
+				$token
 			) );
 
 			if ( ! $valid ) {
