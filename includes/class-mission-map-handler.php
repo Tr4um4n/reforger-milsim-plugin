@@ -618,9 +618,24 @@ class RMM_Mission_Map_Handler {
 			$edge_offset = intval( $map_config->edge_offset );
 			$scale_factor = floatval( $map_config->scale_factor );
 			$tiles_url = ! empty( $map_config->tiles_path ) ? $map_config->tiles_path : '../mapas/mapa_' . $map_name . '/{z}/{x}/{y}/tile.jpg';
-			// Corregir paths relativos para la página mobile
-			if ( strpos( $tiles_url, '..' ) === 0 || strpos( $tiles_url, '/' ) === 0 ) {
-				$tiles_url = site_url( $tiles_url );
+			// Convertir a URL absoluta correctamente
+			if ( strpos( $tiles_url, 'http' ) !== 0 ) {
+				// Quitar ../ inicial y construir desde site_url
+				$clean = preg_replace( '#^(\.\./)+#', '', $tiles_url );
+				$tiles_url = site_url( '/' . $clean );
+			}
+
+			// Si el mapa no existe en BD, mostrar error claro
+			if ( ! $map_config ) {
+				header( 'Content-Type: text/html; charset=utf-8' );
+				echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MicroDAGR</title>';
+				echo '<style>body{background:#1a1a1a;color:#FFB000;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center}';
+				echo 'a{color:#FFB000}</style></head><body><div><h2>⚠️ Mapa no configurado</h2>';
+				echo '<p>El mapa <b>' . esc_html( $map_name ) . '</b> no existe en <b>Mapas DAGR → Mapas</b>.</p>';
+				echo '<p>Ve a <a href="' . admin_url( 'admin.php?page=rmm-dagr-maps&tab=maps' ) . '">admin → Mapas DAGR → Mapas</a> y créalo, o activa la simulación en la pestaña Simulación.</p>';
+				echo '<p style="color:#888;font-size:12px;margin-top:20px">Session: ' . esc_html( $session ) . ' | Token: ' . esc_html( $token ) . ' | Mapa: ' . esc_html( $map_name ) . '</p>';
+				echo '</div></body></html>';
+				exit;
 			}
 
 			// Usar el shortcode de preset que FUNCIONA
@@ -798,8 +813,33 @@ class RMM_Mission_Map_Handler {
 	var dagrMap=null, mePos=null, followMe=false, addingWP=false;
 	var layers={players:[],markers:[],waypoints:[]};
 
-	/* ── Find Leaflet instance ── */
-	function waitMap(cb){var t=setInterval(function(){var el=document.querySelector('.leaflet-container');if(el&&el._leaflet_id){clearInterval(t);for(var k in L){if(L[k]&&L[k]._leaflet_id===el._leaflet_id&&L[k].addLayer){dagrMap=L[k];break}}if(dagrMap)cb()}},200)}
+	/* ── Find Leaflet instance (with timeout) ── */
+	function waitMap(cb){
+		var tries=0, maxTries=50; // 50 * 200ms = 10s timeout
+		var t=setInterval(function(){
+			tries++;
+			var el=document.querySelector('.leaflet-container');
+			if(el&&el._leaflet_id){
+				clearInterval(t);
+				for(var k in L){if(L[k]&&L[k]._leaflet_id===el._leaflet_id&&L[k].addLayer){dagrMap=L[k];break}}
+				if(dagrMap){$('#dagr-status').textContent='MAPA OK';$('#dagr-status').style.color='#4ade80';cb()}
+				else{$('#dagr-status').textContent='ERROR: Leaflet no encontrado';$('#dagr-status').style.color='#ef4444'}
+			}
+			if(tries>=maxTries){
+				clearInterval(t);
+				$('#dagr-status').textContent='ERROR: Mapa no cargó en 10s';
+				$('#dagr-status').style.color='#ef4444';
+				if(!el)$('#dagr-status').textContent='ERROR: No hay .leaflet-container (¿falló render_tactical_map?)';
+			}
+		},200);
+	}
+
+	// Status indicator
+	var statusEl=document.createElement('div');
+	statusEl.id='dagr-status';
+	statusEl.style.cssText='position:fixed;top:0;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.9);color:#FFB000;padding:3px 12px;font-size:10px;z-index:99999;border-radius:0 0 4px 4px;font-family:monospace;pointer-events:none';
+	statusEl.textContent='CARGANDO...';
+	document.body.appendChild(statusEl);
 
 	var $=function(s){return document.querySelector(s)};
 	var $$=function(s){return document.querySelectorAll(s)};

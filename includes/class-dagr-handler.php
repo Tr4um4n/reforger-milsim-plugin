@@ -266,23 +266,25 @@ class RMM_DAGR_Handler {
 
 		$tiles_url = ! empty( $map_config->tiles_path )
 			? $map_config->tiles_path
-			: content_url( /*'uploads/maps/' . $map_name . '/LODS/{z}/{x}/{y}/tile.jpg' )*/'../mapas/mapa_' . $map_name . '/{z}/{x}/{y}/tile.jpg');
+			: content_url( 'uploads/maps/' . $map_name . '/LODS/{z}/{x}/{y}/tile.jpg' );
+
+		// Convertir paths relativos a URL absoluta
+		if ( strpos( $tiles_url, 'http' ) !== 0 ) {
+			$clean = preg_replace( '#^(\.\./)+#', '', $tiles_url );
+			$tiles_url = site_url( '/' . ltrim( $clean, '/' ) );
+		}
 
 		// Si el path es local, ver si existe; si no, usar CDN
-		//$local_path = WP_CONTENT_DIR . '/uploads/maps/' . $map_name . '/LODS/4/4/4/tile.jpg';
-		$local_path = '../mapas/mapa_' . $map_name . '/{z}/{x}/{y}/tile.jpg';
-		//$local_fallback = content_url( 'uploads/maps/' . $map_name . '/LODS/{z}/{x}/{y}/tile.jpg' );
-		$local_fallback = '../mapas/mapa_' . $map_name . '/{z}/{x}/{y}/tile.jpg';
+		$local_path = WP_CONTENT_DIR . '/uploads/maps/' . $map_name . '/LODS/4/4/4/tile.jpg';
+		$local_fallback = content_url( 'uploads/maps/' . $map_name . '/LODS/{z}/{x}/{y}/tile.jpg' );
 		if ( empty( $map_config->tiles_path ) ) {
 			// Si no hay path configurado, usar local si existe, sino CDN
 			if ( file_exists( $local_path ) ) {
 				$tiles_url = $local_fallback;
 			} else {
 				$cdn_fallbacks = array(
-					//'everon' => 'https://reforger.recoil.org/map-tiles/everon/{z}/{x}/{y}/tile.jpg',
-					'everon' => '../mapas/mapa_everon/{z}/{x}/{y}/tile.jpg',
-					//'arland' => 'https://reforger.recoil.org/map-tiles/arland/{z}/{x}/{y}/tile.jpg',
-					'arland' => '../mapas/mapa_arland/{z}/{x}/{y}/tile.jpg',
+					'everon' => 'https://reforger.recoil.org/map-tiles/everon/{z}/{x}/{y}/tile.jpg',
+					'arland' => 'https://reforger.recoil.org/map-tiles/arland/{z}/{x}/{y}/tile.jpg',
 				);
 				if ( isset( $cdn_fallbacks[ $map_name ] ) ) {
 					$tiles_url = $cdn_fallbacks[ $map_name ];
