@@ -599,22 +599,12 @@ class RMM_Mission_Map_Handler {
 			attributionControl: false
 		});
 
-		L.TileLayer.InvertedY = L.TileLayer.extend({
-			getTileUrl: function(c) {
-				c.y = -(c.y + 1);
-				return L.TileLayer.prototype.getTileUrl.call(this, c);
-			}
-		});
-
-		new L.TileLayer.InvertedY('<?= esc_js( $tiles_url ) ?>', {
-			maxZoom: maxZoom,
+		L.tileLayer('<?= esc_js( $tiles_url ) ?>', {
+			maxZoom: <?= $max_zoom ?>,
 			minZoom: 0,
-			zoomReverse: true,
-			bounds: bounds,
-			errorTileUrl: ''
+			tms: true,
+			noWrap: true
 		}).addTo(map);
-
-		map.fitBounds(bounds);
 
 		function gameToLatLng(x, y) {
 			return L.latLng([Number(y) + <?= $edge_offset ?>, Number(x) + <?= $edge_offset ?>]);
