@@ -483,175 +483,82 @@ class RMM_Mission_Map_Handler {
 				$tiles_url = site_url( $tiles_url );
 			}
 
-			// Header para mobile
+			// Usar el shortcode de preset que FUNCIONA
+			$dagr_handler = new RMM_DAGR_Handler();
+			$map_html = $dagr_handler->render_tactical_map( array(
+				'map'    => $map_name,
+				'height' => '100%',
+				'id'     => $preset_id, // Cargar marcadores del preset
+			) );
+
+			// Injectar CSS para fullscreen y overlay
+			$map_html = str_replace( '</div>', '', $map_html );
+			$map_html = preg_replace( '/style="[^"]*height:[^"]*"[^>]*/', 'style="width:100%;height:100%"', $map_html, 1 );
+
 			header( 'Content-Type: text/html; charset=utf-8' );
 			?>
-			<!DOCTYPE html>
-<html lang="es">
+<!DOCTYPE html>
+<html>
 <head>
 	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 	<meta name="apple-mobile-web-app-capable" content="yes">
-	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 	<title>MicroDAGR</title>
 	<style>
 		*{margin:0;padding:0;box-sizing:border-box}
-		html,body,#dagr-container{width:100%;height:100%;overflow:hidden;background:#0d1117}
-		.dagr-overlay{position:fixed;z-index:1000;pointer-events:none;top:0;left:0;width:100%;height:100%;font-family:monospace}
-		.dagr-overlay>*{pointer-events:auto}
-		#hud{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.85);color:#CFDC35;padding:6px 10px;font-size:11px;display:flex;justify-content:space-between;align-items:center}
-		#hud-left div{line-height:1.4}
-		#compass-ring{width:56px;height:56px;border-radius:50%;border:2px solid #CFDC35;position:relative;display:flex;align-items:center;justify-content:center}
-		#compass-arrow{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:18px solid #ef4444;transition:transform .15s}
+		html,body{width:100%;height:100%;overflow:hidden;background:#0d1117}
+		.leaflet-container{width:100%!important;height:100%!important}
+		#hud{position:fixed;bottom:0;left:0;right:0;z-index:9999;background:rgba(0,0,0,.85);color:#CFDC35;padding:6px 10px;font-size:11px;display:flex;justify-content:space-between;align-items:center;font-family:monospace}
+		#compass-ring{width:50px;height:50px;border-radius:50%;border:2px solid #CFDC35;position:relative;display:flex;align-items:center;justify-content:center}
+		#compass-arrow{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:16px solid #ef4444;transition:transform .2s}
 		#compass-label{position:absolute;top:1px;font-size:9px;color:#fff}
-		.dagr-btn{position:absolute;border-radius:50%;border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:1001}
-		#wp-add-btn{top:8px;left:8px;width:36px;height:36px;background:rgba(34,197,94,.9);color:#fff}
-		#wp-add-btn.active{background:rgba(239,68,68,.9)}
-		#center-btn{bottom:70px;right:10px;width:36px;height:36px;background:rgba(34,197,94,.9);color:#fff}
-		#center-btn.active{background:rgba(239,68,68,.9)}
-		#wp-list{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.8);color:#fff;padding:6px 8px;border-radius:6px;max-height:40vh;overflow-y:auto;font-size:10px;min-width:100px}
-		#wp-list h4{margin-bottom:4px;color:#22c55e;font-size:11px}
-		.wp-item{padding:2px 0;border-bottom:1px solid #333;display:flex;justify-content:space-between;gap:6px}
-		.wp-item .wp-num{color:#d2a850;font-weight:bold}
 	</style>
 </head>
 <body>
-	<div id="dagr-container"></div>
-	<div class="dagr-overlay">
-		<button id="wp-add-btn" class="dagr-btn" title="Añadir waypoint">+</button>
-		<button id="center-btn" class="dagr-btn" title="Centrar en mí">◎</button>
-		<div id="wp-list"><h4>WP</h4><div id="wp-items"></div></div>
-		<div id="hud">
-			<div id="hud-left">
-				<div>X:<span id="hud-x">----</span> Y:<span id="hud-y">----</span></div>
-				<div>Z:<span id="hud-z">--</span>m S:<span id="hud-speed">0</span></div>
-			</div>
-			<div id="compass-ring">
-				<div id="compass-label">N</div>
-				<div id="compass-arrow"></div>
-			</div>
-		</div>
+	<?php echo $map_html; ?>
+	<div id="hud">
+		<div><span>X:<b id="hud-x">---</b> Y:<b id="hud-y">---</b> Z:<b id="hud-z">--</b>m</span></div>
+		<div id="compass-ring"><div id="compass-label">N</div><div id="compass-arrow"></div></div>
 	</div>
-
 	<script>
-	// Cargar el mapa del preset en el container
-	var token = '<?php echo esc_js( $token ); ?>';
-	var sessionId = '<?php echo esc_js( $session ); ?>';
-	var mapConfig = <?php echo json_encode( array(
-		'tiles_url'    => ! empty( $map_config->tiles_path ) ? $map_config->tiles_path : '../mapas/mapa_' . $map_name . '/{z}/{x}/{y}/tile.jpg',
-		'min_x'        => floatval( $map_config->min_x ),
-		'min_y'        => floatval( $map_config->min_y ),
-		'max_x'        => floatval( $map_config->max_x ),
-		'max_y'        => floatval( $map_config->max_y ),
-		'max_zoom'     => intval( $map_config->max_zoom ),
-		'edge_offset'  => intval( $map_config->edge_offset ),
-		'scale_factor' => floatval( $map_config->scale_factor ),
-	) ); ?>;
+	(function(){
+		var token='<?php echo esc_js( $token ); ?>';
+		var sessionId='<?php echo esc_js( $session ); ?>';
+		var steamid='<?php echo esc_js( $valid->steamid ); ?>';
+		var meMarker=null;
 
-	var s = document.createElement('script');
-	s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-	s.onload = function() {
-		buildMap();
-		loadWaypoints();
-		startPolling();
-		loadMarkers();
-	};
-	document.head.appendChild(s);
-
-	function buildMap() {
-		var c = mapConfig;
-		var bounds = [[c.min_y * c.scale_factor, c.min_x * c.scale_factor], [c.max_y * c.scale_factor, c.max_x * c.scale_factor]];
-
-		window.dagrMap = L.map('dagr-container', { maxBounds: bounds, zoomControl: true, attributionControl: false });
-
-		L.TileLayer.InvertedY = L.TileLayer.extend({
-			getTileUrl: function(t) { t.y = -(t.y + 1); return L.TileLayer.prototype.getTileUrl.call(this, t); }
-		});
-		new L.TileLayer.InvertedY(c.tiles_url, { maxZoom: c.max_zoom, minZoom: 0, zoomReverse: true, bounds: bounds, errorTileUrl: '' }).addTo(window.dagrMap);
-		window.dagrMap.fitBounds(bounds);
-
-		window.gameToLatLng = function(x, y) { return L.latLng([Number(y) + c.edge_offset, Number(x) + c.edge_offset]); };
-		window.latLngToGame = function(lat, lng) { return { x: Math.round(lng - c.edge_offset), y: Math.round(lat - c.edge_offset) }; };
-
-		// Marcador propio
-		var icon = L.divIcon({ className:'dagr-player-marker', html:'<div style="width:14px;height:14px;background:#22c55e;border:2px solid #fff;border-radius:50%;box-shadow:0 0 10px #22c55e;"></div>', iconSize:[18,18], iconAnchor:[9,9] });
-		window.meMarker = L.marker([0,0], { icon: icon, zIndexOffset: 1000 }).addTo(window.dagrMap);
-		window.followMe = false;
-
-		document.getElementById('center-btn').onclick = function() {
-			window.followMe = !window.followMe;
-			this.classList.toggle('active', window.followMe);
-		};
-	}
-
-	function loadWaypoints() {
-		fetch('/wp-json/clan/v1/microdagr/waypoints?token=' + token)
-			.then(function(r){return r.json()})
-			.then(function(d) {
-				var h = '';
-				(d.waypoints||[]).forEach(function(w,i){ h += '<div class="wp-item"><span class="wp-num">'+(i+1)+'.</span><span>'+w.label+'</span></div>'; });
-				document.getElementById('wp-items').innerHTML = h || '<em>vacío</em>';
-			});
-	}
-
-	document.getElementById('wp-add-btn').onclick = function() {
-		this.classList.toggle('active');
-		if (this.classList.contains('active')) {
-			window.dagrMap.on('click', addWaypoint);
-		} else {
-			window.dagrMap.off('click', addWaypoint);
-		}
-	};
-
-	function addWaypoint(e) {
-		var g = window.latLngToGame(e.latlng.lat, e.latlng.lng);
-		var label = prompt('Nombre WP:','WP');
-		if (!label) return;
-		fetch('/wp-json/clan/v1/microdagr/waypoints', {
-			method:'POST',
-			headers:{'Content-Type':'application/json'},
-			body:JSON.stringify({token:token,label:label,pos_x:g.x,pos_y:g.y})
-		}).then(function(r){return r.json()}).then(function(){loadWaypoints()});
-	}
-
-	function startPolling() {
-		setInterval(function() {
-			fetch('/wp-json/clan/v1/mission/positions?session=' + sessionId)
-				.then(function(r){return r.json()})
-				.then(function(d) {
-					if (!d.players) return;
-					var steamid = '<?php echo esc_js( $valid->steamid ); ?>';
-					var me = null;
-					for (var i = 0; i < d.players.length; i++) {
-						if (d.players[i].steamid === steamid) { me = d.players[i]; break; }
-					}
-					if (!me) return;
-					var ll = window.gameToLatLng(me.pos_x, me.pos_y);
-					window.meMarker.setLatLng(ll);
-					if (window.followMe) window.dagrMap.panTo(ll, { animate: true });
-					document.getElementById('hud-x').textContent = Math.round(me.pos_x);
-					document.getElementById('hud-y').textContent = Math.round(me.pos_y);
-					document.getElementById('hud-z').textContent = Math.round(me.pos_z||0);
-					document.getElementById('hud-speed').textContent = Math.round(me.speed||0);
-					if (me.heading) document.getElementById('compass-arrow').style.transform = 'rotate('+me.heading+'deg)';
-				});
-		}, 5000);
-	}
-
-	function loadMarkers() {
-		fetch('/wp-json/clan/v1/mission/markers?session=' + sessionId)
-			.then(function(r){return r.json()})
-			.then(function(d) {
-				if (!d.markers) return;
-				var icons = { 'objective':'<div style="width:14px;height:14px;background:#22c55e;border:2px solid #fff;border-radius:3px;transform:rotate(45deg);"></div>', 'completed':'<div style="width:12px;height:12px;background:#d2a850;border:2px solid #fff;border-radius:50%;"></div>', 'enemy':'<div style="width:12px;height:12px;background:#ef4444;border:2px solid #fff;border-radius:50%;"></div>', 'friendly':'<div style="width:12px;height:12px;background:#3b82f6;border:2px solid #fff;border-radius:50%;"></div>' };
-				var def = '<div style="width:12px;height:12px;background:#d2a850;border:2px solid #fff;border-radius:50%;"></div>';
-				d.markers.forEach(function(m) {
-					var ll = window.gameToLatLng(m.pos_x, m.pos_y);
-					var ic = L.divIcon({ className:'dagr-map-marker', html: icons[m.type] || def, iconSize:[18,18], iconAnchor:[9,9] });
-					L.marker(ll, { icon: ic }).addTo(window.dagrMap).bindTooltip(m.label||m.type, {direction:'top',offset:[0,-10]});
-				});
-			});
-	}
+		// Esperar a que Leaflet inicialice
+		var checkMap = setInterval(function(){
+			var maps = Object.values(window).filter(function(v){ return v && v._leaflet_id; });
+			if(maps.length){
+				clearInterval(checkMap);
+				var m = maps[0];
+				// Crear marcador propio
+				var ic = L.divIcon({html:'<div style="width:14px;height:14px;background:#22c55e;border:2px solid #fff;border-radius:50%;box-shadow:0 0 10px #22c55e;"></div>',iconSize:[18,18],iconAnchor:[9,9]});
+				meMarker = L.marker([0,0],{icon:ic,zIndexOffset:9999}).addTo(m);
+				// Polling
+				setInterval(function(){
+					fetch('/wp-json/clan/v1/mission/positions?session='+sessionId)
+						.then(function(r){return r.json()})
+						.then(function(d){
+							if(!d.players)return;
+							for(var i=0;i<d.players.length;i++){
+								if(d.players[i].steamid===steamid){
+									var p=d.players[i];
+									var ll = L.latLng([Number(p.pos_y)+50,Number(p.pos_x)+50]);
+									meMarker.setLatLng(ll);
+									document.getElementById('hud-x').textContent=Math.round(p.pos_x);
+									document.getElementById('hud-y').textContent=Math.round(p.pos_y);
+									document.getElementById('hud-z').textContent=Math.round(p.pos_z||0);
+									if(p.heading)document.getElementById('compass-arrow').style.transform='rotate('+p.heading+'deg)';
+									break;
+								}
+							}
+						});
+				},5000);
+			}
+		},200);
+	})();
 	</script>
 </body>
 </html>
