@@ -610,27 +610,27 @@ class RMM_Mission_Map_Handler {
 		var maxTileZoom = <?= $max_zoom ?>;
 
 		var map = L.map('map', {
-			center: [512, 512],
-			zoom: <?= max(0, $max_zoom) ?>,
+			center: [<?= ($max_y * $scale_factor) / 2 ?>, <?= ($max_x * $scale_factor) / 2 ?>],
+			zoom: <?= max(0, intval($max_zoom / 2)) ?>,
 			zoomControl: true,
-			attributionControl: false,
-			maxBoundsViscosity: 1.0
+			attributionControl: false
 		});
 
-		// Tile layer SIN zoomReverse ni InvertedY
-		L.tileLayer('<?= esc_js( $tiles_url ) ?>', {
+		L.TileLayer.InvertedY = L.TileLayer.extend({
+			getTileUrl: function(c) {
+				var max = Math.pow(2, c.z) - 1;
+				c.y = max - c.y;
+				if (c.y < 0) c.y = 0; if (c.y > max) c.y = max;
+				if (c.x < 0) c.x = 0; if (c.x > max) c.x = max;
+				return L.TileLayer.prototype.getTileUrl.call(this, c);
+			}
+		});
+		new L.TileLayer.InvertedY('<?= esc_js( $tiles_url ) ?>', {
+			maxZoom: <?= $max_zoom ?>,
 			minZoom: 0,
-			maxZoom: maxTileZoom,
-			tms: true,
-			continuousWorld: true,
+			zoomReverse: true,
 			noWrap: true
 		}).addTo(map);
-
-		// Forzar bounds después de cargar
-		setTimeout(function() {
-			map.setMaxBounds([[0, 0], [<?= $max_y * $scale_factor ?>, <?= $max_x * $scale_factor ?>]]);
-			map.fitBounds([[0, 0], [<?= $max_y * $scale_factor ?>, <?= $max_x * $scale_factor ?>]]);
-		}, 500);
 
 		function gameToLatLng(x, y) { return [((<?= $max_y ?> - y + <?= $edge_offset ?>) * <?= $scale_factor ?>), ((x - <?= $edge_offset ?>) * <?= $scale_factor ?>)]; }
 		function latLngToGame(lat, lng) {
