@@ -504,47 +504,51 @@ class RMM_Mission_Map_Handler {
 	<style>
 		*{margin:0;padding:0;box-sizing:border-box}
 		html,body{width:100%;height:100%;overflow:hidden;background:#0d1117;font-family:monospace}
-		.leaflet-container{width:100%!important;height:100%!important}
+		#frame{position:fixed;top:8px;left:8px;right:8px;bottom:52px;border:2px solid #333;border-radius:4px;overflow:hidden;z-index:1}
+		.leaflet-container{width:100%!important;height:100%!important;border-radius:2px}
+		.leaflet-control-zoom{border:1px solid #444!important;box-shadow:none!important}
+		.leaflet-control-zoom a{background:#1a1a1a!important;color:#CFDC35!important;border-color:#444!important;width:30px!important;height:30px!important;line-height:30px!important}
 		#dagr-ui{position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;pointer-events:none}
 		#dagr-ui>*{pointer-events:auto}
-		#hud{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.85);color:#CFDC35;padding:6px 10px;font-size:11px;display:flex;justify-content:space-between;align-items:center}
-		#compass-ring{width:50px;height:50px;border-radius:50%;border:2px solid #CFDC35;position:relative;display:flex;align-items:center;justify-content:center}
-		#compass-arrow{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:16px solid #ef4444;transition:transform .2s}
-		#compass-label{position:absolute;top:1px;font-size:9px;color:#fff}
-		.dagr-btn{position:absolute;border-radius:50%;border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;width:36px;height:36px}
-		#wp-add-btn{top:8px;left:8px;background:rgba(34,197,94,.85);color:#fff}
+		#hud{position:absolute;bottom:0;left:0;right:0;height:44px;background:rgba(0,0,0,.9);color:#CFDC35;padding:0 10px;font-size:11px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #333}
+		#compass-ring{width:36px;height:36px;border-radius:50%;border:2px solid #CFDC35;position:relative;display:flex;align-items:center;justify-content:center}
+		#compass-arrow{width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:12px solid #ef4444;transition:transform .2s}
+		#compass-label{position:absolute;top:0;font-size:7px;color:#fff}
+		.dagr-btn{position:absolute;border-radius:50%;width:34px;height:34px;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+		#wp-add-btn{top:57px;left:10px;background:rgba(34,197,94,.85);color:#fff}
 		#wp-add-btn.active{background:rgba(239,68,68,.85)}
-		#center-btn{bottom:64px;right:8px;background:rgba(34,197,94,.85);color:#fff}
+		#center-btn{bottom:54px;right:10px;background:rgba(34,197,94,.85);color:#fff}
 		#center-btn.active{background:rgba(239,68,68,.85)}
-		#mode-btn{top:52px;left:8px;width:auto;padding:0 10px;border-radius:8px;background:rgba(0,0,0,.7);color:#fff;border:1px solid #CFDC35;font-size:11px}
-		#layer-btn{top:8px;right:8px;background:rgba(0,0,0,.7);color:#fff;border:1px solid #CFDC35}
-		#wp-panel{position:absolute;top:8px;right:52px;background:rgba(0,0,0,.85);color:#fff;padding:6px 8px;border-radius:6px;max-height:45vh;overflow-y:auto;font-size:10px;min-width:120px}
+		#mode-btn{top:10px;left:10px;width:auto;padding:0 10px;border-radius:8px;background:rgba(0,0,0,.7);color:#fff;border:1px solid #CFDC35;font-size:11px}
+		#layer-btn{top:10px;left:56px;width:34px;height:34px;background:rgba(0,0,0,.7);color:#fff;border:1px solid #CFDC35}
+		#wp-panel{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.85);color:#fff;padding:6px 8px;border-radius:6px;max-height:40vh;overflow-y:auto;font-size:10px;min-width:110px}
 		#wp-panel h4{margin:0 0 4px;color:#22c55e;font-size:11px}
-		.wp-row{display:flex;justify-content:space-between;align-items:center;padding:2px 0;border-bottom:1px solid #333;gap:4px}
-		.wp-row .wp-num{color:#d2a850;font-weight:bold}
-		.wp-row .wp-del{color:#ef4444;cursor:pointer;font-size:12px}
-		#layer-panel{display:none;position:absolute;top:52px;right:8px;background:rgba(0,0,0,.9);color:#fff;padding:8px 10px;border-radius:6px;font-size:10px;border:1px solid #333;min-width:140px}
+		.wp-row{display:flex;align-items:center;padding:2px 0;border-bottom:1px solid #333;gap:4px}
+		.wp-row .wp-num{color:#d2a850;font-weight:bold;min-width:16px}
+		.wp-row .wp-del{color:#ef4444;cursor:pointer;font-size:11px;margin-left:auto}
+		#layer-panel{display:none;position:absolute;top:10px;left:96px;background:rgba(0,0,0,.9);color:#fff;padding:8px 10px;border-radius:6px;font-size:10px;border:1px solid #333;min-width:130px}
 		#layer-panel.show{display:block}
+		#layer-panel h4{margin:0 0 6px;color:#CFDC35;font-size:11px}
 		#layer-panel label{display:flex;align-items:center;padding:2px 0;gap:4px}
 		#layer-panel input{accent-color:#22c55e}
 	</style>
 </head>
 <body>
-	<?php echo $map_html; ?>
+	<div id="frame"><?php echo str_replace('<div','<div style="width:100%;height:100%"',$map_html,1); ?></div>
 	<div id="dagr-ui">
-		<button id="wp-add-btn" class="dagr-btn" title="Añadir waypoint">+</button>
 		<button id="mode-btn">🧭 Brújula</button>
 		<button id="layer-btn" class="dagr-btn">📑</button>
 		<div id="layer-panel">
-			<h4 style="margin:0 0 6px;color:#CFDC35;">Capas</h4>
+			<h4>Capas</h4>
 			<label><input type="checkbox" checked data-layer="players"> 👥 Jugadores</label>
 			<label><input type="checkbox" checked data-layer="markers"> 📍 Marcas</label>
 			<label><input type="checkbox" checked data-layer="waypoints"> 🎯 Waypoints</label>
 		</div>
+		<button id="wp-add-btn" class="dagr-btn" title="Añadir waypoint">+</button>
 		<button id="center-btn" class="dagr-btn" title="Seguir mi posición">◎</button>
 		<div id="wp-panel"><h4>Waypoints</h4><div id="wp-items"></div></div>
 		<div id="hud">
-			<div><span>X:<b id="hud-x">---</b> Y:<b id="hud-y">---</b> Z:<b id="hud-z">--</b>m</span></div>
+			<div>X:<b id="hud-x">----</b> Y:<b id="hud-y">----</b> Z:<b id="hud-z">---</b></div>
 			<div id="compass-ring"><div id="compass-label">N</div><div id="compass-arrow"></div></div>
 		</div>
 	</div>
