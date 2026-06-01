@@ -589,14 +589,16 @@ class RMM_Mission_Map_Handler {
 		var maxY = <?= $max_y ?>;
 		var maxTileZoom = <?= $max_zoom ?>;
 
+		var bounds = [[<?= $min_y * $scale_factor ?>, <?= $min_x * $scale_factor ?>], [<?= $max_y * $scale_factor ?>, <?= $max_x * $scale_factor ?>]];
+
 		var map = L.map('map', {
 			center: [<?= ($max_y * $scale_factor) / 2 ?>, <?= ($max_x * $scale_factor) / 2 ?>],
 			zoom: <?= max(0, intval($max_zoom / 2)) ?>,
+			maxBounds: bounds,
 			zoomControl: true,
 			attributionControl: false
 		});
 
-		// EXACTAMENTE igual que el preset (que funciona)
 		L.TileLayer.InvertedY = L.TileLayer.extend({
 			getTileUrl: function(c) {
 				c.y = -(c.y + 1);
@@ -607,7 +609,7 @@ class RMM_Mission_Map_Handler {
 			maxZoom: <?= $max_zoom ?>,
 			minZoom: 0,
 			zoomReverse: true,
-			bounds: [[<?= $min_y * $scale_factor ?>, <?= $min_x * $scale_factor ?>], [<?= $max_y * $scale_factor ?>, <?= $max_x * $scale_factor ?>]],
+			bounds: bounds,
 			errorTileUrl: ''
 		}).addTo(map);
 
