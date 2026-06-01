@@ -655,7 +655,13 @@ class RMM_Mission_Map_Handler {
 </html>
 			<?php
 			exit;
-		var sessionId = '<?= esc_js( $session ) ?>';
+		}
+
+		return $template;
+	}
+
+	/**
+	 * REST Endpoints
 		var edgeOffset = <?= $edge_offset ?>;
 		var scaleFactor = <?= $scale_factor ?>;
 		var maxY = <?= $max_y ?>;
