@@ -587,29 +587,40 @@ class RMM_Mission_Map_Handler {
 		var edgeOffset = <?= $edge_offset ?>;
 		var scaleFactor = <?= $scale_factor ?>;
 		var maxY = <?= $max_y ?>;
-		var maxTileZoom = <?= $max_zoom ?>;
-
-		var bounds = [[<?= $min_y * $scale_factor ?>, <?= $min_x * $scale_factor ?>], [<?= $max_y * $scale_factor ?>, <?= $max_x * $scale_factor ?>]];
+		var maxZoom = <?= $max_zoom ?>;
+		var bounds = L.latLngBounds(
+			L.latLng([<?= $min_y * $scale_factor ?>, <?= $min_x * $scale_factor ?>]),
+			L.latLng([<?= $max_y * $scale_factor ?>, <?= $max_x * $scale_factor ?>])
+		);
 
 		var map = L.map('map', {
-			center: [<?= ($max_y * $scale_factor) / 2 ?>, <?= ($max_x * $scale_factor) / 2 ?>],
-			zoom: <?= max(0, intval($max_zoom / 2)) ?>,
 			maxBounds: bounds,
 			zoomControl: true,
 			attributionControl: false
 		});
 
-		// Sin InvertedY — tiles en disco con Y positivo
-		L.tileLayer('<?= esc_js( $tiles_url ) ?>', {
-			maxZoom: <?= $max_zoom ?>,
+		L.TileLayer.InvertedY = L.TileLayer.extend({
+			getTileUrl: function(c) {
+				c.y = -(c.y + 1);
+				return L.TileLayer.prototype.getTileUrl.call(this, c);
+			}
+		});
+
+		new L.TileLayer.InvertedY('<?= esc_js( $tiles_url ) ?>', {
+			maxZoom: maxZoom,
 			minZoom: 0,
-			noWrap: true,
-			bounds: bounds
+			zoomReverse: true,
+			bounds: bounds,
+			errorTileUrl: ''
 		}).addTo(map);
 
-		function gameToLatLng(x, y) { return [(y * <?= $scale_factor ?>), (x * <?= $scale_factor ?>)]; }
+		map.fitBounds(bounds);
+
+		function gameToLatLng(x, y) {
+			return L.latLng([Number(y) + <?= $edge_offset ?>, Number(x) + <?= $edge_offset ?>]);
+		}
 		function latLngToGame(lat, lng) {
-			return { x: Math.round(lng / <?= $scale_factor ?>), y: Math.round(lat / <?= $scale_factor ?>) };
+			return { x: Math.round(lng - <?= $edge_offset ?>), y: Math.round(lat - <?= $edge_offset ?>) };
 		}
 
 		// Mi marcador
