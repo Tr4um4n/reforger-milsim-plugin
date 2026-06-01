@@ -613,7 +613,11 @@ class RMM_Mission_Map_Handler {
 		var map = L.map('map', { zoomControl: true, attributionControl: false, maxBounds: bounds });
 
 		L.TileLayer.InvertedY = L.TileLayer.extend({
-			getTileUrl: function(c) { c.y = -(c.y + 1); return L.TileLayer.prototype.getTileUrl.call(this, c); }
+			getTileUrl: function(c) {
+				var max = Math.pow(2, c.z) - 1;
+				c.y = max - c.y;
+				return L.TileLayer.prototype.getTileUrl.call(this, c);
+			}
 		});
 		new L.TileLayer.InvertedY('<?= esc_js( $tiles_url ) ?>', {
 			maxZoom: maxZoom, minZoom: 0, zoomReverse: true, bounds: bounds
