@@ -610,13 +610,14 @@ class RMM_Mission_Map_Handler {
 			});
 		}
 
-		document.getElementById('wp-add-btn').onclick=function(){this.classList.toggle('active');if(this.classList.contains('active')){dagrMap.on('click',addWP)}else{dagrMap.off('click',addWP)}};
+		// Todos los handlers dentro del callback del mapa
+		document.getElementById('wp-add-btn').onclick=function(){if(!dagrMap)return;this.classList.toggle('active');if(this.classList.contains('active')){dagrMap.on('click',addWP)}else{dagrMap.off('click',addWP)}};
 		function addWP(e){var x=Math.round(e.latlng.lng-50);var y=Math.round(e.latlng.lat-50);var lb=prompt('Waypoint:');if(!lb)return;fetch('/wp-json/clan/v1/microdagr/waypoints',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:token,label:lb,pos_x:x,pos_y:y})}).then(function(r){return r.json()}).then(function(){loadWaypoints()})}
 
 		document.getElementById('center-btn').onclick=function(){followMe=!followMe;this.classList.toggle('active',followMe)};
 		document.getElementById('mode-btn').onclick=function(){compassMode=!compassMode;this.textContent=compassMode?'🗺️':'🧭'};
 		document.getElementById('layer-btn').onclick=function(){document.getElementById('layer-panel').classList.toggle('show')};
-		document.querySelectorAll('#layer-panel input').forEach(function(cb){cb.onchange=function(){var k=cb.dataset.layer;var v=cb.checked;layers[k].forEach(function(m){v?m.addTo(dagrMap):dagrMap.removeLayer(m)})}});
+		document.querySelectorAll('#layer-panel input').forEach(function(cb){cb.onchange=function(){if(!dagrMap)return;var k=cb.dataset.layer;var v=cb.checked;layers[k].forEach(function(m){v?m.addTo(dagrMap):dagrMap.removeLayer(m)})}});
 	})();
 	</script>
 </body>
