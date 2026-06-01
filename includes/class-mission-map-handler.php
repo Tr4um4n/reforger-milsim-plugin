@@ -616,12 +616,10 @@ class RMM_Mission_Map_Handler {
 			attributionControl: false
 		});
 
+		// EXACTAMENTE igual que el preset (que funciona)
 		L.TileLayer.InvertedY = L.TileLayer.extend({
 			getTileUrl: function(c) {
-				var max = Math.pow(2, c.z) - 1;
-				c.y = max - c.y;
-				if (c.y < 0) c.y = 0; if (c.y > max) c.y = max;
-				if (c.x < 0) c.x = 0; if (c.x > max) c.x = max;
+				c.y = -(c.y + 1);
 				return L.TileLayer.prototype.getTileUrl.call(this, c);
 			}
 		});
@@ -629,7 +627,8 @@ class RMM_Mission_Map_Handler {
 			maxZoom: <?= $max_zoom ?>,
 			minZoom: 0,
 			zoomReverse: true,
-			noWrap: true
+			bounds: [[<?= $min_y * $scale_factor ?>, <?= $min_x * $scale_factor ?>], [<?= $max_y * $scale_factor ?>, <?= $max_x * $scale_factor ?>]],
+			errorTileUrl: ''
 		}).addTo(map);
 
 		function gameToLatLng(x, y) { return [((<?= $max_y ?> - y + <?= $edge_offset ?>) * <?= $scale_factor ?>), ((x - <?= $edge_offset ?>) * <?= $scale_factor ?>)]; }
