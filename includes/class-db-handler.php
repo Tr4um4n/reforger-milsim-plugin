@@ -177,21 +177,19 @@ class RMM_DB_Handler {
 		) $charset_collate;";
 		dbDelta( $sql_mission_maps );
 
-		// Table 9: wp_rmm_mission_sessions — Sesiones de partida (multi-day)
+		// Table 9: wp_rmm_mission_sessions — Sesiones de partida
 		$table_mission_sessions = $wpdb->prefix . 'rmm_mission_sessions';
 		$sql_mission_sessions = "CREATE TABLE $table_mission_sessions (
 			id bigint(20) NOT NULL AUTO_INCREMENT,
 			session_id varchar(100) NOT NULL,
 			post_id bigint(20) NOT NULL,
 			map_name varchar(100) NOT NULL,
-			day int(11) DEFAULT 1,
-			is_multi_day tinyint(1) DEFAULT 0,
 			started_at datetime DEFAULT CURRENT_TIMESTAMP,
 			ended_at datetime DEFAULT NULL,
 			status varchar(20) DEFAULT 'active',
 			created_at datetime DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
-			KEY session_id (session_id),
+			UNIQUE KEY session_id (session_id),
 			KEY post_id (post_id)
 		) $charset_collate;";
 		dbDelta( $sql_mission_sessions );

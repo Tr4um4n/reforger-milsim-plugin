@@ -476,6 +476,10 @@ class RMM_Mission_Map_Handler {
 			$edge_offset = intval( $map_config->edge_offset );
 			$scale_factor = floatval( $map_config->scale_factor );
 			$tiles_url = ! empty( $map_config->tiles_path ) ? $map_config->tiles_path : '../mapas/mapa_' . $map_name . '/{z}/{x}/{y}/tile.jpg';
+			// Corregir paths relativos para la página mobile
+			if ( strpos( $tiles_url, '..' ) === 0 || strpos( $tiles_url, '/' ) === 0 ) {
+				$tiles_url = site_url( $tiles_url );
+			}
 
 			// Header para mobile
 			header( 'Content-Type: text/html; charset=utf-8' );
@@ -725,15 +729,7 @@ class RMM_Mission_Map_Handler {
 			});
 		}
 
-		// Geolocation
-		if (navigator.geolocation) {
-			navigator.geolocation.watchPosition(function(pos) {
-				// Esto usa GPS del móvil — pero las coordenadas son del mundo real
-				// Para Arma necesitamos las coords del payload
-			}, null, { enableHighAccuracy: true });
-		}
-
-		// Polling posición desde servidor
+		// Polling posición desde servidor (NO usar GPS del móvil)
 		setInterval(function() {
 			fetch('/wp-json/clan/v1/mission/positions?session=' + sessionId + '&token=' + token)
 				.then(r => r.json())
@@ -886,8 +882,6 @@ class RMM_Mission_Map_Handler {
 		$session_id  = sanitize_text_field( $data['session_id'] ?? '' );
 		$preset_id   = intval( $data['preset_id'] ?? 0 );
 		$map_name    = sanitize_text_field( $data['map_name'] ?? '' );
-		$day         = intval( $data['day'] ?? 1 );
-		$is_multi    = ! empty( $data['is_multi_day'] ) ? 1 : 0;
 
 		// Si no viene map_name, extraerlo del preset
 		if ( empty( $map_name ) && $preset_id ) {
@@ -900,7 +894,7 @@ class RMM_Mission_Map_Handler {
 
 		if ( empty( $map_name ) ) $map_name = 'everon';
 
-		// Crear sesión si no existe (vinculada al preset)
+		// Crear sesión si no existe
 		$table_sessions = $wpdb->prefix . 'rmm_mission_sessions';
 		$exists = $wpdb->get_var( $wpdb->prepare(
 			"SELECT id FROM $table_sessions WHERE session_id = %s", $session_id
@@ -908,12 +902,10 @@ class RMM_Mission_Map_Handler {
 
 		if ( ! $exists && $session_id ) {
 			$wpdb->insert( $table_sessions, array(
-				'session_id'   => $session_id,
-				'post_id'      => $preset_id, // Usamos preset_id como referencia
-				'map_name'     => $map_name,
-				'day'          => $day,
-				'is_multi_day' => $is_multi,
-				'status'       => 'active',
+				'session_id' => $session_id,
+				'post_id'    => $preset_id,
+				'map_name'   => $map_name,
+				'status'     => 'active',
 			) );
 		}
 
@@ -1082,12 +1074,10 @@ class RMM_Mission_Map_Handler {
 		$table_sessions = $wpdb->prefix . 'rmm_mission_sessions';
 		$wpdb->delete( $table_sessions, array( 'session_id' => $session_id ) );
 		$wpdb->insert( $table_sessions, array(
-			'session_id'   => $session_id,
-			'post_id'      => $preset_id,
-			'map_name'     => $map_name,
-			'day'          => 1,
-			'is_multi_day' => 0,
-			'status'       => 'active',
+			'session_id' => $session_id,
+			'post_id'    => $preset_id,
+			'map_name'   => $map_name,
+			'status'     => 'active',
 		) );
 
 		// Crear usuario test si no existe
