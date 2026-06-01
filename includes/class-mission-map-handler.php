@@ -202,8 +202,8 @@ class RMM_Mission_Map_Handler {
 
 		ob_start();
 		?>
-		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-		<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+		<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 		<style>
 		/* ══ ACE3 MicroDAGR Military Display ══ */
 		.rmm-dagr-device{background:#191919;border:3px solid #2d2d2d;border-radius:6px;padding:8px;box-shadow:inset 0 0 40px rgba(0,0,0,.7),0 4px 24px rgba(0,0,0,.8);font-family:'Courier New',monospace;max-width:100%}
@@ -766,11 +766,18 @@ class RMM_Mission_Map_Handler {
 			<button class="dagr-icon-btn" id="btn-center" style="position:absolute;bottom:60px;right:8px" title="CENTRAR">◎</button>
 			<button class="dagr-icon-btn" id="btn-add-wp" style="position:absolute;bottom:110px;right:8px" title="AÑADIR WP">+</button>
 
-			<!-- WP creation form (replaces prompt) -->
-			<div id="dagr-wp-form" style="display:none;position:absolute;bottom:62px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.95);border:2px solid #FFB000;border-radius:6px;padding:12px;z-index:99999;min-width:220px;text-align:center;box-shadow:0 0 20px rgba(255,176,0,.2)">
+			<!-- WP creation form (grid coordinates) -->
+			<div id="dagr-wp-form" style="display:none;position:absolute;bottom:62px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.95);border:2px solid #FFB000;border-radius:6px;padding:12px;z-index:99999;min-width:240px;text-align:center;box-shadow:0 0 20px rgba(255,176,0,.2)">
 				<div style="color:#FFB000;font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">NUEVO WAYPOINT</div>
-				<input id="wp-x" type="number" placeholder="X (este)" min="0" max="12800" style="width:100%;margin:3px 0;padding:8px;background:#111;border:1px solid #333;color:#FFB000;font-family:monospace;font-size:14px;text-align:center;border-radius:3px;outline:none">
-				<input id="wp-y" type="number" placeholder="Y (norte)" min="0" max="12800" style="width:100%;margin:3px 0;padding:8px;background:#111;border:1px solid #333;color:#FFB000;font-family:monospace;font-size:14px;text-align:center;border-radius:3px;outline:none">
+				<div style="display:flex;gap:4px;align-items:center;margin:3px 0">
+					<span style="color:#888;font-size:10px;min-width:14px">E</span>
+					<input id="wp-x" type="text" inputmode="numeric" placeholder="Grid X (1-5 dígitos)" maxlength="5" style="flex:1;padding:8px;background:#111;border:1px solid #333;color:#FFB000;font-family:monospace;font-size:14px;text-align:center;border-radius:3px;outline:none">
+				</div>
+				<div style="display:flex;gap:4px;align-items:center;margin:3px 0">
+					<span style="color:#888;font-size:10px;min-width:14px">N</span>
+					<input id="wp-y" type="text" inputmode="numeric" placeholder="Grid Y (1-5 dígitos)" maxlength="5" style="flex:1;padding:8px;background:#111;border:1px solid #333;color:#FFB000;font-family:monospace;font-size:14px;text-align:center;border-radius:3px;outline:none">
+				</div>
+				<div id="wp-meters-preview" style="color:#888;font-size:9px;margin:2px 0;min-height:14px"></div>
 				<input id="wp-name" type="text" placeholder="Nombre" maxlength="30" style="width:100%;margin:3px 0;padding:8px;background:#111;border:1px solid #333;color:#FFB000;font-family:monospace;font-size:14px;text-align:center;border-radius:3px;outline:none">
 				<div style="display:flex;gap:4px;margin-top:8px">
 					<button id="wp-btn-tap" class="dagr-phys-btn" style="flex:1;font-size:10px">TOCAR MAPA</button>
@@ -851,6 +858,34 @@ class RMM_Mission_Map_Handler {
 	function dist(a,b){return Math.round(Math.sqrt(Math.pow(b.x-a.x,2)+Math.pow(b.y-a.y,2)))}
 	function pad(n,w){return String(n).padStart(w,'0')}
 
+	/* ── Grid ↔ Meters conversion ── */
+	function gridToMeters(g){
+		var s=String(g).replace(/[^0-9]/g,'');
+		if(!s)return NaN;
+		var n=parseInt(s,10);
+		if(s.length<=2)return n*1000;   // 2 dígitos = km
+		if(s.length===3)return n*100;   // 3 dígitos = 100m
+		if(s.length===4)return n*10;    // 4 dígitos = 10m
+		return n;                        // 5 dígitos = 1m
+	}
+	function metersToGrid(m){
+		m=Math.max(0,Math.min(Math.round(m),12800));
+		if(m%1000===0)return String(m/1000);           // 4000 → "4"
+		if(m%100===0)return pad(m/100,3);              // 4800 → "048"
+		if(m%10===0)return pad(m/10,4);                // 4890 → "0489"
+		return pad(m,5);                                // 4895 → "04895"
+	}
+
+	// Live preview while typing
+	$('#wp-x').addEventListener('input',function(){
+		var mx=gridToMeters(this.value),my=gridToMeters($('#wp-y').value);
+		$('#wp-meters-preview').textContent=(!isNaN(mx)?mx:'?')+'m E / '+(!isNaN(my)?my:'?')+'m N';
+	});
+	$('#wp-y').addEventListener('input',function(){
+		var mx=gridToMeters($('#wp-x').value),my=gridToMeters(this.value);
+		$('#wp-meters-preview').textContent=(!isNaN(mx)?mx:'?')+'m E / '+(!isNaN(my)?my:'?')+'m N';
+	});
+
 	/* ── Grid canvas ── */
 	var gridCv=$('#dagr-grid-canvas'), gridCtx=gridCv.getContext('2d');
 	function drawGrid(){
@@ -915,7 +950,7 @@ class RMM_Mission_Map_Handler {
 					brg=Math.round(bearing(mePos,wp))+'°';
 					dst=dist(mePos,wp)+'m';
 				}
-				gx=pad(Math.round(w.pos_x),4);gy=pad(Math.round(w.pos_y),4);
+				gx=metersToGrid(w.pos_x);gy=metersToGrid(w.pos_y);
 				h+='<div class="dagr-wp-item" data-wp-id="'+w.id+'"><div class="wp-name"><span class="wp-reorder wp-up" data-dir="up">▲</span><span class="wp-reorder wp-down" data-dir="down">▼</span><span>'+(i+1)+'. '+w.label+'</span><span class="wp-del">✕</span></div><div class="wp-info">GRID '+gx+' '+gy+' | BRG '+brg+' | DST '+dst+'</div></div>';
 				var ic=L.divIcon({html:'<div style="width:10px;height:10px;background:#FFB000;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 6px rgba(255,176,0,.6)"></div>',iconSize:[16,16],iconAnchor:[8,8]});
 				var mk=L.marker(g2ll(w.pos_x,w.pos_y),{icon:ic}).bindTooltip(w.label,{direction:'top',offset:[0,-10]});
@@ -931,7 +966,7 @@ class RMM_Mission_Map_Handler {
 		var x=ll_or_x,y=y_opt,nm=nm_opt||'WP';
 		fetch('/wp-json/clan/v1/microdagr/waypoints',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:TOKEN,label:nm,pos_x:x,pos_y:y})}).then(function(r){return r.json()}).then(function(){
 			loadWP();
-			toast('WP "'+nm+'" añadido en '+pad(x,4)+' '+pad(y,4));
+			toast('WP "'+nm+'" en '+metersToGrid(x)+' '+metersToGrid(y));
 		});
 	}
 	// Keep addWP alias for backward compat
@@ -1015,14 +1050,16 @@ class RMM_Mission_Map_Handler {
 		setTimeout(function(){$('#wp-x').focus()},100);
 	};
 
-	// WP form: AÑADIR button (manual coords)
+	// WP form: AÑADIR button (converts grid → meters)
 	$('#wp-btn-add').onclick=function(){
-		var x=parseInt($('#wp-x').value),y=parseInt($('#wp-y').value),nm=$('#wp-name').value||'WP';
-		if(isNaN(x)||isNaN(y)||x<0||x>12800||y<0||y>12800){toast('Coordenadas inválidas (0-12800)');return}
-		doAddWP(x,y,nm);
+		var gx=$('#wp-x').value.trim(),gy=$('#wp-y').value.trim(),nm=$('#wp-name').value||'WP';
+		var mx=gridToMeters(gx),my=gridToMeters(gy);
+		if(isNaN(mx)||isNaN(my)||gx===''||gy===''){toast('Introduce grid X e Y (1-5 dígitos cada uno)');return}
+		if(mx<0||mx>12800||my<0||my>12800){toast('Coordenadas fuera del mapa (0-12800m)');return}
+		doAddWP(mx,my,nm);
 	};
 
-	// WP form: TOCAR MAPA button
+	// WP form: TOCAR MAPA button (fills grid coords)
 	$('#wp-btn-tap').onclick=function(){
 		if(!dagrMap){toast('Mapa no cargado aún');return}
 		$('#dagr-wp-form').style.display='none';
@@ -1030,9 +1067,11 @@ class RMM_Mission_Map_Handler {
 		toast('Toca el mapa para seleccionar coordenadas...');
 		dagrMap.once('click',function(e){
 			var g=ll2g(e.latlng);
-			$('#wp-x').value=g.x;$('#wp-y').value=g.y;
+			$('#wp-x').value=metersToGrid(g.x);$('#wp-y').value=metersToGrid(g.y);
 			$('#dagr-wp-form').style.display='block';
 			$('#wp-name').focus();
+			// Trigger preview update
+			$('#wp-x').dispatchEvent(new Event('input'));
 			dagrMap.getContainer().style.cursor='';addingWP=false;
 		});
 	};
@@ -1052,12 +1091,19 @@ class RMM_Mission_Map_Handler {
 		});
 	}
 
-	// MARK button: open form pre-filled with current position (or empty if no GPS)
+	// MARK button: open form pre-filled with current position (grid format)
 	$('#btn-mark').onclick=function(){
 		var f=$('#dagr-wp-form');
 		f.style.display='block';$('#btn-add-wp').classList.add('active');
-		if(mePos){$('#wp-x').value=Math.round(mePos.x);$('#wp-y').value=Math.round(mePos.y);$('#wp-name').value='';toast('Posición actual cargada')}
-		else{$('#wp-x').value='';$('#wp-y').value='';$('#wp-name').value='';toast('Sin GPS — introduce coords manualmente')}
+		if(mePos){
+			$('#wp-x').value=metersToGrid(mePos.x);$('#wp-y').value=metersToGrid(mePos.y);
+			$('#wp-name').value='';
+			$('#wp-x').dispatchEvent(new Event('input'));
+			toast('Posición actual cargada');
+		}else{
+			$('#wp-x').value='';$('#wp-y').value='';$('#wp-name').value='';
+			toast('Sin GPS — introduce grid manualmente');
+		}
 		setTimeout(function(){$('#wp-name').focus()},100);
 	};
 
