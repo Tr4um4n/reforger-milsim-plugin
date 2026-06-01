@@ -204,22 +204,58 @@ class RMM_Mission_Map_Handler {
 		?>
 		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 		<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-		<div id="<?php echo $uid; ?>" style="width:100%;height:<?php echo esc_attr( $height ); ?>;background:#0d1117;border:1px solid #21262d;border-radius:8px;position:relative;">
-			<?php if ( $show_microdagr ) : ?>
-			<div style="position:absolute;top:10px;right:10px;z-index:1000;">
-				<button onclick="openMicroDAGR('<?php echo esc_js( $microdagr_token ); ?>','<?php echo esc_js( $session_id ); ?>')" class="button button-primary" style="background:#22c55e;border-color:#16a34a;color:#fff;">📱 MicroDAGR</button>
+		<style>
+		/* ══ ACE3 MicroDAGR Military Display ══ */
+		.rmm-dagr-device{background:#191919;border:3px solid #2d2d2d;border-radius:6px;padding:8px;box-shadow:inset 0 0 40px rgba(0,0,0,.7),0 4px 24px rgba(0,0,0,.8);font-family:'Courier New',monospace;max-width:100%}
+		.rmm-dagr-screen{position:relative;overflow:hidden;border:2px solid #0a0a0a;border-radius:2px;background:#0a0a0a}
+		.rmm-dagr-screen .leaflet-container{filter:sepia(.25) brightness(.7) contrast(1.1) saturate(.9)!important;background:#111!important}
+		.rmm-dagr-screen .leaflet-control-zoom{border:1px solid #333!important;box-shadow:none!important}
+		.rmm-dagr-screen .leaflet-control-zoom a{background:#1a1a1a!important;color:#FFB000!important;border-color:#333!important;width:28px!important;height:28px!important;line-height:28px!important;font-size:14px!important}
+		.rmm-dagr-screen .leaflet-control-zoom a:hover{color:#fff!important}
+		.rmm-dagr-grid{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:998}
+		.rmm-dagr-hud{background:rgba(0,0,0,.9);border-top:1px solid #2a2a2a;color:#FFB000;font-size:.68rem;padding:5px 12px;display:flex;justify-content:space-between;align-items:center;letter-spacing:.04em;border-radius:0 0 4px 4px;gap:6px;flex-wrap:wrap;user-select:none}
+		.rmm-dagr-hud b{color:#FFB000;font-weight:bold;min-width:50px;display:inline-block;text-align:right}
+		.rmm-dagr-compass{width:42px;height:42px;border-radius:50%;border:2px solid #FFB000;position:relative;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(0,0,0,.4)}
+		.rmm-dagr-compass .needle{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:14px solid #ef4444;transition:transform .2s}
+		.rmm-dagr-compass .north{position:absolute;top:1px;font-size:8px;color:#FFB000;font-weight:bold;line-height:1;pointer-events:none}
+		.rmm-dagr-compass .dir{position:absolute;bottom:-2px;font-size:7px;color:#888;line-height:1;pointer-events:none}
+		.rmm-dagr-player-icon{transition:all .3s}
+		.rmm-dagr-player-icon .dot{width:10px;height:10px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 6px currentColor;background:currentColor}
+		.rmm-dagr-player-icon.me .dot{width:14px;height:14px;border-width:2px;box-shadow:0 0 10px currentColor;position:relative}
+		.rmm-dagr-player-icon.me .dot::after{content:'';position:absolute;top:-10px;left:50%;margin-left:-1px;width:2px;height:10px;background:#FFB000;border-radius:1px;transform-origin:bottom center}
+		</style>
+		<div class="rmm-dagr-device">
+			<div class="rmm-dagr-screen" style="height:<?php echo esc_attr( $height ); ?>;">
+				<div id="<?php echo $uid; ?>" style="width:100%;height:100%;"></div>
+				<canvas class="rmm-dagr-grid" id="dagr-grid-<?php echo $uid; ?>"></canvas>
 			</div>
-			<?php endif; ?>
+			<div class="rmm-dagr-hud">
+				<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+					<span>GRID <b id="dagr-hud-gx-<?php echo $uid; ?>">----</b> <b id="dagr-hud-gy-<?php echo $uid; ?>">----</b></span>
+					<span>ALT <b id="dagr-hud-alt-<?php echo $uid; ?>">---</b>m</span>
+					<span>SPD <b id="dagr-hud-spd-<?php echo $uid; ?>">--</b> km/h</span>
+				</div>
+				<div style="display:flex;align-items:center;gap:8px">
+					<?php if ( $show_microdagr ) : ?>
+					<button onclick="openMicroDAGR('<?php echo esc_js( $microdagr_token ); ?>','<?php echo esc_js( $session_id ); ?>')" style="padding:4px 10px;font-size:.6rem;text-transform:uppercase;letter-spacing:.06em;font-family:'Courier New',monospace;background:#1a1a1a;border:1px solid #555;border-bottom:3px solid #1a1a1a;color:#FFB000;border-radius:3px;cursor:pointer">DAGR</button>
+					<?php endif; ?>
+				</div>
+				<div class="rmm-dagr-compass">
+					<div class="north">N</div>
+					<div class="needle" id="dagr-needle-<?php echo $uid; ?>" style="transform:rotate(0deg)"></div>
+					<div class="dir" id="dagr-hdg-<?php echo $uid; ?>">---</div>
+				</div>
+			</div>
 		</div>
 
 		<!-- Modal QR MicroDAGR -->
-		<div id="microdagr-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;justify-content:center;align-items:center;">
-			<div style="background:#1a1a1a;padding:30px;border-radius:12px;text-align:center;max-width:400px;">
-				<h3 style="color:#fff;margin-top:0;">📱 MicroDAGR</h3>
-				<p style="color:#aaa;">Escanea con tu móvil para usar como GPS táctico</p>
-				<div id="microdagr-qr" style="background:#fff;padding:10px;border-radius:8px;display:inline-block;margin:15px 0;"></div>
+		<div id="microdagr-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:99999;justify-content:center;align-items:center;">
+			<div style="background:#191919;border:3px solid #2d2d2d;padding:30px;border-radius:8px;text-align:center;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.8);font-family:'Courier New',monospace;">
+				<h3 style="color:#C8D840;margin-top:0;font-size:18px;letter-spacing:.05em;text-transform:uppercase;">📡 MicroDAGR</h3>
+				<p style="color:#888;font-size:12px;">Escanea con tu móvil para GPS táctico</p>
+				<div id="microdagr-qr" style="background:#fff;padding:10px;border-radius:4px;display:inline-block;margin:15px 0;"></div>
 				<br>
-				<button onclick="document.getElementById('microdagr-modal').style.display='none'" class="button">Cerrar</button>
+				<button onclick="document.getElementById('microdagr-modal').style.display='none'" style="background:#252525;border:1px solid #3a3a3a;border-bottom:3px solid #1a1a1a;color:#C8D840;padding:8px 20px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;border-radius:4px;font-family:'Courier New',monospace;">CERRAR</button>
 			</div>
 		</div>
 
@@ -239,8 +275,11 @@ class RMM_Mission_Map_Handler {
 		(function() {
 			var edgeOffset = <?php echo $edge_offset; ?>;
 			var scaleFactor = <?php echo $scale_factor; ?>;
+			var gameMaxY = <?php echo $max_y; ?>;
+			var gameMaxX = <?php echo $max_x; ?>;
 			var bounds = [[<?php echo $min_y * $scale_factor; ?>, <?php echo $min_x * $scale_factor; ?>], [<?php echo $max_y * $scale_factor; ?>, <?php echo $max_x * $scale_factor; ?>]];
 			var maxZoom = <?php echo $max_zoom; ?>;
+			var mySteamId = '<?php echo $current_user_id ? esc_js( get_user_meta( $current_user_id, 'steamid_64', true ) ) : ''; ?>';
 
 			var map = L.map('<?php echo $uid; ?>', {
 				zoomControl: true,
@@ -266,50 +305,123 @@ class RMM_Mission_Map_Handler {
 			}).addTo(map);
 
 			function gameToLatLng(x, y) {
-				return [((max_y - y + edgeOffset) * scaleFactor), ((x - edgeOffset) * scaleFactor)];
+				return [((gameMaxY - y + edgeOffset) * scaleFactor), ((x - edgeOffset) * scaleFactor)];
+			}
+			function latLngToGame(lat, lng) {
+				return {
+					x: (lng / scaleFactor) + edgeOffset,
+					y: gameMaxY - (lat / scaleFactor) + edgeOffset
+				};
+			}
+
+			// ── HUD references ──
+			var hudGX = document.getElementById('dagr-hud-gx-<?php echo $uid; ?>');
+			var hudGY = document.getElementById('dagr-hud-gy-<?php echo $uid; ?>');
+			var hudAlt = document.getElementById('dagr-hud-alt-<?php echo $uid; ?>');
+			var hudSpd = document.getElementById('dagr-hud-spd-<?php echo $uid; ?>');
+			var hudNeedle = document.getElementById('dagr-needle-<?php echo $uid; ?>');
+			var hudHdg = document.getElementById('dagr-hdg-<?php echo $uid; ?>');
+
+			// ── Grid overlay ──
+			var gridCanvas = document.getElementById('dagr-grid-<?php echo $uid; ?>');
+			var gridCtx = gridCanvas.getContext('2d');
+			function drawGrid() {
+				var s = map.getSize();
+				gridCanvas.width = s.x; gridCanvas.height = s.y;
+				gridCanvas.style.width = s.x + 'px'; gridCanvas.style.height = s.y + 'px';
+				gridCtx.clearRect(0, 0, s.x, s.y);
+				var z = map.getZoom();
+				var sp = z < 3 ? 2000 : z < 5 ? 1000 : z < 7 ? 500 : z < 9 ? 250 : 100;
+				var b = map.getBounds();
+				var sw = latLngToGame(b.getSouth(), b.getWest());
+				var ne = latLngToGame(b.getNorth(), b.getEast());
+				var gxMin = Math.max(0, Math.floor(sw.x / sp) * sp);
+				var gxMax = Math.min(gameMaxX, Math.ceil(ne.x / sp) * sp);
+				var gyMin = Math.max(0, Math.floor(sw.y / sp) * sp);
+				var gyMax = Math.min(gameMaxY, Math.ceil(ne.y / sp) * sp);
+				gridCtx.strokeStyle = 'rgba(255,176,0,0.09)';
+				gridCtx.lineWidth = 0.5;
+				gridCtx.fillStyle = 'rgba(255,176,0,0.25)';
+				gridCtx.font = '8px "Courier New", monospace';
+				for (var gx = gxMin; gx <= gxMax; gx += sp) {
+					var ll = gameToLatLng(gx, 0);
+					var px = map.latLngToContainerPoint(L.latLng(ll[0], ll[1])).x;
+					gridCtx.beginPath(); gridCtx.moveTo(px, 0); gridCtx.lineTo(px, s.y); gridCtx.stroke();
+					if (sp >= 1000 && gx % 1000 === 0) gridCtx.fillText(Math.round(gx / 1000), px + 2, s.y - 4);
+					else if (sp < 1000 && gx % (sp * 5) === 0) gridCtx.fillText(gx, px + 2, s.y - 4);
+				}
+				for (var gy = gyMin; gy <= gyMax; gy += sp) {
+					var ll = gameToLatLng(0, gy);
+					var py = map.latLngToContainerPoint(L.latLng(ll[0], ll[1])).y;
+					gridCtx.beginPath(); gridCtx.moveTo(0, py); gridCtx.lineTo(s.x, py); gridCtx.stroke();
+					if (sp >= 1000 && gy % 1000 === 0) gridCtx.fillText(Math.round(gy / 1000), 4, py - 3);
+					else if (sp < 1000 && gy % (sp * 5) === 0) gridCtx.fillText(gy, 4, py - 3);
+				}
+			}
+			map.on('moveend zoomend', drawGrid);
+			setTimeout(drawGrid, 600);
+
+			// ── HUD update ──
+			function updateHUD(p) {
+				if (!p) return;
+				var x = Math.round(p.pos_x), y = Math.round(p.pos_y);
+				hudGX.textContent = String(x).padStart(5, '0');
+				hudGY.textContent = String(y).padStart(5, '0');
+				hudAlt.textContent = Math.round(p.pos_z || 0);
+				hudSpd.textContent = Math.round(p.speed || 0);
+				var hdg = Math.round(p.heading || 0);
+				hudNeedle.style.transform = 'rotate(' + hdg + 'deg)';
+				hudHdg.textContent = String(hdg).padStart(3, '0');
+			}
+
+			// ── Military-style marker factory ──
+			function makePlayerIcon(color, isMe, heading) {
+				var cls = 'dagr-player-marker rmm-dagr-player-icon' + (isMe ? ' me' : '');
+				var dotSize = isMe ? '14px' : '10px';
+				var html = '<div class="dot" style="width:' + dotSize + ';height:' + dotSize + ';background:' + color + ';border:2px solid #fff;border-radius:50%;box-shadow:0 0 10px ' + color + ';"></div>';
+				if (isMe && heading !== undefined) {
+					html += '<div style="position:absolute;top:-10px;left:50%;margin-left:-1px;width:2px;height:8px;background:#FFB000;border-radius:1px;transform:rotate(' + heading + 'deg);transform-origin:bottom center;"></div>';
+				}
+				return L.divIcon({ className: cls, html: html, iconSize: isMe ? [20, 24] : [16, 16], iconAnchor: isMe ? [10, 12] : [8, 8] });
 			}
 
 			var playerMarkers = {};
-			var staticMarkers = {};
 
-			// Posiciones de jugadores
+			// ── Initial positions ──
 			var positions = <?php echo $positions_json; ?>;
 			if ( positions && positions.length ) {
 				positions.forEach(function(p) {
 					var latlng = gameToLatLng(p.pos_x, p.pos_y);
-					var isMe = (p.steamid === '<?php echo $current_user_id ? esc_js( get_user_meta( $current_user_id, 'steamid_64', true ) ) : ''; ?>');
-					var color = p.is_alive ? (isMe ? '#22c55e' : '#3b82f6') : '#ef4444';
-					var size = isMe ? '16px' : '12px';
-					var icon = L.divIcon({
-						className: 'dagr-player-marker',
-						html: '<div style="width:'+size+';height:'+size+';background:'+color+';border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px '+color+';" title="'+(p.player_name||'')+'"></div>',
-						iconSize: [20,20],
-						iconAnchor: [10,10]
-					});
-					var marker = L.marker(latlng, { icon: icon }).addTo(map);
-					marker.bindTooltip((p.player_name||'')+' ['+Math.round(p.pos_x)+' '+Math.round(p.pos_y)+']', {direction:'top', offset:[0,-12]});
+					var isMe = (p.steamid === mySteamId);
+					var color = p.is_alive ? (isMe ? '#FFB000' : '#FFB000') : '#ef4444';
+					var icon = makePlayerIcon(color, isMe, p.heading);
+					var marker = L.marker(latlng, { icon: icon, zIndexOffset: isMe ? 9999 : 0 }).addTo(map);
+					var gridLabel = String(Math.round(p.pos_x)).padStart(4,'0') + ' ' + String(Math.round(p.pos_y)).padStart(4,'0');
+					marker.bindTooltip((p.player_name || '') + ' [' + gridLabel + ']', { direction: 'top', offset: [0, isMe ? -16 : -10], className: 'rmm-dagr-tooltip' });
 					playerMarkers[p.steamid] = marker;
+					if (isMe) updateHUD(p);
 				});
 			}
 
-			// Marcadores de misión
+			// ── Mission markers ──
 			var markers = <?php echo $markers_json; ?>;
 			var markerIcons = {
-				'objective': '<div style="width:16px;height:16px;background:#22c55e;border:2px solid #fff;border-radius:3px;transform:rotate(45deg);box-shadow:0 0 8px rgba(34,197,94,0.5);"></div>',
-				'enemy': '<div style="width:14px;height:14px;background:#ef4444;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(239,68,68,0.5);"></div>',
-				'friendly': '<div style="width:14px;height:14px;background:#3b82f6;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(59,130,246,0.5);"></div>',
-				'marker': '<div style="width:14px;height:14px;background:#d2a850;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(210,168,80,0.5);"></div>'
+				'objective': '<div style="width:14px;height:14px;background:#FFB000;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 8px rgba(255,176,0,.5);"></div>',
+				'enemy': '<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid #ef4444;filter:drop-shadow(0 0 4px rgba(239,68,68,.5));"></div>',
+				'friendly': '<div style="width:12px;height:12px;background:#60a5fa;border:2px solid #fff;border-radius:2px;box-shadow:0 0 8px rgba(96,165,250,.5);"></div>',
+				'completed': '<div style="width:12px;height:12px;background:#FFB000;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(255,176,0,.4);"></div>',
+				'marker': '<div style="width:12px;height:12px;background:#a78bfa;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(167,139,250,.5);"></div>'
 			};
 			if ( markers && markers.length ) {
 				markers.forEach(function(m) {
 					var latlng = gameToLatLng(m.pos_x, m.pos_y);
 					var html = markerIcons[m.type] || markerIcons['marker'];
-					var icon = L.divIcon({ className: 'dagr-map-marker', html: html, iconSize: [20,20], iconAnchor: [10,10] });
-					L.marker(latlng, { icon: icon }).addTo(map).bindTooltip(m.label || m.type, { direction:'top', offset:[0,-12] });
+					var icon = L.divIcon({ className: 'dagr-map-marker', html: html, iconSize: [20, 20], iconAnchor: [10, 10] });
+					L.marker(latlng, { icon: icon }).addTo(map).bindTooltip(m.label || m.type, { direction: 'top', offset: [0, -12], className: 'rmm-dagr-tooltip' });
 				});
 			}
 
-			// Polling cada 10s
+			// ── Polling ──
 			var sessionId = '<?php echo esc_js( $session_id ); ?>';
 			if ( sessionId ) {
 				setInterval(function() {
@@ -321,22 +433,19 @@ class RMM_Mission_Map_Handler {
 							data.players.forEach(function(p) {
 								seen[p.steamid] = true;
 								var latlng = gameToLatLng(p.pos_x, p.pos_y);
-								var isMe = (p.steamid === '<?php echo esc_js( get_user_meta( $current_user_id, 'steamid_64', true ) ); ?>');
-								var color = p.is_alive ? (isMe ? '#22c55e' : '#3b82f6') : '#ef4444';
-								var size = isMe ? '16px' : '12px';
-								var icon = L.divIcon({
-									className: 'dagr-player-marker',
-									html: '<div style="width:'+size+';height:'+size+';background:'+color+';border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px '+color+';"></div>',
-									iconSize: [20,20],
-									iconAnchor: [10,10]
-								});
+								var isMe = (p.steamid === mySteamId);
+								var color = p.is_alive ? (isMe ? '#FFB000' : '#FFB000') : '#ef4444';
+								var icon = makePlayerIcon(color, isMe, p.heading);
 								if (playerMarkers[p.steamid]) {
 									playerMarkers[p.steamid].setLatLng(latlng);
+									playerMarkers[p.steamid].setIcon(icon);
 								} else {
-									var marker = L.marker(latlng, { icon: icon }).addTo(map);
-									marker.bindTooltip((p.player_name||'')+' ['+Math.round(p.pos_x)+' '+Math.round(p.pos_y)+']', {direction:'top', offset:[0,-12]});
+									var marker = L.marker(latlng, { icon: icon, zIndexOffset: isMe ? 9999 : 0 }).addTo(map);
+									var gridLabel = String(Math.round(p.pos_x)).padStart(4,'0') + ' ' + String(Math.round(p.pos_y)).padStart(4,'0');
+									marker.bindTooltip((p.player_name || '') + ' [' + gridLabel + ']', { direction: 'top', offset: [0, isMe ? -16 : -10], className: 'rmm-dagr-tooltip' });
 									playerMarkers[p.steamid] = marker;
 								}
+								if (isMe) updateHUD(p);
 							});
 							for (var id in playerMarkers) {
 								if (!seen[id]) {
@@ -345,7 +454,7 @@ class RMM_Mission_Map_Handler {
 								}
 							}
 						});
-				}, 10000);
+				}, 5000);
 			}
 		})();
 		</script>
@@ -402,15 +511,15 @@ class RMM_Mission_Map_Handler {
 
 		ob_start();
 		?>
-		<button onclick="openMicroDAGRBtn('<?php echo esc_js( $token ); ?>','<?php echo esc_js( $session_id ); ?>')" class="button button-primary" style="background:#22c55e;border-color:#16a34a;color:#fff;font-size:16px;padding:12px 24px;">📱 MicroDAGR</button>
+		<button onclick="openMicroDAGRBtn('<?php echo esc_js( $token ); ?>','<?php echo esc_js( $session_id ); ?>')" style="background:#191919;border:3px solid #2d2d2d;border-bottom:4px solid #1a1a1a;color:#C8D840;font-size:14px;padding:12px 24px;font-family:'Courier New',monospace;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.5);transition:all .1s" onmouseover="this.style.borderColor='#C8D840'" onmouseout="this.style.borderColor='#2d2d2d'">📡 MicroDAGR</button>
 
-		<div id="microdagr-btn-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;justify-content:center;align-items:center;">
-			<div style="background:#1a1a1a;padding:30px;border-radius:12px;text-align:center;max-width:400px;">
-				<h3 style="color:#fff;margin-top:0;">📱 MicroDAGR</h3>
-				<p style="color:#aaa;">Escanea con tu móvil para usar como GPS táctico</p>
-				<div id="microdagr-btn-qr" style="background:#fff;padding:10px;border-radius:8px;display:inline-block;margin:15px 0;"></div>
+		<div id="microdagr-btn-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:99999;justify-content:center;align-items:center;">
+			<div style="background:#191919;border:3px solid #2d2d2d;padding:30px;border-radius:8px;text-align:center;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.8);font-family:'Courier New',monospace;">
+				<h3 style="color:#C8D840;margin-top:0;font-size:18px;letter-spacing:.05em;text-transform:uppercase;">📡 MicroDAGR</h3>
+				<p style="color:#888;font-size:12px;">Escanea con tu móvil para GPS táctico</p>
+				<div id="microdagr-btn-qr" style="background:#fff;padding:10px;border-radius:4px;display:inline-block;margin:15px 0;"></div>
 				<br>
-				<button onclick="document.getElementById('microdagr-btn-modal').style.display='none'" class="button">Cerrar</button>
+				<button onclick="document.getElementById('microdagr-btn-modal').style.display='none'" style="background:#252525;border:1px solid #3a3a3a;border-bottom:3px solid #1a1a1a;color:#C8D840;padding:8px 20px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;border-radius:4px;font-family:'Courier New',monospace;">CERRAR</button>
 			</div>
 		</div>
 		<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
@@ -500,140 +609,349 @@ class RMM_Mission_Map_Handler {
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 	<title>MicroDAGR</title>
 	<style>
-		*{margin:0;padding:0;box-sizing:border-box}
-		html,body{width:100%;height:100%;overflow:hidden;background:#0d1117;font-family:monospace}
-		#frame{position:fixed;top:8px;left:8px;right:8px;bottom:52px;border:2px solid #333;border-radius:4px;overflow:hidden;z-index:1}
-		.leaflet-container{width:100%!important;height:100%!important;border-radius:2px}
-		.leaflet-control-zoom{border:1px solid #444!important;box-shadow:none!important}
-		.leaflet-control-zoom a{background:#1a1a1a!important;color:#CFDC35!important;border-color:#444!important;width:30px!important;height:30px!important;line-height:30px!important}
-		#dagr-ui{position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;pointer-events:none}
+		/* ══ ACE3 MicroDAGR Device ══ */
+		*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+		html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a;font-family:'Courier New',monospace;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+
+		/* Device shell */
+		#dagr-shell{position:fixed;top:0;left:0;right:0;bottom:0;background:#1a1a1a;display:flex;flex-direction:column;padding:8px 5px 5px 5px}
+		#dagr-bezel-top{height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;color:#555;font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:bold}
+		#dagr-bezel-top span{color:#666}
+
+		/* Screen - amber military tint (NOT green) */
+		#dagr-screen-wrap{flex:1;position:relative;overflow:hidden;border:2px solid #0a0a0a;border-radius:3px;background:#0d0d0d}
+		#dagr-screen-wrap .leaflet-container{filter:sepia(.25) brightness(.7) contrast(1.1) saturate(.9)!important;background:#111!important}
+		#dagr-screen-wrap .leaflet-control-zoom{border:1px solid #333!important;box-shadow:none!important;margin:8px!important}
+		#dagr-screen-wrap .leaflet-control-zoom a{background:#1c1c1c!important;color:#FFB000!important;border-color:#333!important;width:36px!important;height:36px!important;line-height:36px!important;font-size:20px!important;border-radius:3px!important}
+		#dagr-screen-wrap .leaflet-control-zoom a:hover{color:#fff!important;background:#2a2a2a!important}
+		#dagr-frame{width:100%;height:100%}
+
+		/* Grid canvas */
+		#dagr-grid-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:998}
+
+		/* ── UI Overlay ── */
+		#dagr-ui{position:absolute;top:0;left:0;right:0;bottom:0;z-index:9999;pointer-events:none;font-size:12px}
 		#dagr-ui>*{pointer-events:auto}
-		#hud{position:absolute;bottom:0;left:0;right:0;height:44px;background:rgba(0,0,0,.9);color:#CFDC35;padding:0 10px;font-size:11px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #333}
-		#compass-ring{width:36px;height:36px;border-radius:50%;border:2px solid #CFDC35;position:relative;display:flex;align-items:center;justify-content:center}
-		#compass-arrow{width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:12px solid #ef4444;transition:transform .2s}
-		#compass-label{position:absolute;top:0;font-size:7px;color:#fff}
-		.dagr-btn{position:absolute;border-radius:50%;width:34px;height:34px;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
-		#wp-add-btn{top:57px;left:10px;background:rgba(34,197,94,.85);color:#fff}
-		#wp-add-btn.active{background:rgba(239,68,68,.85)}
-		#center-btn{bottom:54px;right:10px;background:rgba(34,197,94,.85);color:#fff}
-		#center-btn.active{background:rgba(239,68,68,.85)}
-		#mode-btn{top:10px;left:10px;width:auto;padding:0 10px;border-radius:8px;background:rgba(0,0,0,.7);color:#fff;border:1px solid #CFDC35;font-size:11px}
-		#layer-btn{top:10px;left:56px;width:34px;height:34px;background:rgba(0,0,0,.7);color:#fff;border:1px solid #CFDC35}
-		#wp-panel{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.85);color:#fff;padding:6px 8px;border-radius:6px;max-height:40vh;overflow-y:auto;font-size:10px;min-width:110px}
-		#wp-panel h4{margin:0 0 4px;color:#22c55e;font-size:11px}
-		.wp-row{display:flex;align-items:center;padding:2px 0;border-bottom:1px solid #333;gap:4px}
-		.wp-row .wp-num{color:#d2a850;font-weight:bold;min-width:16px}
-		.wp-row .wp-del{color:#ef4444;cursor:pointer;font-size:11px;margin-left:auto}
-		#layer-panel{display:none;position:absolute;top:10px;left:96px;background:rgba(0,0,0,.9);color:#fff;padding:8px 10px;border-radius:6px;font-size:10px;border:1px solid #333;min-width:130px}
-		#layer-panel.show{display:block}
-		#layer-panel h4{margin:0 0 6px;color:#CFDC35;font-size:11px}
-		#layer-panel label{display:flex;align-items:center;padding:2px 0;gap:4px}
-		#layer-panel input{accent-color:#22c55e}
+		#dagr-ui button{-webkit-tap-highlight-color:transparent;touch-action:manipulation;outline:none}
+
+		/* ── HUD (Bottom bar) ── */
+		#dagr-hud{position:absolute;bottom:0;left:0;right:0;height:50px;background:rgba(0,0,0,.93);color:#FFB000;display:flex;justify-content:space-between;align-items:center;padding:0 8px;border-top:1px solid #333;font-size:11px;letter-spacing:.04em}
+		#dagr-hud .hud-block{display:flex;flex-direction:column;align-items:center;min-width:48px}
+		#dagr-hud .hud-label{font-size:8px;color:#777;text-transform:uppercase}
+		#dagr-hud .hud-value{font-size:14px;font-weight:bold;color:#FFB000}
+
+		/* Compass */
+		#dagr-compass{width:46px;height:46px;border-radius:50%;border:2px solid #FFB000;position:relative;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(0,0,0,.5)}
+		#dagr-compass .needle{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:16px solid #ef4444;transition:transform .15s}
+		#dagr-compass .north{position:absolute;top:2px;font-size:9px;color:#FFB000;font-weight:bold;line-height:1;pointer-events:none}
+		#dagr-compass .hdg{position:absolute;bottom:-3px;font-size:8px;color:#999;line-height:1;pointer-events:none}
+
+		/* ── Top bar ── */
+		#dagr-topbar{position:absolute;top:0;left:0;right:0;height:32px;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:space-between;padding:0 6px;border-bottom:1px solid #333;font-size:10px;color:#999}
+
+		/* ── Waypoint panel (top-right) ── */
+		#dagr-wp-panel{position:absolute;top:38px;right:6px;background:rgba(0,0,0,.93);border:1px solid #333;border-radius:4px;color:#FFB000;padding:8px 10px;max-height:50vh;overflow-y:auto;font-size:10px;min-width:130px;max-width:170px;display:none;z-index:10000}
+		#dagr-wp-panel.open{display:block}
+		#dagr-wp-panel h4{font-size:11px;color:#FFB000;margin:0 0 5px;border-bottom:1px solid #2a2a2a;padding-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+		.dagr-wp-item{display:flex;flex-direction:column;padding:5px 0;border-bottom:1px solid #1a1a1a;gap:2px}
+		.dagr-wp-item .wp-name{font-weight:bold;color:#FFB000;font-size:11px;display:flex;justify-content:space-between}
+		.dagr-wp-item .wp-info{font-size:9px;color:#999}
+		.dagr-wp-item .wp-del{color:#ef4444;cursor:pointer;font-size:14px;padding:0 4px}
+
+		/* ── Layers panel (appears to the right of buttons) ── */
+		#dagr-layer-panel{position:absolute;top:40px;left:60px;background:rgba(0,0,0,.93);border:1px solid #333;border-radius:4px;color:#FFB000;padding:8px 10px;font-size:11px;display:none;min-width:120px;z-index:10000}
+		#dagr-layer-panel.open{display:block}
+		#dagr-layer-panel h4{font-size:11px;color:#FFB000;margin:0 0 5px;border-bottom:1px solid #2a2a2a;padding-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+		#dagr-layer-panel label{display:flex;align-items:center;padding:5px 0;gap:6px;cursor:pointer;font-size:11px}
+		#dagr-layer-panel input{accent-color:#FFB000;width:16px;height:16px}
+
+		/* ── Buttons (LARGE for mobile) ── */
+		.dagr-phys-btn{background:#222;border:1px solid #444;border-bottom:4px solid #1a1a1a;color:#FFB000;font-size:12px;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;border-radius:4px;font-family:'Courier New',monospace;padding:10px 14px;transition:all .1s;white-space:nowrap;text-align:center;min-height:42px;min-width:48px;font-weight:bold}
+		.dagr-phys-btn:active{border-bottom-width:1px;transform:translateY(3px);background:#2a2a2a}
+		.dagr-phys-btn.accent{background:#1a1a1a;border-color:#555;border-bottom-color:#1a1a1a;color:#FFB000}
+		.dagr-phys-btn.accent:active{background:#2a2a2a}
+		.dagr-phys-btn.on{background:#332200;border-color:#FFB000;color:#FFB000}
+		.dagr-icon-btn{width:44px;height:44px;border-radius:50%;border:2px solid #444;background:rgba(0,0,0,.75);color:#FFB000;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:bold}
+		.dagr-icon-btn.active{background:rgba(255,176,0,.2);border-color:#FFB000;color:#FFB000;box-shadow:0 0 12px rgba(255,176,0,.3)}
 	</style>
 </head>
 <body>
-	<div id="frame"><?php echo preg_replace('/<div/','<div style="width:100%;height:100%"',$map_html,1); ?></div>
-	<div id="dagr-ui">
-		<button id="mode-btn">🧭 Brújula</button>
-		<button id="layer-btn" class="dagr-btn">📑</button>
-		<div id="layer-panel">
-			<h4>Capas</h4>
-			<label><input type="checkbox" checked data-layer="players"> 👥 Jugadores</label>
-			<label><input type="checkbox" checked data-layer="markers"> 📍 Marcas</label>
-			<label><input type="checkbox" checked data-layer="waypoints"> 🎯 Waypoints</label>
-		</div>
-		<button id="wp-add-btn" class="dagr-btn" title="Añadir waypoint">+</button>
-		<button id="center-btn" class="dagr-btn" title="Seguir mi posición">◎</button>
-		<div id="wp-panel"><h4>Waypoints</h4><div id="wp-items"></div></div>
-		<div id="hud">
-			<div>X:<b id="hud-x">----</b> Y:<b id="hud-y">----</b> Z:<b id="hud-z">---</b></div>
-			<div id="compass-ring"><div id="compass-label">N</div><div id="compass-arrow"></div></div>
+<div id="dagr-shell">
+	<div id="dagr-bezel-top"><span>MICRODAGR</span><span>GPS</span></div>
+	<div id="dagr-screen-wrap">
+		<div id="dagr-frame"><?php echo preg_replace('/<div/','<div style="width:100%;height:100%"',$map_html,1); ?></div>
+		<canvas id="dagr-grid-canvas"></canvas>
+		<!-- UI -->
+		<div id="dagr-ui">
+			<!-- Top bar -->
+			<div id="dagr-topbar">
+				<button class="dagr-phys-btn" id="btn-mark">MARK</button>
+				<span id="dagr-clock">----</span>
+				<button class="dagr-phys-btn" id="btn-wp-menu">WP</button>
+			</div>
+
+			<!-- Left button column (below top bar) -->
+			<div style="position:absolute;top:40px;left:5px;display:flex;flex-direction:column;gap:6px">
+				<button class="dagr-phys-btn" id="btn-map">MAP</button>
+				<button class="dagr-phys-btn" id="btn-compass">CMP</button>
+				<button class="dagr-phys-btn" id="btn-layers">LAY</button>
+			</div>
+
+			<!-- Layers panel (to the RIGHT of buttons, NOT on top) -->
+			<div id="dagr-layer-panel">
+				<h4>CAPAS</h4>
+				<label><input type="checkbox" checked data-layer="players">JUGADORES</label>
+				<label><input type="checkbox" checked data-layer="markers">MARCADORES</label>
+				<label><input type="checkbox" checked data-layer="waypoints">WAYPOINTS</label>
+			</div>
+
+			<!-- Waypoint panel (top-right, toggled by WP button) -->
+			<div id="dagr-wp-panel">
+				<h4>WAYPOINTS</h4>
+				<div id="dagr-wp-items"><em style="color:#555">VACÍO</em></div>
+			</div>
+
+			<!-- Floating action buttons -->
+			<button class="dagr-icon-btn" id="btn-center" style="position:absolute;bottom:60px;right:8px" title="CENTRAR">◎</button>
+			<button class="dagr-icon-btn" id="btn-add-wp" style="position:absolute;bottom:110px;right:8px" title="AÑADIR WP">+</button>
+
+			<!-- HUD -->
+			<div id="dagr-hud">
+				<div class="hud-block"><span class="hud-label">E</span><span class="hud-value" id="hud-grid-e">-----</span></div>
+				<div class="hud-block"><span class="hud-label">N</span><span class="hud-value" id="hud-grid-n">-----</span></div>
+				<div class="hud-block"><span class="hud-label">ALT</span><span class="hud-value" id="hud-alt">---</span></div>
+				<div class="hud-block"><span class="hud-label">SPD</span><span class="hud-value" id="hud-spd">--</span></div>
+				<div id="dagr-compass">
+					<div class="north">N</div>
+					<div class="needle" id="dagr-needle" style="transform:rotate(0deg)"></div>
+					<div class="hdg" id="dagr-hdg-txt">---</div>
+				</div>
+			</div>
 		</div>
 	</div>
-	<script>
-	(function(){
-		var token='<?php echo esc_js( $token ); ?>';
-		var sessionId='<?php echo esc_js( $session ); ?>';
-		var steamid='<?php echo esc_js( $valid->steamid ); ?>';
-		var meMarker=null, dagrMap=null, followMe=false, compassMode=false;
-		var layers={players:[],markers:[],waypoints:[]};
+</div>
 
-		function waitForMap(cb){
-			var t=setInterval(function(){
-				var el=document.querySelector('.leaflet-container');
-				if(el&&el._leaflet_id){
-					clearInterval(t);
-					// Encontrar la instancia de Leaflet
-					for(var k in L){if(L[k]&&L[k]._leaflet_id===el._leaflet_id&&L[k].addLayer){dagrMap=L[k];break}}
-					if(dagrMap)cb();else console.error('No se encontró instancia Leaflet');
-				}
-			},200);
+<script>
+(function(){
+	var TOKEN='<?php echo esc_js( $token ); ?>';
+	var SID='<?php echo esc_js( $session ); ?>';
+	var MY_STEAM='<?php echo esc_js( $valid->steamid ); ?>';
+	var dagrMap=null, mePos=null, followMe=false, addingWP=false;
+	var layers={players:[],markers:[],waypoints:[]};
+
+	/* ── Find Leaflet instance ── */
+	function waitMap(cb){var t=setInterval(function(){var el=document.querySelector('.leaflet-container');if(el&&el._leaflet_id){clearInterval(t);for(var k in L){if(L[k]&&L[k]._leaflet_id===el._leaflet_id&&L[k].addLayer){dagrMap=L[k];break}}if(dagrMap)cb()}},200)}
+
+	var $=function(s){return document.querySelector(s)};
+	var $$=function(s){return document.querySelectorAll(s)};
+
+	/* ── Helpers ── */
+	function g2ll(x,y){return L.latLng([Number(y)+<?php echo $edge_offset; ?>,Number(x)+<?php echo $edge_offset; ?>])}
+	function ll2g(ll){return{x:Math.round(ll.lng-<?php echo $edge_offset; ?>),y:Math.round(ll.lat-<?php echo $edge_offset; ?>)}}
+	function bearing(a,b){var dx=b.x-a.x,dy=b.y-a.y;return(Math.atan2(dx,dy)*180/Math.PI+360)%360}
+	function dist(a,b){return Math.round(Math.sqrt(Math.pow(b.x-a.x,2)+Math.pow(b.y-a.y,2)))}
+	function pad(n,w){return String(n).padStart(w,'0')}
+
+	/* ── Grid canvas ── */
+	var gridCv=$('#dagr-grid-canvas'), gridCtx=gridCv.getContext('2d');
+	function drawGrid(){
+		if(!dagrMap)return;
+		var s=dagrMap.getSize();gridCv.width=s.x;gridCv.height=s.y;
+		gridCv.style.width=s.x+'px';gridCv.style.height=s.y+'px';
+		gridCtx.clearRect(0,0,s.x,s.y);
+		var z=dagrMap.getZoom(),sp=z<3?2000:z<5?1000:z<7?500:z<9?250:100;
+		var b=dagrMap.getBounds();
+		var sw=ll2g(b.getSouthWest()),ne=ll2g(b.getNorthEast());
+		var gxMin=Math.max(0,Math.floor(sw.x/sp)*sp),gxMax=Math.min(<?php echo $max_x; ?>,Math.ceil(ne.x/sp)*sp);
+		var gyMin=Math.max(0,Math.floor(sw.y/sp)*sp),gyMax=Math.min(<?php echo $max_y; ?>,Math.ceil(ne.y/sp)*sp);
+		gridCtx.strokeStyle='rgba(255,176,0,0.08)';gridCtx.lineWidth=0.5;
+		gridCtx.fillStyle='rgba(255,176,0,0.25)';gridCtx.font='9px monospace';
+		for(var gx=gxMin;gx<=gxMax;gx+=sp){
+			var p=dagrMap.latLngToContainerPoint(g2ll(gx,0));
+			gridCtx.beginPath();gridCtx.moveTo(p.x,0);gridCtx.lineTo(p.x,s.y);gridCtx.stroke();
+			if(sp>=1000&&gx%1000===0)gridCtx.fillText(gx/1000,p.x+2,s.y-3);
+			else if(sp<1000&&gx%(sp*5)===0)gridCtx.fillText(gx,p.x+2,s.y-3);
 		}
+		for(var gy=gyMin;gy<=gyMax;gy+=sp){
+			var p=dagrMap.latLngToContainerPoint(g2ll(0,gy));
+			gridCtx.beginPath();gridCtx.moveTo(0,p.y);gridCtx.lineTo(s.x,p.y);gridCtx.stroke();
+			if(sp>=1000&&gy%1000===0)gridCtx.fillText(gy/1000,4,p.y-3);
+			else if(sp<1000&&gy%(sp*5)===0)gridCtx.fillText(gy,4,p.y-3);
+		}
+	}
 
-		waitForMap(function(){
-			var ic=L.divIcon({html:'<div style="width:14px;height:14px;background:#22c55e;border:2px solid #fff;border-radius:50%;box-shadow:0 0 10px #22c55e;"></div>',iconSize:[18,18],iconAnchor:[9,9]});
-			meMarker=L.marker([0,0],{icon:ic,zIndexOffset:9999}).addTo(dagrMap);
+	/* ── HUD update ── */
+	function updHUD(p){
+		if(!p)return;
+		$('#hud-grid-e').textContent=pad(Math.round(p.pos_x),5);
+		$('#hud-grid-n').textContent=pad(Math.round(p.pos_y),5);
+		$('#hud-alt').textContent=Math.round(p.pos_z||0);
+		$('#hud-spd').textContent=Math.round(p.speed||0);
+		var h=Math.round(p.heading||0);
+		$('#dagr-needle').style.transform='rotate('+h+'deg)';
+		$('#dagr-hdg-txt').textContent=pad(h,3);
+	}
 
-			// Polling posicion
-			setInterval(function(){
-				fetch('/wp-json/clan/v1/mission/positions?session='+sessionId)
-					.then(function(r){return r.json()})
-					.then(function(d){
-						if(!d||!d.players)return;
-						var me=null;
-						layers.players.forEach(function(m){dagrMap.removeLayer(m)});layers.players=[];
-						d.players.forEach(function(p){
-							var ll=L.latLng([Number(p.pos_y)+50,Number(p.pos_x)+50]);
-							var isMe=(p.steamid===steamid);
-							if(isMe){me=p;meMarker.setLatLng(ll);if(followMe)dagrMap.panTo(ll,{animate:true});
-								document.getElementById('hud-x').textContent=Math.round(p.pos_x);
-								document.getElementById('hud-y').textContent=Math.round(p.pos_y);
-								document.getElementById('hud-z').textContent=Math.round(p.pos_z||0);
-								if(p.heading)document.getElementById('compass-arrow').style.transform='rotate('+p.heading+'deg)';
-							}else{
-								var pc=p.is_alive?'#3b82f6':'#ef4444';
-								var pi=L.divIcon({html:'<div style="width:10px;height:10px;background:'+pc+';border:2px solid #fff;border-radius:50%;"></div>',iconSize:[14,14],iconAnchor:[7,7]});
-								var pm=L.marker(ll,{icon:pi}).bindTooltip(p.player_name||'');
-								layers.players.push(pm);if(docSel('[data-layer=players]').checked)pm.addTo(dagrMap);
-							}
-						});
-					});
-			},5000);
+	/* ── Toast feedback ── */
+	function toast(msg){
+		var el=document.createElement('div');
+		el.textContent=msg;
+		el.style.cssText='position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.9);color:#FFB000;padding:10px 20px;border-radius:4px;font-family:"Courier New",monospace;font-size:13px;z-index:99999;border:1px solid #FFB000;pointer-events:none';
+		document.body.appendChild(el);
+		setTimeout(function(){el.remove()},2000);
+	}
 
-			// Marcadores
-			fetch('/wp-json/clan/v1/mission/markers?session='+sessionId).then(function(r){return r.json()}).then(function(d){
-				if(!d||!d.markers)return;
-				var im={objective:'<div style="width:14px;height:14px;background:#22c55e;border:2px solid #fff;border-radius:3px;transform:rotate(45deg);"></div>',completed:'<div style="width:12px;height:12px;background:#d2a850;border:2px solid #fff;border-radius:50%;"></div>',enemy:'<div style="width:12px;height:12px;background:#ef4444;border:2px solid #fff;border-radius:50%;"></div>'},df='<div style="width:12px;height:12px;background:#3b82f6;border:2px solid #fff;border-radius:50%;"></div>';
-				d.markers.forEach(function(mk){var ll=L.latLng([Number(mk.pos_y)+50,Number(mk.pos_x)+50]);var ic=L.divIcon({html:im[mk.type]||df,iconSize:[18,18],iconAnchor:[9,9]});var mkr=L.marker(ll,{icon:ic}).bindTooltip(mk.label||mk.type);layers.markers.push(mkr);if(docSel('[data-layer=markers]').checked)mkr.addTo(dagrMap)});
+	/* ── Waypoints ── */
+	function loadWP(){
+		fetch('/wp-json/clan/v1/microdagr/waypoints?token='+TOKEN).then(function(r){return r.json()}).then(function(d){
+			layers.waypoints.forEach(function(m){dagrMap.removeLayer(m)});layers.waypoints=[];
+			var wps=d.waypoints||[];
+			var h='';wps.forEach(function(w,i){
+				var brg='--',dst='--',gx='-',gy='-';
+				if(mePos){
+					var wp={x:Number(w.pos_x),y:Number(w.pos_y)};
+					brg=Math.round(bearing(mePos,wp))+'°';
+					dst=dist(mePos,wp)+'m';
+				}
+				gx=pad(Math.round(w.pos_x),4);gy=pad(Math.round(w.pos_y),4);
+				h+='<div class="dagr-wp-item"><div class="wp-name"><span>'+(i+1)+'. '+w.label+'</span><span class="wp-del" data-id="'+w.id+'">✕</span></div><div class="wp-info">GRID '+gx+' '+gy+' | BRG '+brg+' | DST '+dst+'</div></div>';
+				var ic=L.divIcon({html:'<div style="width:10px;height:10px;background:#FFB000;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 6px rgba(255,176,0,.6)"></div>',iconSize:[16,16],iconAnchor:[8,8]});
+				var mk=L.marker(g2ll(w.pos_x,w.pos_y),{icon:ic}).bindTooltip(w.label,{direction:'top',offset:[0,-10]});
+				layers.waypoints.push(mk);if($('#dagr-layer-panel [data-layer=waypoints]').checked)mk.addTo(dagrMap);
 			});
+			$('#dagr-wp-items').innerHTML=h||'<em style="color:#555">VACÍO</em>';
+		});
+	}
 
-			// Waypoints
-			loadWaypoints();
+	function addWP(ll){
+		var g=ll2g(ll);
+		var lb=prompt('Nombre del waypoint:');
+		if(!lb)return;
+		fetch('/wp-json/clan/v1/microdagr/waypoints',{
+			method:'POST',
+			headers:{'Content-Type':'application/json'},
+			body:JSON.stringify({token:TOKEN,label:lb,pos_x:g.x,pos_y:g.y})
+		}).then(function(r){return r.json()}).then(function(){
+			loadWP();
+			toast('WP "'+lb+'" añadido en '+pad(g.x,4)+' '+pad(g.y,4));
+		});
+	}
+
+	/* ── Marker icons ── */
+	var mkIcons={objective:'<div style="width:14px;height:14px;background:#FFB000;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 8px rgba(255,176,0,.6)"></div>',completed:'<div style="width:12px;height:12px;background:#FFB000;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(255,176,0,.4)"></div>',enemy:'<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid #ef4444;filter:drop-shadow(0 0 4px rgba(239,68,68,.6))"></div>',friendly:'<div style="width:12px;height:12px;background:#60a5fa;border:2px solid #fff;border-radius:2px;box-shadow:0 0 8px rgba(96,165,250,.6)"></div>'},mkDef='<div style="width:12px;height:12px;background:#a78bfa;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(167,139,250,.5)"></div>';
+
+	/* ── Player marker (BIG and VISIBLE) ── */
+	var meIcon=L.divIcon({html:'<div style="width:18px;height:18px;background:#FFB000;border:3px solid #fff;border-radius:50%;box-shadow:0 0 16px #FFB000,0 0 32px rgba(255,176,0,.5)"></div><div style="position:absolute;top:-15px;left:50%;margin-left:-2px;width:3px;height:12px;background:#FFB000;border-radius:2px;box-shadow:0 0 6px #FFB000"></div>',iconSize:[26,34],iconAnchor:[13,17]});
+	var meMarker=null;
+
+	waitMap(function(){
+		meMarker=L.marker(dagrMap.getCenter(),{icon:meIcon,zIndexOffset:99999}).addTo(dagrMap);
+		dagrMap.on('moveend zoomend',drawGrid);
+		setTimeout(drawGrid,800);
+		// Clock
+		setInterval(function(){$('#dagr-clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})},10000);
+		$('#dagr-clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+
+		/* ── Poll positions (every 4s for snappier updates) ── */
+		setInterval(function(){
+			fetch('/wp-json/clan/v1/mission/positions?session='+SID).then(function(r){return r.json()}).then(function(d){
+				if(!d||!d.players)return;
+				layers.players.forEach(function(m){dagrMap.removeLayer(m)});layers.players=[];
+				d.players.forEach(function(p){
+					var ll=g2ll(p.pos_x,p.pos_y);
+					if(p.steamid===MY_STEAM){
+						mePos={x:Number(p.pos_x),y:Number(p.pos_y),z:Number(p.pos_z||0),h:Number(p.heading||0),s:Number(p.speed||0)};
+						meMarker.setLatLng(ll);
+						if(followMe)dagrMap.panTo(ll,{animate:true});
+						updHUD(p);
+					}else{
+						var cl=p.is_alive?'#FFB000':'#ef4444';
+						var ic=L.divIcon({html:'<div style="width:9px;height:9px;background:'+cl+';border:2px solid #fff;border-radius:50%"></div>',iconSize:[13,13],iconAnchor:[6,6]});
+						var mk=L.marker(ll,{icon:ic}).bindTooltip(p.player_name||'',{direction:'top',offset:[0,-8]});
+						layers.players.push(mk);
+						if($('#dagr-layer-panel [data-layer=players]').checked)mk.addTo(dagrMap);
+					}
+				});
+				loadWP();
+			});
+		},4000);
+
+		/* ── Load markers ── */
+		fetch('/wp-json/clan/v1/mission/markers?session='+SID).then(function(r){return r.json()}).then(function(d){
+			if(!d||!d.markers)return;
+			d.markers.forEach(function(mk){
+				var ll=g2ll(mk.pos_x,mk.pos_y);
+				var ic=L.divIcon({html:mkIcons[mk.type]||mkDef,iconSize:[18,18],iconAnchor:[9,9]});
+				var mkr=L.marker(ll,{icon:ic}).bindTooltip(mk.label||mk.type,{direction:'top',offset:[0,-10]});
+				layers.markers.push(mkr);
+				if($('#dagr-layer-panel [data-layer=markers]').checked)mkr.addTo(dagrMap);
+			});
 		});
 
-		function docSel(s){return document.querySelector(s)}
+		loadWP();
+	});
 
-		// Waypoint list
-		function loadWaypoints(){
-			fetch('/wp-json/clan/v1/microdagr/waypoints?token='+token).then(function(r){return r.json()}).then(function(d){
-				var h='';layers.waypoints.forEach(function(m){dagrMap.removeLayer(m)});layers.waypoints=[];
-				(d.waypoints||[]).forEach(function(w,i){h+='<div class="wp-row"><span class="wp-num">'+(i+1)+'.</span><span>'+w.label+'</span><span class="wp-del" data-id="'+w.id+'">✕</span></div>'});
-				document.getElementById('wp-items').innerHTML=h||'<em>vacío</em>';
-			});
-		}
+	/* ── Button handlers (all guarded) ── */
+	$('#btn-center').onclick=function(){followMe=!followMe;this.classList.toggle('active',followMe);if(dagrMap&&mePos&&followMe)dagrMap.panTo(g2ll(mePos.x,mePos.y))};
 
-		// Todos los handlers dentro del callback del mapa
-		document.getElementById('wp-add-btn').onclick=function(){if(!dagrMap)return;this.classList.toggle('active');if(this.classList.contains('active')){dagrMap.on('click',addWP)}else{dagrMap.off('click',addWP)}};
-		function addWP(e){var x=Math.round(e.latlng.lng-50);var y=Math.round(e.latlng.lat-50);var lb=prompt('Waypoint:');if(!lb)return;fetch('/wp-json/clan/v1/microdagr/waypoints',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:token,label:lb,pos_x:x,pos_y:y})}).then(function(r){return r.json()}).then(function(){loadWaypoints()})}
+	$('#btn-add-wp').onclick=function(){
+		if(!dagrMap){toast('Espera a que cargue el mapa...');return}
+		addingWP=!addingWP;
+		this.classList.toggle('active',addingWP);
+		if(addingWP){dagrMap.getContainer().style.cursor='crosshair';dagrMap.on('click',addWP);toast('Toca el mapa para añadir WP')}
+		else{dagrMap.getContainer().style.cursor='';dagrMap.off('click',addWP)}
+	};
 
-		document.getElementById('center-btn').onclick=function(){followMe=!followMe;this.classList.toggle('active',followMe)};
-		document.getElementById('mode-btn').onclick=function(){compassMode=!compassMode;this.textContent=compassMode?'🗺️':'🧭'};
-		document.getElementById('layer-btn').onclick=function(){document.getElementById('layer-panel').classList.toggle('show')};
-		document.querySelectorAll('#layer-panel input').forEach(function(cb){cb.onchange=function(){if(!dagrMap)return;var k=cb.dataset.layer;var v=cb.checked;layers[k].forEach(function(m){v?m.addTo(dagrMap):dagrMap.removeLayer(m)})}});
-	})();
-	</script>
+	$('#btn-wp-menu').onclick=function(){this.classList.toggle('on');$('#dagr-wp-panel').classList.toggle('open')};
+
+	$('#btn-layers').onclick=function(){this.classList.toggle('on');$('#dagr-layer-panel').classList.toggle('open')};
+
+	$('#btn-map').onclick=function(){
+		if(!dagrMap)return;
+		var z=dagrMap.getZoom();
+		var levels=[2,4,6,8];
+		var next=levels.find(function(l){return l>z})||levels[0];
+		dagrMap.setZoom(next,{animate:true});
+		toast('ZOOM '+next);
+	};
+
+	$('#btn-compass').onclick=function(){followMe=!followMe;this.classList.toggle('on',followMe);$('#btn-center').classList.toggle('active',followMe);if(dagrMap&&mePos&&followMe)dagrMap.panTo(g2ll(mePos.x,mePos.y));toast(followMe?'Siguiendo posición':'Brújula libre')};
+
+	$('#btn-mark').onclick=function(){
+		if(!mePos){toast('Sin posición GPS aún...');return}
+		var lb=prompt('Nombre de la marca:');
+		if(!lb)return;
+		fetch('/wp-json/clan/v1/microdagr/waypoints',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:TOKEN,label:lb,pos_x:mePos.x,pos_y:mePos.y})}).then(function(r){return r.json()}).then(function(){
+			loadWP();
+			toast('Posición marcada como "'+lb+'"');
+		});
+	};
+
+	/* ── WP delete ── */
+	$('#dagr-wp-items').addEventListener('click',function(e){
+		var del=e.target.closest('.wp-del');if(!del)return;
+		var id=del.dataset.id;
+		if(!confirm('¿Borrar waypoint?'))return;
+		fetch('/wp-json/clan/v1/microdagr/waypoints/'+id,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:TOKEN})}).then(function(){
+			loadWP();
+			toast('Waypoint eliminado');
+		});
+	});
+
+	/* ── Layer toggles ── */
+	$$('#dagr-layer-panel input').forEach(function(cb){cb.onchange=function(){if(!dagrMap)return;var k=cb.dataset.layer,v=cb.checked;layers[k].forEach(function(m){v?m.addTo(dagrMap):dagrMap.removeLayer(m)})}});
+
+	/* ── Close panels when tapping map ── */
+	waitMap(function(){
+		dagrMap.on('click',function(){
+			if($('#dagr-layer-panel').classList.contains('open')){$('#dagr-layer-panel').classList.remove('open');$('#btn-layers').classList.remove('on')}
+		});
+	});
+})();
+</script>
 </body>
 </html>
 			<?php
