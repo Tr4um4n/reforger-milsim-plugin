@@ -127,9 +127,42 @@ class RMM_Telemetry_Handler {
 
 			$this->update_player_stats( $user->ID, $player_data );
 			$results['players_updated']++;
-			
+
 			// Disparar hook para evaluar reglas de condecoraciones y tracking de sesion
 			do_action( 'rmm_after_telemetry_update', $user->ID, 'telemetry', $player_data );
+
+			// ── Guardar posición en rmm_mission_positions para el MicroDAGR ──
+			if ( ! empty( $player_data['pos_x'] ) || ! empty( $player_data['pos_y'] ) ) {
+				$session_id = sanitize_text_field( $data['session_id'] ?? ( 'mision_' . sanitize_title( $data['scenario_id'] ?? uniqid() ) ) );
+				$map_name   = sanitize_text_field( $data['map_name'] ?? $data['map'] ?? '' );
+
+				// Asegurar que la sesión existe en rmm_mission_sessions
+				$ms_table = $wpdb->prefix . 'rmm_mission_sessions';
+				$exists = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $ms_table WHERE session_id = %s", $session_id ) );
+				if ( ! $exists ) {
+					$wpdb->insert( $ms_table, array(
+						'session_id' => $session_id,
+						'post_id'    => 0,
+						'map_name'   => $map_name ?: 'everon',
+						'status'     => 'active',
+					) );
+				}
+
+				$wpdb->insert( $wpdb->prefix . 'rmm_mission_positions', array(
+					'session_id'  => $session_id,
+					'steamid'     => sanitize_text_field( $player_data['steamid_64'] ?? $player_data['steamid'] ?? '' ),
+					'player_name' => sanitize_text_field( $player_data['name'] ?? '' ),
+					'faction'     => sanitize_text_field( $player_data['faction'] ?? '' ),
+					'squad'       => sanitize_text_field( $player_data['squad'] ?? '' ),
+					'role'        => sanitize_text_field( $player_data['role'] ?? '' ),
+					'pos_x'       => floatval( $player_data['pos_x'] ?? 0 ),
+					'pos_y'       => floatval( $player_data['pos_y'] ?? 0 ),
+					'pos_z'       => floatval( $player_data['pos_z'] ?? 0 ),
+					'heading'     => floatval( $player_data['heading'] ?? 0 ),
+					'speed'       => floatval( $player_data['speed_kmh'] ?? 0 ),
+					'is_alive'    => ! empty( $player_data['is_alive'] ) ? 1 : 0,
+				) );
+			}
 			
 			// Si el payload incluye scenario_name, actualizar la sesion activa
 			if ( ! empty( $data['scenario_name'] ) || ! empty( $data['scenario_id'] ) ) {
@@ -149,6 +182,10 @@ class RMM_Telemetry_Handler {
 				$map = sanitize_text_field( $data['map'] ?? ( $data['scenario_name'] ?? '' ) );
 				$key = 'dagr_markers_' . ( $map ?: 'all' );
 				$clean = array();
+
+				// Determinar session_id para los marcadores
+				$mk_session_id = sanitize_text_field( $data['session_id'] ?? ( 'mision_' . sanitize_title( $data['scenario_id'] ?? uniqid() ) ) );
+
 				foreach ( $data['markers'] as $m ) {
 					$clean[] = array(
 						'id'     => sanitize_text_field( $m['id'] ?? uniqid('m') ),
@@ -160,6 +197,17 @@ class RMM_Telemetry_Handler {
 						'author' => sanitize_text_field( $m['author'] ?? '' ),
 						'time'   => current_time( 'mysql' ),
 					);
+
+					// Insertar en rmm_mission_markers para el MicroDAGR
+					$wpdb->insert( $wpdb->prefix . 'rmm_mission_markers', array(
+						'session_id' => $mk_session_id,
+						'marker_id'  => sanitize_text_field( $m['id'] ?? uniqid('sim_') ),
+						'type'       => sanitize_text_field( $m['type'] ?? 'marker' ),
+						'label'      => sanitize_text_field( $m['label'] ?? '' ),
+						'pos_x'      => floatval( $m['pos_x'] ?? 0 ),
+						'pos_y'      => floatval( $m['pos_y'] ?? 0 ),
+						'color'      => sanitize_text_field( $m['color'] ?? '#FFB000' ),
+					) );
 				}
 				set_transient( $key, $clean, 3600 );
 			}
