@@ -101,10 +101,17 @@ class RMM_Mission_Map_Handler {
 		$session_id = $atts['session_id'];
 		if ( empty( $session_id ) ) {
 			$table_sessions = $wpdb->prefix . 'rmm_mission_sessions';
+			// Primero buscar por post_id
 			$session = $wpdb->get_row( $wpdb->prepare(
 				"SELECT session_id FROM $table_sessions WHERE post_id = %d AND status = 'active' ORDER BY started_at DESC LIMIT 1",
 				$post_id
 			) );
+			// Si no hay, buscar cualquier sesión activa (addon crea con post_id=0)
+			if ( ! $session ) {
+				$session = $wpdb->get_row(
+					"SELECT session_id FROM $table_sessions WHERE status = 'active' ORDER BY started_at DESC LIMIT 1"
+				);
+			}
 			if ( $session ) $session_id = $session->session_id;
 		}
 
@@ -486,6 +493,12 @@ class RMM_Mission_Map_Handler {
 				"SELECT session_id FROM $table_sessions WHERE post_id = %d AND status = 'active' ORDER BY started_at DESC LIMIT 1",
 				$atts['post_id']
 			) );
+			// Fallback: cualquier sesión activa (addon crea con post_id=0)
+			if ( ! $session ) {
+				$session = $wpdb->get_row(
+					"SELECT session_id FROM $table_sessions WHERE status = 'active' ORDER BY started_at DESC LIMIT 1"
+				);
+			}
 			if ( $session ) $session_id = $session->session_id;
 		}
 
