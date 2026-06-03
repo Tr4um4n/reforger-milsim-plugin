@@ -319,32 +319,24 @@ class RMM_DAGR_Handler {
 					$active_sess = $wpdb->get_row( "SELECT session_id FROM $sess_table WHERE status = 'active' ORDER BY started_at DESC LIMIT 1" );
 				}
 				if ( $active_sess ) {
-					// Solo mostrar DAGR si el usuario está en la partida
-					$pos_table = $wpdb->prefix . 'rmm_mission_positions';
-					$in_game = $wpdb->get_var( $wpdb->prepare(
-						"SELECT COUNT(*) FROM $pos_table WHERE session_id = %s AND steamid = %s",
-						$active_sess->session_id, $steamid
+					$show_dagr_btn = true;
+					$dagr_session = $active_sess->session_id;
+					$tok_table = $wpdb->prefix . 'rmm_microdagr_tokens';
+					$existing = $wpdb->get_row( $wpdb->prepare(
+						"SELECT token FROM $tok_table WHERE user_id = %d AND session_id = %s",
+						$current_user_id, $dagr_session
 					) );
-					if ( $in_game ) {
-						$dagr_session = $active_sess->session_id;
-						$tok_table = $wpdb->prefix . 'rmm_microdagr_tokens';
-						$existing = $wpdb->get_row( $wpdb->prepare(
-							"SELECT token FROM $tok_table WHERE user_id = %d AND session_id = %s",
-							$current_user_id, $dagr_session
+					if ( $existing ) {
+						$dagr_token = $existing->token;
+					} else {
+						$dagr_token = wp_generate_password( 32, false );
+						$wpdb->insert( $tok_table, array(
+							'token'      => $dagr_token,
+							'user_id'    => $current_user_id,
+							'steamid'    => $steamid,
+							'session_id' => $dagr_session,
+							'expires_at' => date( 'Y-m-d H:i:s', strtotime( '+24 hours' ) ),
 						) );
-						if ( $existing ) {
-							$dagr_token = $existing->token;
-						} else {
-							$dagr_token = wp_generate_password( 32, false );
-							$wpdb->insert( $tok_table, array(
-								'token'      => $dagr_token,
-								'user_id'    => $current_user_id,
-								'steamid'    => $steamid,
-								'session_id' => $dagr_session,
-								'expires_at' => date( 'Y-m-d H:i:s', strtotime( '+24 hours' ) ),
-							) );
-						}
-						$show_dagr_btn = true;
 					}
 				}
 			}

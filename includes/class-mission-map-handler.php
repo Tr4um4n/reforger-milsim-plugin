@@ -784,9 +784,9 @@ class RMM_Mission_Map_Handler {
 			<!-- Layers panel (to the RIGHT of buttons, NOT on top) -->
 			<div id="dagr-layer-panel">
 				<h4>CAPAS</h4>
-				<label><input type="checkbox" checked data-layer="players">JUGADORES</label>
-				<label><input type="checkbox" checked data-layer="markers">MARCADORES</label>
-				<label><input type="checkbox" checked data-layer="waypoints">WAYPOINTS</label>
+				<label><input type="checkbox" checked data-layer="players" onchange="dagrToggleLayer(this)">JUGADORES</label>
+				<label><input type="checkbox" checked data-layer="markers" onchange="dagrToggleLayer(this)">MARCADORES</label>
+				<label><input type="checkbox" checked data-layer="waypoints" onchange="dagrToggleLayer(this)">WAYPOINTS</label>
 			</div>
 
 			<!-- Waypoint panel (top-right, toggled by WP button) -->
@@ -1258,8 +1258,14 @@ class RMM_Mission_Map_Handler {
 		}
 	});
 
-	/* ── Layer toggles ── */
-	$$('#dagr-layer-panel input').forEach(function(cb){cb.onchange=function(){if(!dagrMap)return;var k=cb.dataset.layer,v=cb.checked;layers[k].forEach(function(m){v?m.addTo(dagrMap):dagrMap.removeLayer(m)});if(k==='players'&&meMarker){v?dagrMap.addLayer(meMarker):dagrMap.removeLayer(meMarker)}}});
+	/* ── Layer toggles (global function for inline onchange) ── */
+	window.dagrToggleLayer = function(cb){
+		if(!dagrMap)return;
+		var k=cb.dataset.layer, v=cb.checked;
+		(layers[k]||[]).forEach(function(m){v?dagrMap.addLayer(m):dagrMap.removeLayer(m)});
+		if(k==='players'&&meMarker){v?dagrMap.addLayer(meMarker):dagrMap.removeLayer(meMarker)}
+		toast(v?'Capa '+k+' ON':'Capa '+k+' OFF');
+	};
 
 	/* ── Close panels when tapping map ── */
 	waitMap(function(){
