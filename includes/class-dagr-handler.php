@@ -163,8 +163,9 @@ class RMM_DAGR_Handler {
 			if ( $px === '' || $py === '' ) continue;
 			if ( $map && $pm && $pm !== $map ) continue;
 
-			// Filtrar por antiguedad: solo posiciones recientes
-			if ( $pt && ( $now - intval( $pt ) ) > $max_age ) continue;
+			// Filtrar por antiguedad: solo posiciones con timestamp reciente
+			// Si no tiene timestamp, es un dato antiguo → descartar
+			if ( ! $pt || ( $now - intval( $pt ) ) > $max_age ) continue;
 
 			$players[] = array(
 				'id'       => $user->ID,
@@ -583,7 +584,7 @@ class RMM_DAGR_Handler {
 						});
 					}
 					// Ademas, hacer polling de posiciones en vivo (solo devuelve datos si hay sesion activa)
-					var url = '<?php echo rest_url( 'clan/v1/dagr/positions' ); ?>?map=<?php echo urlencode( $map_name ); ?>';
+					var url = '<?php echo rest_url( 'clan/v1/dagr/positions' ); ?>?map=<?php echo urlencode( $map_name ); ?>&_=' + Date.now();
 				fetch(url).then(function(r) { return r.json(); }).then(function(data) {
 					if (!data.players) return;
 					var seen = {};
