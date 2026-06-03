@@ -294,7 +294,7 @@ class RMM_DAGR_Handler {
 
 		$uid = 'dagr-map-' . uniqid();
 
-		// ── Botón MicroDAGR si hay sesión activa ──
+		// ── Botón MicroDAGR: buscar sesión activa que coincida con el mapa ──
 		$show_dagr_btn = false;
 		$dagr_token = '';
 		$dagr_session = '';
@@ -303,7 +303,16 @@ class RMM_DAGR_Handler {
 			$steamid = get_user_meta( $current_user_id, 'steamid_64', true );
 			if ( ! empty( $steamid ) ) {
 				$sess_table = $wpdb->prefix . 'rmm_mission_sessions';
-				$active_sess = $wpdb->get_row( "SELECT session_id FROM $sess_table WHERE status = 'active' ORDER BY started_at DESC LIMIT 1" );
+				// Buscar sesión que coincida con el mapa del preset (o alguna activa)
+				if ( ! empty( $map_name ) ) {
+					$active_sess = $wpdb->get_row( $wpdb->prepare(
+						"SELECT session_id FROM $sess_table WHERE status = 'active' AND map_name = %s ORDER BY started_at DESC LIMIT 1",
+						$map_name
+					) );
+				}
+				if ( empty( $active_sess ) ) {
+					$active_sess = $wpdb->get_row( "SELECT session_id FROM $sess_table WHERE status = 'active' ORDER BY started_at DESC LIMIT 1" );
+				}
 				if ( $active_sess ) {
 					$dagr_session = $active_sess->session_id;
 					$tok_table = $wpdb->prefix . 'rmm_microdagr_tokens';
