@@ -195,8 +195,17 @@ class RMM_Match_Stats_Handler {
 			$updates[] = 'total_playtime_seconds = total_playtime_seconds + ' . ( intval( $player_data['playtime_minutes'] ) * 60 );
 		}
 		
-		// Incrementar player_count (1 por usuario unico por sesion, simplificado)
-		$updates[] = 'player_count = CASE WHEN player_count < 100 THEN player_count + 1 ELSE player_count END';
+		// Incrementar player_count (solo una vez por jugador único por sesión)
+		$player_uid = sanitize_text_field( $player_data['steamid_64'] ?? $player_data['steamid'] ?? '' );
+		if ( $player_uid ) {
+			$counted_key = 'rmm_session_counted_' . $active_id;
+			$counted = get_transient( $counted_key ) ?: array();
+			if ( ! in_array( $player_uid, $counted ) ) {
+				$counted[] = $player_uid;
+				set_transient( $counted_key, $counted, 86400 );
+				$updates[] = 'player_count = player_count + 1';
+			}
+		}
 		
 		if ( ! empty( $updates ) ) {
 			$wpdb->query( "UPDATE $table SET " . implode( ', ', $updates ) . " WHERE id = $active_id" );
