@@ -855,6 +855,7 @@ class RMM_Mission_Map_Handler {
 (function(){
 	var TOKEN='<?php echo esc_js( $token ); ?>';
 	var SID='<?php echo esc_js( $session ); ?>';
+	var MAP_NAME='<?php echo esc_js( $map_name ); ?>';
 	var MY_STEAM='<?php echo esc_js( $valid->steamid ); ?>';
 	var dagrMap=null, mePos=null, followMe=false, addingWP=false;
 	var layers={players:[],markers:[],waypoints:[]};
@@ -1096,10 +1097,10 @@ class RMM_Mission_Map_Handler {
 			},2000);
 		}
 
-		/* ── Poll positions (every 4s for snappier updates) ── */
+		/* ── Poll positions (every 4s) ── usa mismo endpoint que el mapa web ── */
 		var notFoundCount=0;
 		setInterval(function(){
-			fetch('/wp-json/clan/v1/mission/positions?session='+SID).then(function(r){return r.json()}).then(function(d){
+			fetch('/wp-json/clan/v1/dagr/positions?map='+MAP_NAME+'&_='+Date.now()).then(function(r){return r.json()}).then(function(d){
 				if(!d||!d.players){$('#dagr-status').textContent='SIN DATOS';return}
 				layers.players.forEach(function(m){dagrMap.removeLayer(m)});layers.players=[];
 				var foundMe=false;
@@ -1111,7 +1112,6 @@ class RMM_Mission_Map_Handler {
 						foundMe=true; notFoundCount=0;
 						mePos={x:Number(p.pos_x),y:Number(p.pos_y),z:Number(p.pos_z||0),h:Number(p.heading||0),s:Number(p.speed||0)};
 						meMarker.setLatLng(ll);
-						// Respetar capa de jugadores también para "me"
 						if(layerVisible.players){if(!dagrMap.hasLayer(meMarker))dagrMap.addLayer(meMarker)}
 						else{dagrMap.removeLayer(meMarker)}
 						if(followMe)dagrMap.panTo(ll,{animate:true});
@@ -1119,9 +1119,9 @@ class RMM_Mission_Map_Handler {
 						$('#dagr-status').textContent='MAPA OK | GPS OK';
 						$('#dagr-status').style.color='#4ade80';
 					}else{
-						var cl=p.is_alive?'#FFB000':'#ef4444';
+						var cl='#FFB000'; // DAGR endpoint no tiene is_alive, asumir vivo
 						var ic=L.divIcon({html:'<div style="width:9px;height:9px;background:'+cl+';border:2px solid #fff;border-radius:50%"></div>',iconSize:[13,13],iconAnchor:[6,6]});
-						var mk=L.marker(ll,{icon:ic}).bindTooltip(p.player_name||'',{direction:'top',offset:[0,-8]});
+						var mk=L.marker(ll,{icon:ic}).bindTooltip(p.name||p.player_name||'',{direction:'top',offset:[0,-8]});
 						layers.players.push(mk);
 						if(layerVisible.players)mk.addTo(dagrMap);
 					}
