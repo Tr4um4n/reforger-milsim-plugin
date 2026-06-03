@@ -294,6 +294,40 @@ class RMM_DAGR_Handler {
 
 		$uid = 'dagr-map-' . uniqid();
 
+		// ── Botón MicroDAGR si hay sesión activa ──
+		$show_dagr_btn = false;
+		$dagr_token = '';
+		$dagr_session = '';
+		$current_user_id = get_current_user_id();
+		if ( $current_user_id ) {
+			$steamid = get_user_meta( $current_user_id, 'steamid_64', true );
+			if ( ! empty( $steamid ) ) {
+				$sess_table = $wpdb->prefix . 'rmm_mission_sessions';
+				$active_sess = $wpdb->get_row( "SELECT session_id FROM $sess_table WHERE status = 'active' ORDER BY started_at DESC LIMIT 1" );
+				if ( $active_sess ) {
+					$dagr_session = $active_sess->session_id;
+					$tok_table = $wpdb->prefix . 'rmm_microdagr_tokens';
+					$existing = $wpdb->get_row( $wpdb->prepare(
+						"SELECT token FROM $tok_table WHERE user_id = %d AND session_id = %s",
+						$current_user_id, $dagr_session
+					) );
+					if ( $existing ) {
+						$dagr_token = $existing->token;
+					} else {
+						$dagr_token = wp_generate_password( 32, false );
+						$wpdb->insert( $tok_table, array(
+							'token'      => $dagr_token,
+							'user_id'    => $current_user_id,
+							'steamid'    => $steamid,
+							'session_id' => $dagr_session,
+							'expires_at' => date( 'Y-m-d H:i:s', strtotime( '+24 hours' ) ),
+						) );
+					}
+					$show_dagr_btn = true;
+				}
+			}
+		}
+
 		wp_enqueue_style( 'leaflet-css', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', array(), '1.9.4' );
 
 		ob_start();
@@ -305,7 +339,34 @@ class RMM_DAGR_Handler {
 				<button class="dagr-mode-btn active" data-mode="personal" style="background:#1a1d21;color:#849b4c;border:1px solid #849b4c;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:0.7rem;font-weight:700;text-transform:uppercase;font-family:Inter,sans-serif;">👤 Yo</button>
 				<button class="dagr-mode-btn" data-mode="global" style="background:#1a1d21;color:#555;border:1px solid #333;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:0.7rem;font-weight:700;text-transform:uppercase;font-family:Inter,sans-serif;">🌍 Global</button>
 			</div>
+			<?php if ( $show_dagr_btn ) : ?>
+			<div style="position:absolute;top:10px;left:10px;z-index:1000;">
+				<button onclick="openTacticalDAGR('<?php echo esc_js( $dagr_token ); ?>','<?php echo esc_js( $dagr_session ); ?>')" style="background:#142614;border:1px solid #2a502a;border-bottom:3px solid #1a301a;color:#4ade80;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:0.7rem;font-weight:700;text-transform:uppercase;font-family:Inter,sans-serif;">📡 DAGR</button>
+			</div>
+			<?php endif; ?>
 		</div>
+
+		<?php if ( $show_dagr_btn ) : ?>
+		<!-- Modal QR DAGR -->
+		<div id="dagr-qr-modal-<?php echo $uid; ?>" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:99999;justify-content:center;align-items:center;">
+			<div style="background:#191919;border:3px solid #2d2d2d;padding:30px;border-radius:8px;text-align:center;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.8);">
+				<h3 style="color:#C8D840;margin-top:0;font-size:18px;letter-spacing:.05em;text-transform:uppercase;">📡 MicroDAGR</h3>
+				<p style="color:#888;font-size:12px;">Escanea con tu móvil para GPS táctico</p>
+				<div id="dagr-qr-<?php echo $uid; ?>" style="background:#fff;padding:10px;border-radius:4px;display:inline-block;margin:15px 0;"></div>
+				<br>
+				<button onclick="document.getElementById('dagr-qr-modal-<?php echo $uid; ?>').style.display='none'" style="background:#252525;border:1px solid #3a3a3a;border-bottom:3px solid #1a1a1a;color:#C8D840;padding:8px 20px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;border-radius:4px;">CERRAR</button>
+			</div>
+		</div>
+		<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+		<script>
+		function openTacticalDAGR(token, session) {
+			var url = window.location.origin + '/microdagr?token=' + token + '&session=' + session;
+			document.getElementById('dagr-qr-<?php echo $uid; ?>').innerHTML = '';
+			new QRCode(document.getElementById('dagr-qr-<?php echo $uid; ?>'), { text: url, width: 256, height: 256 });
+			document.getElementById('dagr-qr-modal-<?php echo $uid; ?>').style.display = 'flex';
+		}
+		</script>
+		<?php endif; ?>
 		<script>
 		(function() {
 			var container = document.getElementById('<?php echo $uid; ?>');
