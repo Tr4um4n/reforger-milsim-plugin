@@ -111,25 +111,47 @@ class RMM_Telemetry_Handler {
 
 		// Permitir payload sin jugadores (solo session/markers/map)
 		if ( empty( $players ) ) {
-			$players = array(); // continuar sin error
+			$players = array();
 		}
 
 		// Procesar sesión y markers AUNQUE no haya jugadores
-		$session_id = sanitize_text_field( $data['session_id'] ?? '' );
+		$session_id = sanitize_text_field( $data['session_id'] ?? ( 'mision_' . sanitize_title( $data['scenario_id'] ?? uniqid() ) ) );
 		$map_name   = sanitize_text_field( $data['map_name'] ?? $data['map'] ?? '' );
-		if ( ! empty( $session_id ) ) {
-			$ms_table = $wpdb->prefix . 'rmm_mission_sessions';
-			$existing = $wpdb->get_row( $wpdb->prepare( "SELECT id, map_name FROM $ms_table WHERE session_id = %s", $session_id ) );
-			if ( ! $existing ) {
-				$wpdb->insert( $ms_table, array(
-					'session_id' => $session_id,
-					'post_id'    => intval( $data['preset_id'] ?? 0 ),
-					'map_name'   => $map_name ?: 'everon',
-					'status'     => 'active',
-				) );
-			} elseif ( $existing->map_name !== $map_name && ! empty( $map_name ) ) {
-				$wpdb->update( $ms_table, array( 'map_name' => $map_name ), array( 'session_id' => $session_id ) );
+		$preset_id  = intval( $data['preset_id'] ?? 0 );
+		$ms_table   = $wpdb->prefix . 'rmm_mission_sessions';
+		$existing   = $wpdb->get_row( $wpdb->prepare( "SELECT id, map_name, post_id FROM $ms_table WHERE session_id = %s", $session_id ) );
+		$is_new_game = false;
+		if ( ! $existing ) {
+			$wpdb->insert( $ms_table, array(
+				'session_id' => $session_id,
+				'post_id'    => $preset_id,
+				'map_name'   => $map_name ?: 'everon',
+				'status'     => 'active',
+			) );
+		} else {
+			if ( ( $preset_id > 0 && $existing->post_id != $preset_id ) || ( $map_name && $existing->map_name !== $map_name ) ) {
+				$is_new_game = true;
 			}
+			$wpdb->update( $ms_table, array(
+				'post_id'  => $preset_id ?: $existing->post_id,
+				'map_name' => $map_name ?: $existing->map_name,
+				'status'   => 'active',
+			), array( 'session_id' => $session_id ) );
+		}
+
+		if ( $is_new_game ) {
+			$wpdb->update( $ms_table,
+				array( 'status' => 'ended', 'ended_at' => current_time( 'mysql' ) ),
+				array( 'id' => $existing->id )
+			);
+			$new_session_id = $session_id . '_' . date( 'Ymd_His' );
+			$wpdb->insert( $ms_table, array(
+				'session_id' => $new_session_id,
+				'post_id'    => $preset_id,
+				'map_name'   => $map_name ?: 'everon',
+				'status'     => 'active',
+			) );
+			$session_id = $new_session_id;
 		}
 
 		// Procesar marcadores aunque no haya jugadores
@@ -164,29 +186,8 @@ class RMM_Telemetry_Handler {
 			// Disparar hook para evaluar reglas de condecoraciones y tracking de sesion
 			do_action( 'rmm_after_telemetry_update', $user->ID, 'telemetry', $player_data );
 
-			// ── Guardar posición en rmm_mission_positions para el MicroDAGR ──
+			// ── Guardar posición en rmm_mission_positions (usa $session_id ya procesado) ──
 			if ( ! empty( $player_data['pos_x'] ) || ! empty( $player_data['pos_y'] ) ) {
-				$session_id = sanitize_text_field( $data['session_id'] ?? ( 'mision_' . sanitize_title( $data['scenario_id'] ?? uniqid() ) ) );
-				$map_name   = sanitize_text_field( $data['map_name'] ?? $data['map'] ?? '' );
-
-				// Asegurar que la sesión existe y tiene el mapa correcto
-				$ms_table = $wpdb->prefix . 'rmm_mission_sessions';
-				$existing = $wpdb->get_row( $wpdb->prepare( "SELECT id, map_name FROM $ms_table WHERE session_id = %s", $session_id ) );
-				if ( ! $existing ) {
-					$wpdb->insert( $ms_table, array(
-						'session_id' => $session_id,
-						'post_id'    => 0,
-						'map_name'   => $map_name ?: 'everon',
-						'status'     => 'active',
-					) );
-				} elseif ( $existing->map_name !== $map_name && ! empty( $map_name ) ) {
-					// Actualizar si el mapa cambió (ej: de Everon a Arland)
-					$wpdb->update( $ms_table,
-						array( 'map_name' => $map_name ),
-						array( 'session_id' => $session_id )
-					);
-				}
-
 				$wpdb->insert( $wpdb->prefix . 'rmm_mission_positions', array(
 					'session_id'  => $session_id,
 					'steamid'     => sanitize_text_field( $player_data['steamid_64'] ?? $player_data['steamid'] ?? '' ),
