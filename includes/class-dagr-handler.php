@@ -137,15 +137,34 @@ class RMM_DAGR_Handler {
 	public function get_positions( $request ) {
 		$map = sanitize_text_field( $request->get_param( 'map' ) ?: '' );
 		$players = array();
+		$now = time();
+		$max_age = 120; // 2 minutos maximo de antiguedad
+
+		// Verificar si hay sesion activa para este mapa
+		global $wpdb;
+		$sessions_table = $wpdb->prefix . 'rmm_mission_sessions';
+		$active_session = $wpdb->get_var( $wpdb->prepare(
+			"SELECT session_id FROM $sessions_table WHERE status = 'active' AND map_name = %s ORDER BY started_at DESC LIMIT 1",
+			$map
+		) );
+
+		// Si no hay sesion activa, devolver array vacio (sin jugadores fantasma)
+		if ( ! $active_session ) {
+			return rest_ensure_response( array( 'players' => array(), 'count' => 0, 'active' => false ) );
+		}
 
 		$users = get_users( array( 'number' => 100 ) );
 		foreach ( $users as $user ) {
 			$px = get_user_meta( $user->ID, 'rmm_pos_x', true );
 			$py = get_user_meta( $user->ID, 'rmm_pos_y', true );
 			$pm = get_user_meta( $user->ID, 'rmm_map', true );
+			$pt = get_user_meta( $user->ID, 'rmm_pos_updated', true );
 
 			if ( $px === '' || $py === '' ) continue;
 			if ( $map && $pm && $pm !== $map ) continue;
+
+			// Filtrar por antiguedad: solo posiciones recientes
+			if ( $pt && ( $now - intval( $pt ) ) > $max_age ) continue;
 
 			$players[] = array(
 				'id'       => $user->ID,
@@ -158,15 +177,40 @@ class RMM_DAGR_Handler {
 			);
 		}
 
-		return rest_ensure_response( array( 'players' => $players, 'count' => count( $players ) ) );
+		return rest_ensure_response( array( 'players' => $players, 'count' => count( $players ), 'active' => true ) );
 	}
 
 	public function get_markers( $request ) {
 		$map = sanitize_text_field( $request->get_param( 'map' ) ?: '' );
+
+		// Verificar si hay sesion activa para este mapa
+		global $wpdb;
+		$sessions_table = $wpdb->prefix . 'rmm_mission_sessions';
+		$active_session = $wpdb->get_var( $wpdb->prepare(
+			"SELECT session_id FROM $sessions_table WHERE status = 'active' AND map_name = %s ORDER BY started_at DESC LIMIT 1",
+			$map
+		) );
+
+		// Si no hay sesion activa, devolver array vacio
+		if ( ! $active_session ) {
+			return rest_ensure_response( array( 'markers' => array(), 'count' => 0, 'active' => false ) );
+		}
+
 		$key = 'dagr_markers_' . ( $map ?: 'all' );
 		$markers = get_transient( $key );
 		if ( ! is_array( $markers ) ) $markers = array();
-		return rest_ensure_response( array( 'markers' => $markers, 'count' => count( $markers ) ) );
+
+		// Filtrar solo marcadores recientes (ultimos 5 min)
+		$now = time();
+		$recent = array();
+		foreach ( $markers as $m ) {
+			$marker_time = isset( $m['time'] ) ? strtotime( $m['time'] ) : 0;
+			if ( ( $now - $marker_time ) < 300 ) {
+				$recent[] = $m;
+			}
+		}
+
+		return rest_ensure_response( array( 'markers' => $recent, 'count' => count( $recent ), 'active' => true ) );
 	}
 
 	public function receive_markers( $request ) {
@@ -523,22 +567,23 @@ class RMM_DAGR_Handler {
 									}
 
 			function updatePositions() {
-				if ( hasStaticData || forceStatic ) {
-					staticPositions.forEach(function(p) {
-						var latlng = gameToLatLng(p.pos_x, p.pos_y);
-						var color = p.color || '#58a6ff';
-						var size = '10px';
-						var icon = L.divIcon({
-							className: 'dagr-player-marker',
-							html: '<div style="width:'+size+';height:'+size+';background:'+color+';border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px ' + color + ';" title="' + (p.name||'') + '"></div>',
-							iconSize: [14,14],
-							iconAnchor: [7,7]
+					// Siempre mostrar datos estaticos del preset si existen
+					if ( hasStaticData ) {
+						staticPositions.forEach(function(p) {
+							var latlng = gameToLatLng(p.pos_x, p.pos_y);
+							var color = p.color || '#58a6ff';
+							var size = '10px';
+							var icon = L.divIcon({
+								className: 'dagr-player-marker',
+								html: '<div style="width:'+size+';height:'+size+';background:'+color+';border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px ' + color + ';" title="' + (p.name||'') + '"></div>',
+								iconSize: [14,14],
+								iconAnchor: [7,7]
+							});
+							L.marker(latlng, { icon: icon }).addTo(map).bindTooltip(p.name||'', { direction:'top', offset:[0,-8] });
 						});
-						L.marker(latlng, { icon: icon }).addTo(map).bindTooltip(p.name||'', { direction:'top', offset:[0,-8] });
-					});
-					return;
-				}
-				var url = '<?php echo rest_url( 'clan/v1/dagr/positions' ); ?>?map=<?php echo urlencode( $map_name ); ?>';
+					}
+					// Ademas, hacer polling de posiciones en vivo (solo devuelve datos si hay sesion activa)
+					var url = '<?php echo rest_url( 'clan/v1/dagr/positions' ); ?>?map=<?php echo urlencode( $map_name ); ?>';
 				fetch(url).then(function(r) { return r.json(); }).then(function(data) {
 					if (!data.players) return;
 					var seen = {};
@@ -576,7 +621,6 @@ class RMM_DAGR_Handler {
 			}
 
 			updatePositions();
-			if ( ! forceStatic ) { setInterval(updatePositions, 10000); }
 
 			// === Marcadores de mapa (objetivos, POIs) ===
 			var mapMarkers = {};
@@ -596,7 +640,8 @@ class RMM_DAGR_Handler {
 			};
 
 			function updateMapMarkers() {
-				if ( hasStaticData || forceStatic ) {
+				// Siempre mostrar marcadores estaticos del preset si existen
+				if ( hasStaticData ) {
 					staticMarkers.forEach(function(m) {
 						var latlng = gameToLatLng(m.pos_x, m.pos_y);
 						var html = markerIcons[m.type] || markerIcons['marker'];
@@ -650,10 +695,9 @@ class RMM_DAGR_Handler {
 			}
 
 			updateMapMarkers();
-			if ( ! hasStaticData && ! forceStatic ) {
-				setInterval(updatePositions, 10000);
-				setInterval(updateMapMarkers, 15000);
-			}
+			// Polling periodico (los endpoints solo devuelven datos si hay sesion activa)
+			setInterval(updatePositions, 10000);
+			setInterval(updateMapMarkers, 15000);
 		})();
 		</script>
 		<?php

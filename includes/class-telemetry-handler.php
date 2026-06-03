@@ -351,6 +351,10 @@ class RMM_Telemetry_Handler {
 						} else {
 							update_user_meta( $user_id, $meta_key, round( floatval( $value ), 4 ) );
 						}
+						// Guardar timestamp de ultima actualizacion de posicion
+						if ( $meta_key === 'rmm_pos_x' ) {
+							update_user_meta( $user_id, 'rmm_pos_updated', time() );
+						}
 					} elseif ( $meta_key === 'rmm_map' ) {
 						// String: guardar tal cual
 						update_user_meta( $user_id, $meta_key, sanitize_text_field( $value ) );
