@@ -388,7 +388,7 @@ class RMM_DAGR_Handler {
 					if ( $existing ) {
 						$dagr_token = $existing->token;
 					} else {
-						$dagr_token = wp_generate_password( 32, false );
+						$dagr_token = wp_generate_password( 10, false );
 						$wpdb->insert( $tok_table, array(
 							'token'      => $dagr_token,
 							'user_id'    => $current_user_id,

@@ -197,7 +197,7 @@ class RMM_Mission_Map_Handler {
 				if ( $existing ) {
 					$microdagr_token = $existing->token;
 				} else {
-					$microdagr_token = wp_generate_password( 32, false );
+					$microdagr_token = wp_generate_password( 10, false );
 					$wpdb->insert( $table_tokens, array(
 						'token'      => $microdagr_token,
 						'user_id'    => $current_user_id,
@@ -518,7 +518,7 @@ class RMM_Mission_Map_Handler {
 		if ( $existing ) {
 			$token = $existing->token;
 		} else {
-			$token = wp_generate_password( 32, false );
+			$token = wp_generate_password( 10, false );
 			$wpdb->insert( $table_tokens, array(
 				'token'      => $token,
 				'user_id'    => $current_user_id,
@@ -1097,6 +1097,7 @@ class RMM_Mission_Map_Handler {
 		}
 
 		/* ── Poll positions (every 4s for snappier updates) ── */
+		var notFoundCount=0;
 		setInterval(function(){
 			fetch('/wp-json/clan/v1/mission/positions?session='+SID).then(function(r){return r.json()}).then(function(d){
 				if(!d||!d.players){$('#dagr-status').textContent='SIN DATOS';return}
@@ -1105,10 +1106,9 @@ class RMM_Mission_Map_Handler {
 				d.players.forEach(function(p){
 					var ll=g2ll(p.pos_x,p.pos_y);
 					var sid=String(p.steamid||'').trim();
-					// Debug: mostrar steamids en status
 					if(!foundMe)$('#dagr-status').textContent='BUSCANDO mi='+MY_STEAM.substr(-6)+' vs '+sid.substr(-6);
 					if(sid===MY_STEAM){
-						foundMe=true;
+						foundMe=true; notFoundCount=0;
 						mePos={x:Number(p.pos_x),y:Number(p.pos_y),z:Number(p.pos_z||0),h:Number(p.heading||0),s:Number(p.speed||0)};
 						meMarker.setLatLng(ll);
 						// Respetar capa de jugadores también para "me"
@@ -1126,7 +1126,11 @@ class RMM_Mission_Map_Handler {
 						if(layerVisible.players)mk.addTo(dagrMap);
 					}
 				});
-				if(!foundMe){$('#dagr-status').textContent='NO ENCONTRADO: mi steamid no coincide con ningún jugador';$('#dagr-status').style.color='#ef4444'}
+				if(!foundMe){
+					notFoundCount++;
+					if(notFoundCount>=5){$('#dagr-status').textContent='NO ENCONTRADO: steamid no encontrado tras '+notFoundCount+' intentos';$('#dagr-status').style.color='#ef4444'}
+					else{$('#dagr-status').textContent='ESPERANDO datos del addon... ('+notFoundCount+'/5)'}
+				}
 				loadWP();
 			});
 		},4000);
