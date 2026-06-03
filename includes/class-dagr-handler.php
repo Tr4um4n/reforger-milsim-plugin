@@ -597,14 +597,20 @@ class RMM_DAGR_Handler {
 
 						if (playerMarkers[p.id]) {
 							playerMarkers[p.id].setLatLng(latlng);
+							// Rotate arrow to heading
+							if(playerMarkers[p.id]._icon){
+								var ar=playerMarkers[p.id]._icon.querySelector('.dagr-p-arrow');
+								if(ar)ar.style.transform='rotate('+(p.heading||0)+'deg)';
+							}
 						} else {
-							var color = isMe ? '#849b4c' : '#58a6ff';
-							var size = isMe ? '14px' : '10px';
+							var color = isMe ? '#FFB000' : '#58a6ff';
+							var sz = isMe ? '18px' : '11px';
+							var arr = isMe ? '0 0 10px #FFB000' : '0 0 4px #58a6ff';
 							var icon = L.divIcon({
 								className: 'dagr-player-marker',
-								html: '<div style="width:' + size + ';height:' + size + ';background:' + color + ';border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px ' + color + ';" title="' + p.name + '"></div>',
-								iconSize: [parseInt(size)+4, parseInt(size)+4],
-								iconAnchor: [(parseInt(size)+4)/2, (parseInt(size)+4)/2]
+								html: '<div class="dagr-p-arrow" style="width:0;height:0;border-left:'+(parseInt(sz)/2)+'px solid transparent;border-right:'+(parseInt(sz)/2)+'px solid transparent;border-bottom:'+sz+' solid '+color+';filter:drop-shadow('+arr+');transform-origin:50% 50%;"></div><div style="position:absolute;width:'+(parseInt(sz)*0.5)+'px;height:'+(parseInt(sz)*0.5)+'px;background:'+color+';border:1px solid #fff;border-radius:50%;top:'+(parseInt(sz)*0.85)+'px;left:'+(parseInt(sz)*0.22)+'px;"></div>',
+								iconSize: [parseInt(sz)+4, parseInt(sz)+8],
+								iconAnchor: [(parseInt(sz)+4)/2, (parseInt(sz)+8)/2]
 							});
 							playerMarkers[p.id] = L.marker(latlng, { icon: icon }).addTo(map);
 							playerMarkers[p.id].bindTooltip(p.name, { direction: 'top', offset: [0, -8] });

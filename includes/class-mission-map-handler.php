@@ -762,6 +762,9 @@ class RMM_Mission_Map_Handler {
 		.dagr-phys-btn.on{background:#332200;border-color:#FFB000;color:#FFB000}
 		.dagr-icon-btn{width:44px;height:44px;border-radius:50%;border:2px solid #444;background:rgba(0,0,0,.75);color:#FFB000;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:bold}
 		.dagr-icon-btn.active{background:rgba(255,176,0,.2);border-color:#FFB000;color:#FFB000;box-shadow:0 0 12px rgba(255,176,0,.3)}
+		/* Player arrow marker */
+		.dagr-me-marker{background:transparent!important;border:none!important}
+		.dagr-me-arrow{transform-origin:9px 15px;transition:transform 0.3s ease}
 	</style>
 </head>
 <body>
@@ -990,7 +993,8 @@ class RMM_Mission_Map_Handler {
 		if(!mePos)return;
 		var container=$('#dagr-compass-overlay');
 		if(container.style.display!=='block')return;
-		container.querySelectorAll('.dagr-cmp-wp').forEach(function(el){el.remove()});
+		// Clear previous WP elements
+		container.querySelectorAll('.dagr-cmp-wp,.dagr-cmp-wp-line').forEach(function(el){el.remove()});
 		var ring=container.querySelector('div');
 		var cx=70,cy=70,r=62;
 		// Solo el WP activo
@@ -1002,8 +1006,15 @@ class RMM_Mission_Map_Handler {
 		var brg=bearing(mePos,wp);
 		var rel=(brg-myHeading+360)%360;
 		var rad=rel*Math.PI/180;
-		var x=cx+r*Math.sin(rad)-6;
-		var y=cy-r*Math.cos(rad)-6;
+		// Line from center to WP dot
+		var ex=cx+r*Math.sin(rad),ey=cy-r*Math.cos(rad);
+		var line=document.createElement('div');
+		line.className='dagr-cmp-wp-line';
+		var dx=ex-cx,dy=ey-cy,dist=Math.sqrt(dx*dx+dy*dy);
+		line.style.cssText='position:absolute;left:'+cx+'px;top:'+cy+'px;width:'+dist+'px;height:2px;background:#FFB000;transform-origin:0 1px;transform:rotate('+(Math.atan2(dy,dx)*180/Math.PI)+'deg);opacity:0.6;pointer-events:none;box-shadow:0 0 4px #FFB000';
+		ring.appendChild(line);
+		// Dot at WP position
+		var x=ex-6,y=ey-6;
 		var dot=document.createElement('div');
 		dot.className='dagr-cmp-wp';
 		dot.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:12px;height:12px;background:#FFB000;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 8px #FFB000;pointer-events:none';
@@ -1073,9 +1084,14 @@ class RMM_Mission_Map_Handler {
 	/* ── Marker icons ── */
 	var mkIcons={objective:'<div style="width:14px;height:14px;background:#FFB000;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 8px rgba(255,176,0,.6)"></div>',completed:'<div style="width:12px;height:12px;background:#FFB000;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(255,176,0,.4)"></div>',enemy:'<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid #ef4444;filter:drop-shadow(0 0 4px rgba(239,68,68,.6))"></div>',friendly:'<div style="width:12px;height:12px;background:#60a5fa;border:2px solid #fff;border-radius:2px;box-shadow:0 0 8px rgba(96,165,250,.6)"></div>'},mkDef='<div style="width:12px;height:12px;background:#a78bfa;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(167,139,250,.5)"></div>';
 
-	/* ── Player marker (BIG and VISIBLE) ── */
-	var meIcon=L.divIcon({html:'<div style="width:18px;height:18px;background:#FFB000;border:3px solid #fff;border-radius:50%;box-shadow:0 0 16px #FFB000,0 0 32px rgba(255,176,0,.5)"></div><div style="position:absolute;top:-15px;left:50%;margin-left:-2px;width:3px;height:12px;background:#FFB000;border-radius:2px;box-shadow:0 0 6px #FFB000"></div>',iconSize:[26,34],iconAnchor:[13,17]});
-	var meMarker=null;
+	/* ── Player marker (arrow that rotates with heading) ── */
+	var meIcon=L.divIcon({
+		className:'dagr-me-marker',
+		html:'<div class="dagr-me-arrow" style="width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:20px solid #FFB000;filter:drop-shadow(0 0 8px #FFB000);transform-origin:9px 15px;"></div><div style="width:10px;height:10px;background:#FFB000;border:2px solid #fff;border-radius:50%;position:absolute;top:14px;left:4px;box-shadow:0 0 8px #FFB000;"></div>',
+		iconSize:[22,30],
+		iconAnchor:[11,15]
+	});
+	var meMarker=null, lastHeading=0;
 
 	waitMap(function(){
 		meMarker=L.marker(dagrMap.getCenter(),{icon:meIcon,zIndexOffset:99999}).addTo(dagrMap);
@@ -1112,6 +1128,12 @@ class RMM_Mission_Map_Handler {
 						foundMe=true; notFoundCount=0;
 						mePos={x:Number(p.pos_x),y:Number(p.pos_y),z:Number(p.pos_z||0),h:Number(p.heading||0),s:Number(p.speed||0)};
 						meMarker.setLatLng(ll);
+						// Rotate arrow to heading
+						var h=Number(p.heading||0);
+						if(meMarker._icon){
+							var arrow=meMarker._icon.querySelector('.dagr-me-arrow');
+							if(arrow)arrow.style.transform='rotate('+h+'deg)';
+						}
 						if(layerVisible.players){if(!dagrMap.hasLayer(meMarker))dagrMap.addLayer(meMarker)}
 						else{dagrMap.removeLayer(meMarker)}
 						if(followMe)dagrMap.panTo(ll,{animate:true});
