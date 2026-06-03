@@ -238,8 +238,8 @@ class RMM_DAGR_Handler {
 		$map_name = sanitize_text_field( $atts['map'] );
 		$active = null;
 
-		// Si no se especifica mapa, buscar sesion activa
-		if ( empty( $map_name ) ) {
+		// Si viene de un preset, no buscar sesión activa — usar solo el mapa del preset
+		if ( ! $from_preset && empty( $map_name ) ) {
 			$sessions = $wpdb->prefix . 'rmm_match_sessions';
 			$active = $wpdb->get_row( "SELECT * FROM $sessions WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1" );
 
@@ -255,6 +255,11 @@ class RMM_DAGR_Handler {
 
 		// Buscar mapa en la BD de DAGR
 		$dagr_table = $wpdb->prefix . 'rmm_dagr_maps';
+
+		if ( empty( $map_name ) && $from_preset ) {
+			return '<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:24px;text-align:center;color:#8b949e;font-family:Inter,sans-serif;">⚠️ El preset no tiene un mapa asignado. Edita el preset en <strong>Mapas DAGR → Presets</strong> y selecciona un mapa.</div>';
+		}
+
 		$map_config = $wpdb->get_row( $wpdb->prepare(
 			"SELECT * FROM $dagr_table WHERE enabled = 1 AND map_name = %s", $map_name
 		) );
