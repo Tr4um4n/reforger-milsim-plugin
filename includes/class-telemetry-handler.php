@@ -83,6 +83,7 @@ class RMM_Telemetry_Handler {
 	 * Procesar POST de telemetría
 	 */
 	public function handle_telemetry_push( $request ) {
+		global $wpdb;
 		$body = $request->get_body();
 		$data = json_decode( $body, true );
 
@@ -108,11 +109,43 @@ class RMM_Telemetry_Handler {
 			$players = array( $data );
 		}
 
+		// Permitir payload sin jugadores (solo session/markers/map)
 		if ( empty( $players ) ) {
-			return new WP_REST_Response( array(
-				'success' => false,
-				'error'   => 'No se encontraron datos de jugadores en el payload. Esperado: "players": [...] o campos directos steamid/bohemia_uid.',
-			), 400 );
+			$players = array(); // continuar sin error
+		}
+
+		// Procesar sesión y markers AUNQUE no haya jugadores
+		$session_id = sanitize_text_field( $data['session_id'] ?? '' );
+		$map_name   = sanitize_text_field( $data['map_name'] ?? $data['map'] ?? '' );
+		if ( ! empty( $session_id ) ) {
+			$ms_table = $wpdb->prefix . 'rmm_mission_sessions';
+			$existing = $wpdb->get_row( $wpdb->prepare( "SELECT id, map_name FROM $ms_table WHERE session_id = %s", $session_id ) );
+			if ( ! $existing ) {
+				$wpdb->insert( $ms_table, array(
+					'session_id' => $session_id,
+					'post_id'    => intval( $data['preset_id'] ?? 0 ),
+					'map_name'   => $map_name ?: 'everon',
+					'status'     => 'active',
+				) );
+			} elseif ( $existing->map_name !== $map_name && ! empty( $map_name ) ) {
+				$wpdb->update( $ms_table, array( 'map_name' => $map_name ), array( 'session_id' => $session_id ) );
+			}
+		}
+
+		// Procesar marcadores aunque no haya jugadores
+		if ( ! empty( $data['markers'] ) && is_array( $data['markers'] ) && ! empty( $session_id ) ) {
+			$mk_table = $wpdb->prefix . 'rmm_mission_markers';
+			foreach ( $data['markers'] as $m ) {
+				$wpdb->insert( $mk_table, array(
+					'session_id' => $session_id,
+					'marker_id'  => sanitize_text_field( $m['id'] ?? uniqid('sim_') ),
+					'type'       => sanitize_text_field( $m['type'] ?? 'marker' ),
+					'label'      => sanitize_text_field( $m['label'] ?? '' ),
+					'pos_x'      => floatval( $m['pos_x'] ?? 0 ),
+					'pos_y'      => floatval( $m['pos_y'] ?? 0 ),
+					'color'      => sanitize_text_field( $m['color'] ?? '#FFB000' ),
+				) );
+			}
 		}
 
 		foreach ( $players as $player_data ) {
@@ -183,40 +216,25 @@ class RMM_Telemetry_Handler {
 				}
 			}
 
-			// Procesar marcadores DAGR si vienen en el payload
-			if ( ! empty( $data['markers'] ) && is_array( $data['markers'] ) ) {
-				$map = sanitize_text_field( $data['map'] ?? ( $data['scenario_name'] ?? '' ) );
-				$key = 'dagr_markers_' . ( $map ?: 'all' );
-				$clean = array();
-
-				// Determinar session_id para los marcadores
-				$mk_session_id = sanitize_text_field( $data['session_id'] ?? ( 'mision_' . sanitize_title( $data['scenario_id'] ?? uniqid() ) ) );
-
-				foreach ( $data['markers'] as $m ) {
-					$clean[] = array(
-						'id'     => sanitize_text_field( $m['id'] ?? uniqid('m') ),
-						'type'   => sanitize_text_field( $m['type'] ?? 'marker' ),
-						'label'  => sanitize_text_field( $m['label'] ?? '' ),
-						'pos_x'  => floatval( $m['pos_x'] ?? 0 ),
-						'pos_y'  => floatval( $m['pos_y'] ?? 0 ),
-						'color'  => sanitize_text_field( $m['color'] ?? '#d2a850' ),
-						'author' => sanitize_text_field( $m['author'] ?? '' ),
-						'time'   => current_time( 'mysql' ),
-					);
-
-					// Insertar en rmm_mission_markers para el MicroDAGR
-					$wpdb->insert( $wpdb->prefix . 'rmm_mission_markers', array(
-						'session_id' => $mk_session_id,
-						'marker_id'  => sanitize_text_field( $m['id'] ?? uniqid('sim_') ),
-						'type'       => sanitize_text_field( $m['type'] ?? 'marker' ),
-						'label'      => sanitize_text_field( $m['label'] ?? '' ),
-						'pos_x'      => floatval( $m['pos_x'] ?? 0 ),
-						'pos_y'      => floatval( $m['pos_y'] ?? 0 ),
-						'color'      => sanitize_text_field( $m['color'] ?? '#FFB000' ),
-					) );
+				// Procesar marcadores DAGR (solo transient, DB se inserta antes del bucle)
+				if ( ! empty( $data['markers'] ) && is_array( $data['markers'] ) ) {
+					$map = sanitize_text_field( $data['map'] ?? ( $data['scenario_name'] ?? '' ) );
+					$key = 'dagr_markers_' . ( $map ?: 'all' );
+					$clean = array();
+					foreach ( $data['markers'] as $m ) {
+						$clean[] = array(
+							'id'     => sanitize_text_field( $m['id'] ?? uniqid('m') ),
+							'type'   => sanitize_text_field( $m['type'] ?? 'marker' ),
+							'label'  => sanitize_text_field( $m['label'] ?? '' ),
+							'pos_x'  => floatval( $m['pos_x'] ?? 0 ),
+							'pos_y'  => floatval( $m['pos_y'] ?? 0 ),
+							'color'  => sanitize_text_field( $m['color'] ?? '#d2a850' ),
+							'author' => sanitize_text_field( $m['author'] ?? '' ),
+							'time'   => current_time( 'mysql' ),
+						);
+					}
+					set_transient( $key, $clean, 3600 );
 				}
-				set_transient( $key, $clean, 3600 );
-			}
 		}
 
 		return new WP_REST_Response( array(
