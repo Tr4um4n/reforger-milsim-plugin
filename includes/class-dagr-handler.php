@@ -234,6 +234,8 @@ class RMM_DAGR_Handler {
 		if ( ! is_array( $static_markers ) ) $static_markers = array();
 		if ( ! is_array( $static_positions ) ) $static_positions = array();
 		$has_static_data = ! empty( $static_markers ) || ! empty( $static_positions );
+		// Cuando viene de preset, forzar modo estatico para no hacer polling REST
+		$force_static = $from_preset;
 
 		$map_name = sanitize_text_field( $atts['map'] );
 		$active = null;
@@ -413,6 +415,7 @@ class RMM_DAGR_Handler {
 			var staticMarkers = <?php echo json_encode( $static_markers ); ?>;
 			var staticPositions = <?php echo json_encode( $static_positions ); ?>;
 			var hasStaticData = <?php echo $has_static_data ? 'true' : 'false'; ?>;
+			var forceStatic = <?php echo $force_static ? 'true' : 'false'; ?>;
 
 			// Toggle buttons
 			var toggleContainer = container.querySelector('.dagr-mode-toggle');
@@ -520,7 +523,7 @@ class RMM_DAGR_Handler {
 									}
 
 			function updatePositions() {
-				if ( hasStaticData ) {
+				if ( hasStaticData || forceStatic ) {
 					staticPositions.forEach(function(p) {
 						var latlng = gameToLatLng(p.pos_x, p.pos_y);
 						var color = p.color || '#58a6ff';
@@ -573,7 +576,7 @@ class RMM_DAGR_Handler {
 			}
 
 			updatePositions();
-			setInterval(updatePositions, 10000);
+			if ( ! forceStatic ) { setInterval(updatePositions, 10000); }
 
 			// === Marcadores de mapa (objetivos, POIs) ===
 			var mapMarkers = {};
@@ -593,7 +596,7 @@ class RMM_DAGR_Handler {
 			};
 
 			function updateMapMarkers() {
-				if ( hasStaticData ) {
+				if ( hasStaticData || forceStatic ) {
 					staticMarkers.forEach(function(m) {
 						var latlng = gameToLatLng(m.pos_x, m.pos_y);
 						var html = markerIcons[m.type] || markerIcons['marker'];
@@ -647,7 +650,7 @@ class RMM_DAGR_Handler {
 			}
 
 			updateMapMarkers();
-			if ( ! hasStaticData ) {
+			if ( ! hasStaticData && ! forceStatic ) {
 				setInterval(updatePositions, 10000);
 				setInterval(updateMapMarkers, 15000);
 			}
