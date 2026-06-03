@@ -136,16 +136,22 @@ class RMM_Telemetry_Handler {
 				$session_id = sanitize_text_field( $data['session_id'] ?? ( 'mision_' . sanitize_title( $data['scenario_id'] ?? uniqid() ) ) );
 				$map_name   = sanitize_text_field( $data['map_name'] ?? $data['map'] ?? '' );
 
-				// Asegurar que la sesión existe en rmm_mission_sessions
+				// Asegurar que la sesión existe y tiene el mapa correcto
 				$ms_table = $wpdb->prefix . 'rmm_mission_sessions';
-				$exists = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $ms_table WHERE session_id = %s", $session_id ) );
-				if ( ! $exists ) {
+				$existing = $wpdb->get_row( $wpdb->prepare( "SELECT id, map_name FROM $ms_table WHERE session_id = %s", $session_id ) );
+				if ( ! $existing ) {
 					$wpdb->insert( $ms_table, array(
 						'session_id' => $session_id,
 						'post_id'    => 0,
 						'map_name'   => $map_name ?: 'everon',
 						'status'     => 'active',
 					) );
+				} elseif ( $existing->map_name !== $map_name && ! empty( $map_name ) ) {
+					// Actualizar si el mapa cambió (ej: de Everon a Arland)
+					$wpdb->update( $ms_table,
+						array( 'map_name' => $map_name ),
+						array( 'session_id' => $session_id )
+					);
 				}
 
 				$wpdb->insert( $wpdb->prefix . 'rmm_mission_positions', array(
