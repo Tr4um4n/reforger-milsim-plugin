@@ -769,13 +769,13 @@ class RMM_Mission_Map_Handler {
 		<div id="dagr-ui">
 			<!-- Top bar -->
 			<div id="dagr-topbar">
-				<button class="dagr-phys-btn" id="btn-mark">MARK</button>
 				<span id="dagr-clock">----</span>
 				<button class="dagr-phys-btn" id="btn-wp-menu">WP</button>
 			</div>
 
-			<!-- Left button column (below top bar, pushed down to not overlap zoom) -->
+			<!-- Left button column (pushed down, 4 buttons) -->
 			<div style="position:absolute;top:170px;left:8px;display:flex;flex-direction:column;gap:8px">
+				<button class="dagr-phys-btn" id="btn-mark" style="min-width:56px;min-height:44px;font-size:13px">MARK</button>
 				<button class="dagr-phys-btn" id="btn-map" style="min-width:56px;min-height:44px;font-size:13px">MAP</button>
 				<button class="dagr-phys-btn" id="btn-compass" style="min-width:56px;min-height:44px;font-size:13px">CMP</button>
 				<button class="dagr-phys-btn" id="btn-layers" style="min-width:56px;min-height:44px;font-size:13px">LAY</button>
@@ -1106,6 +1106,9 @@ class RMM_Mission_Map_Handler {
 						foundMe=true;
 						mePos={x:Number(p.pos_x),y:Number(p.pos_y),z:Number(p.pos_z||0),h:Number(p.heading||0),s:Number(p.speed||0)};
 						meMarker.setLatLng(ll);
+						// Respetar capa de jugadores también para "me"
+						if($('#dagr-layer-panel [data-layer=players]').checked){if(!dagrMap.hasLayer(meMarker))dagrMap.addLayer(meMarker)}
+						else{dagrMap.removeLayer(meMarker)}
 						if(followMe)dagrMap.panTo(ll,{animate:true});
 						updHUD(p);
 						$('#dagr-status').textContent='MAPA OK | GPS OK';
@@ -1256,7 +1259,7 @@ class RMM_Mission_Map_Handler {
 	});
 
 	/* ── Layer toggles ── */
-	$$('#dagr-layer-panel input').forEach(function(cb){cb.onchange=function(){if(!dagrMap)return;var k=cb.dataset.layer,v=cb.checked;layers[k].forEach(function(m){v?m.addTo(dagrMap):dagrMap.removeLayer(m)})}});
+	$$('#dagr-layer-panel input').forEach(function(cb){cb.onchange=function(){if(!dagrMap)return;var k=cb.dataset.layer,v=cb.checked;layers[k].forEach(function(m){v?m.addTo(dagrMap):dagrMap.removeLayer(m)});if(k==='players'&&meMarker){v?dagrMap.addLayer(meMarker):dagrMap.removeLayer(meMarker)}}});
 
 	/* ── Close panels when tapping map ── */
 	waitMap(function(){
