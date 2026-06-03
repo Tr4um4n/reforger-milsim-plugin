@@ -155,10 +155,10 @@ class RMM_Telemetry_Handler {
 					'faction'     => sanitize_text_field( $player_data['faction'] ?? '' ),
 					'squad'       => sanitize_text_field( $player_data['squad'] ?? '' ),
 					'role'        => sanitize_text_field( $player_data['role'] ?? '' ),
-					'pos_x'       => floatval( $player_data['pos_x'] ?? 0 ),
-					'pos_y'       => floatval( $player_data['pos_y'] ?? 0 ),
+					'pos_x'       => floatval( $player_data['pos_x'] ?? $player_data['Ejex'] ?? 0 ),
+					'pos_y'       => floatval( $player_data['pos_y'] ?? $player_data['Ejey'] ?? 0 ),
 					'pos_z'       => floatval( $player_data['pos_z'] ?? 0 ),
-					'heading'     => floatval( $player_data['heading'] ?? 0 ),
+					'heading'     => floatval( $player_data['heading'] ?? $player_data['Dir'] ?? 0 ),
 					'speed'       => floatval( $player_data['speed_kmh'] ?? 0 ),
 					'is_alive'    => ! empty( $player_data['is_alive'] ) ? 1 : 0,
 				) );
