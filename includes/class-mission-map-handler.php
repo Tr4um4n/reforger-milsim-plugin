@@ -15,6 +15,7 @@ class RMM_Mission_Map_Handler {
 		// Shortcodes
 		add_shortcode( 'rmm_mission_map', array( $this, 'render_mission_map' ) );
 		add_shortcode( 'rmm_microdagr', array( $this, 'render_microdagr_button' ) );
+		add_shortcode( 'rmm_event_map', array( $this, 'render_event_map' ) );
 
 		// REST API para recibir datos del addon
 		add_action( 'rest_api_init', array( $this, 'register_rest_endpoints' ) );
@@ -25,6 +26,10 @@ class RMM_Mission_Map_Handler {
 
 		// Auto-detectar mapa al publicar misión
 		add_action( 'save_post_misiones', array( $this, 'auto_create_mission_map' ), 10, 3 );
+
+		// Metabox de selección de mapa para eventos
+		add_action( 'add_meta_boxes', array( $this, 'add_event_map_metabox' ) );
+		add_action( 'save_post_eventos_partidas', array( $this, 'save_event_map_metabox' ), 10, 3 );
 	}
 
 	/**
@@ -1877,6 +1882,100 @@ class RMM_Mission_Map_Handler {
 			'session_id' => $session_id,
 			'time'       => $tick_time,
 		) );
+	}
+
+	/**
+	 * Metabox: Seleccion de mapa DAGR para eventos
+	 */
+	public function add_event_map_metabox() {
+		add_meta_box(
+			'rmm_event_map_metabox',
+			'🗺️ Mapa Interactivo DAGR',
+			array( $this, 'render_event_map_metabox' ),
+			'eventos_partidas',
+			'side',
+			'default'
+		);
+	}
+
+	/**
+	 * Render metabox: selector de mapa DAGR
+	 */
+	public function render_event_map_metabox( $post ) {
+		global $wpdb;
+		$maps = $wpdb->get_results( "SELECT map_name, display_name FROM {$wpdb->prefix}rmm_dagr_maps WHERE enabled = 1 ORDER BY display_name ASC" );
+		$current = get_post_meta( $post->ID, '_rmm_event_dagr_map', true );
+		wp_nonce_field( 'rmm_event_map_save', 'rmm_event_map_nonce' );
+		?>
+		<select name="rmm_event_dagr_map" style="width:100%;">
+			<option value="">-- Sin mapa (desactivado) --</option>
+			<?php foreach ( $maps as $m ) : ?>
+				<option value="<?php echo esc_attr( $m->map_name ); ?>" <?php selected( $current, $m->map_name ); ?>><?php echo esc_html( $m->display_name ); ?></option>
+			<?php endforeach; ?>
+		</select>
+		<p style="font-size:11px;color:#666;margin-top:6px;">Usa el shortcode <code>[rmm_event_map]</code> en Elementor para mostrar el mapa.</p>
+		<?php
+	}
+
+	/**
+	 * Guardar seleccion de mapa del evento
+	 */
+	public function save_event_map_metabox( $post_id, $post, $update ) {
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
+		if ( ! current_user_can( 'edit_post', $post_id ) ) return;
+		if ( ! isset( $_POST['rmm_event_map_nonce'] ) || ! wp_verify_nonce( $_POST['rmm_event_map_nonce'], 'rmm_event_map_save' ) ) return;
+
+		if ( isset( $_POST['rmm_event_dagr_map'] ) ) {
+			$map_name = sanitize_key( $_POST['rmm_event_dagr_map'] );
+			if ( empty( $map_name ) ) {
+				delete_post_meta( $post_id, '_rmm_event_dagr_map' );
+			} else {
+				update_post_meta( $post_id, '_rmm_event_dagr_map', $map_name );
+			}
+		}
+	}
+
+	/**
+	 * Shortcode [rmm_event_map] — Mapa DAGR del evento configurado
+	 * Atributos: id (post_id), height, preset_id (opcional para markers/positions)
+	 */
+	public function render_event_map( $atts ) {
+		$atts = shortcode_atts( array(
+			'id'        => get_the_ID(),
+			'height'    => '600px',
+			'preset_id' => '',
+		), $atts, 'rmm_event_map' );
+
+		$post_id   = intval( $atts['id'] );
+		$post_type = get_post_type( $post_id );
+
+		// Buscar mapa asignado (meta o tabla mission_maps)
+		$map_name = get_post_meta( $post_id, '_rmm_event_dagr_map', true );
+
+		// Fallback: buscar en rmm_mission_maps si no hay meta
+		if ( empty( $map_name ) && in_array( $post_type, array( 'misiones', 'eventos_partidas' ) ) ) {
+			global $wpdb;
+			$map_row = $wpdb->get_row( $wpdb->prepare(
+				"SELECT map_name FROM {$wpdb->prefix}rmm_mission_maps WHERE post_id = %d AND enabled = 1", $post_id
+			) );
+			if ( $map_row ) $map_name = $map_row->map_name;
+		}
+
+		if ( empty( $map_name ) ) {
+			return '<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:24px;text-align:center;color:#8b949e;font-family:Inter,sans-serif;">🗺️ No hay mapa interactivo ni MicroDAGR asignado</div>';
+		}
+
+		// Si hay preset_id, pasarlo al mapa tactico; si no, solo el mapa
+		$dagr = new RMM_DAGR_Handler();
+		$map_atts = array(
+			'map'    => $map_name,
+			'height' => $atts['height'],
+		);
+		if ( ! empty( $atts['preset_id'] ) ) {
+			$map_atts['id'] = intval( $atts['preset_id'] );
+		}
+
+		return $dagr->render_tactical_map( $map_atts );
 	}
 }
 
