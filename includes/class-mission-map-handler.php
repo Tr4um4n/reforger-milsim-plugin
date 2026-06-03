@@ -576,15 +576,15 @@ class RMM_Mission_Map_Handler {
 				$token
 			) );
 
-			// Auto-crear token Y sesión para testing
-			if ( strpos( $session, 'test_' ) === 0 ) {
+			// Auto-crear token para sesiones test_* o cuando se pasa steamid por URL
+			if ( strpos( $session, 'test_' ) === 0 || ! empty( $_GET['steamid'] ) ) {
 				$table_sessions_check = $wpdb->prefix . 'rmm_mission_sessions';
 				$test_session = $wpdb->get_row( $wpdb->prepare(
 					"SELECT * FROM $table_sessions_check WHERE session_id = %s", $session
 				) );
 
-				// Si la sesión no existe, crearla + datos iniciales
-				if ( ! $test_session ) {
+				// Si la sesión no existe y es test, crear datos simulados
+				if ( ! $test_session && strpos( $session, 'test_' ) === 0 ) {
 					$sim_request = new WP_REST_Request( 'POST', '/clan/v1/mission/simulate' );
 					$sim_request->set_body_params( array( 'session_id' => $session ) );
 					$this->simulate_telemetry_tick( $sim_request );
