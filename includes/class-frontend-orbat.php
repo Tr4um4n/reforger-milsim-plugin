@@ -20,6 +20,7 @@ class RMM_Frontend_ORBAT {
 		add_shortcode( 'fecha_evento', array( $this, 'render_fecha_evento_shortcode' ) );
 		add_shortcode( 'rmm_missions_grid', array( $this, 'render_missions_grid_shortcode' ) );
 		add_shortcode( 'rmm_evento_estado', array( $this, 'render_evento_estado_shortcode' ) );
+		add_shortcode( 'rmm_orbatlink_launcher', array( $this, 'render_orbatlink_launcher' ) );
 		add_action( 'wp_ajax_reclamar_slot', array( $this, 'handle_slot_reservation' ) );
 		add_action( 'wp_ajax_liberar_slot', array( $this, 'handle_slot_leave' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
@@ -813,6 +814,134 @@ class RMM_Frontend_ORBAT {
 				aceSwitch.on('change', applyFilters);
 				rhsSwitch.on('change', applyFilters);
 			});
+		</script>
+		<?php
+		return ob_get_clean();
+	}
+
+	/**
+	 * Shortcode [rmm_orbatlink_launcher] — Configuración TFR ORBAT Link en frontend
+	 * Muestra los campos session_id, preset DAGR y mapa, con botón de subir config
+	 * Solo visible para usuarios con permisos de gestion de servidor
+	 */
+	public function render_orbatlink_launcher( $atts ) {
+		// Solo usuarios con permisos
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return '';
+		}
+
+		// Solo si ORBAT Link esta habilitado
+		if ( get_option( 'rmm_orbatlink_enabled', '1' ) !== '1' ) {
+			return '';
+		}
+
+		$atts = shortcode_atts( array(
+			'server_id' => get_option( 'rmm_ptero_stable_server_id', '' ),
+		), $atts, 'rmm_orbatlink_launcher' );
+
+		global $wpdb;
+		$presets = $wpdb->get_results( "SELECT id, title, map_name FROM {$wpdb->prefix}rmm_dagr_presets ORDER BY title ASC" );
+		$maps    = $wpdb->get_results( "SELECT id, map_name, display_name FROM {$wpdb->prefix}rmm_dagr_maps WHERE enabled = 1 ORDER BY display_name ASC" );
+
+		ob_start();
+		?>
+		<div class="rmm-orbatlink-launcher" style="background:rgba(99,102,241,0.05);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:20px;margin:20px 0;">
+			<h3 style="color:#818cf8;margin-top:0;">🔗 Configuración TFR ORBAT Link</h3>
+			<p style="font-size:0.85em;color:#94a3b8;">Estos datos se escriben en el config.json del addon en el servidor.</p>
+			
+			<div class="rmm-orbatlink-fields" style="display:flex;flex-wrap:wrap;gap:15px;margin-bottom:15px;">
+				<div style="flex:1;min-width:200px;">
+					<label style="display:block;font-weight:600;margin-bottom:4px;">Session ID <span style="color:#ef4444;">*</span></label>
+					<input type="text" class="rmm-orbatlink-session" placeholder="SESSION_1_PRUEBAS" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1a1a1a;color:#eee;">
+				</div>
+				<div style="flex:1;min-width:200px;">
+					<label style="display:block;font-weight:600;margin-bottom:4px;">DAGR Preset <span style="color:#ef4444;">*</span></label>
+					<select class="rmm-orbatlink-preset" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1a1a1a;color:#eee;">
+						<option value="">-- Seleccionar Preset DAGR --</option>
+						<?php foreach ( $presets as $p ) : ?>
+							<option value="<?php echo $p->id; ?>" data-map="<?php echo esc_attr( $p->map_name ); ?>"><?php echo esc_html( $p->title ); ?> (ID: <?php echo $p->id; ?>)</option>
+						<?php endforeach; ?>
+					</select>
+				</div>
+				<div style="flex:1;min-width:200px;">
+					<label style="display:block;font-weight:600;margin-bottom:4px;">Mapa <span style="color:#ef4444;">*</span></label>
+					<select class="rmm-orbatlink-map" style="width:100%;padding:8px;border:1px solid #444;border-radius:4px;background:#1a1a1a;color:#eee;">
+						<option value="">-- Seleccionar Mapa --</option>
+						<?php foreach ( $maps as $m ) : ?>
+							<option value="<?php echo esc_attr( $m->map_name ); ?>"><?php echo esc_html( $m->display_name ); ?> (<?php echo esc_html( $m->map_name ); ?>)</option>
+						<?php endforeach; ?>
+					</select>
+				</div>
+			</div>
+			
+			<div class="rmm-orbatlink-msg" style="display:none;color:#ef4444;font-size:0.85em;margin-bottom:10px;"></div>
+			
+			<button class="rmm-orbatlink-submit" style="background:#6366f1;color:#fff;border:0;padding:10px 24px;border-radius:6px;font-weight:bold;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,0.3);">🔗 Subir Config ORBAT Link</button>
+			<span class="rmm-orbatlink-result" style="margin-left:10px;font-size:0.85em;"></span>
+		</div>
+
+		<script>
+		jQuery(document).ready(function($) {
+			var $section = $('.rmm-orbatlink-launcher');
+			var $session = $section.find('.rmm-orbatlink-session');
+			var $preset  = $section.find('.rmm-orbatlink-preset');
+			var $map     = $section.find('.rmm-orbatlink-map');
+			var $msg     = $section.find('.rmm-orbatlink-msg');
+			var $btn     = $section.find('.rmm-orbatlink-submit');
+			var $result  = $section.find('.rmm-orbatlink-result');
+
+			// Auto-select map when preset changes
+			$preset.on('change', function() {
+				var mapName = $(this).find('option:selected').data('map');
+				if (mapName) $map.val(mapName);
+			});
+
+			// Update preset map when map changes (via AJAX)
+			$map.on('change', function() {
+				var presetId = $preset.val();
+				var mapName = $(this).val();
+				if (presetId && mapName) {
+					$.post('<?php echo admin_url( 'admin-ajax.php' ); ?>', {
+						action: 'rmm_update_preset_map',
+						preset_id: presetId,
+						map_name: mapName
+					});
+				}
+			});
+
+			$btn.on('click', function() {
+				var sessionId = $session.val().trim();
+				var presetId  = $preset.val();
+				var mapName   = $map.val();
+
+				if (!sessionId || !presetId || !mapName) {
+					$msg.show().text('⚠️ Todos los campos son obligatorios.');
+					return;
+				}
+				$msg.hide().text('');
+
+				$btn.prop('disabled', true).text('Subiendo...');
+				$result.text('');
+
+				$.post('<?php echo admin_url( 'admin-ajax.php' ); ?>', {
+					action: 'rmm_upload_orbatlink_config',
+					server_id: '<?php echo esc_js( $atts['server_id'] ); ?>',
+					orbatlink_session_id: sessionId,
+					orbatlink_preset_id: presetId,
+					orbatlink_map_name: mapName
+				}, function(res) {
+					if (res.success) {
+						$result.css('color', '#10b981').text('✅ ' + res.data);
+					} else {
+						$result.css('color', '#ef4444').text('❌ ' + (res.data || 'Error'));
+					}
+					$btn.prop('disabled', false).text('🔗 Subir Config ORBAT Link');
+				}).fail(function() {
+					$result.css('color', '#ef4444').text('❌ Error de conexión');
+					$btn.prop('disabled', false).text('🔗 Subir Config ORBAT Link');
+				});
+			});
+		});
 		</script>
 		<?php
 		return ob_get_clean();

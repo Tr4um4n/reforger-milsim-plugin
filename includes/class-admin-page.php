@@ -18,6 +18,10 @@ class RMM_Admin_Page {
 		add_action( 'wp_ajax_rmm_upload_orbatlink_config', array( $this, 'ajax_upload_orbatlink_config' ) );
 		add_action( 'wp_ajax_rmm_send_telegram_aviso', array( $this, 'ajax_send_telegram_aviso' ) );
 		add_action( 'wp_ajax_rmm_server_power_action', array( $this, 'ajax_server_power_action' ) );
+		add_action( 'wp_ajax_rmm_get_dagr_presets', array( $this, 'ajax_get_dagr_presets' ) );
+		add_action( 'wp_ajax_rmm_get_dagr_maps', array( $this, 'ajax_get_dagr_maps' ) );
+		add_action( 'wp_ajax_rmm_update_preset_map', array( $this, 'ajax_update_preset_map' ) );
+		add_action( 'wp_ajax_rmm_get_orbatlink_status', array( $this, 'ajax_get_orbatlink_status' ) );
 		add_action( 'admin_menu', array( $this, 'restrict_admin_menu' ), 999 );
 				add_action( 'admin_bar_menu', array( $this, 'restrict_admin_bar' ), 999 );
 				add_action( 'admin_init', array( $this, 'redirect_non_admin_dashboard' ) );
@@ -1212,7 +1216,7 @@ class RMM_Admin_Page {
 								<div class="mods-scroll" id="ptero_detail_mods_list"></div>
 							</div>
 
-							<div class="launcher-actions">
+						<div class="launcher-actions">
 														<div class="rmm-toggle-row" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
 															<label class="rmm-switch">
 																<input type="checkbox" id="tg_notify_switch" checked>
@@ -1221,10 +1225,38 @@ class RMM_Admin_Page {
 															<span style="font-size:0.75rem;color:#94a3b8;">📢 Notificar a Telegram</span>
 														</div>
 														<div class="launcher-buttons">
-															<button id="btn_upload_orbatlink" class="button-launch" style="background:#6366f1;box-shadow:0 4px 14px rgba(99,102,241,0.3);">🔗 Subir Config ORBAT Link</button>
 															<button id="btn_launch_server" class="button-launch">🚀 Lanzar Partida en Servidor</button>
 														</div>
 													</div>
+						</div>
+
+						<!-- ORBAT Link Config Section (independiente del preset) -->
+						<div id="orbatlink_config_section" class="rmm-orbatlink-config" style="display:none;">
+							<h4 style="margin:0 0 5px; color:#818cf8;">🔗 Configuración TFR ORBAT Link</h4>
+							<p style="font-size:0.75rem;color:#94a3b8;margin-bottom:12px;">Estos datos se escriben en el config.json del addon ORBAT Link en el servidor. Al subir la config se activa el plugin en la partida.</p>
+							<div class="rmm-form-grid rmm-grid-3">
+								<div class="rmm-form-group">
+									<label for="orbatlink_session_id">Session ID <span style="color:#ef4444;">*</span></label>
+									<input type="text" id="orbatlink_session_id" placeholder="SESSION_1_PRUEBAS" style="width:100%;">
+								</div>
+								<div class="rmm-form-group">
+									<label for="orbatlink_preset_select">DAGR Preset <span style="color:#ef4444;">*</span></label>
+									<select id="orbatlink_preset_select">
+										<option value="">-- Seleccionar Preset DAGR --</option>
+									</select>
+								</div>
+								<div class="rmm-form-group">
+									<label for="orbatlink_map_select">Mapa <span style="color:#ef4444;">*</span></label>
+									<select id="orbatlink_map_select">
+										<option value="">-- Seleccionar Mapa --</option>
+									</select>
+								</div>
+							</div>
+							<div id="orbatlink_validation_msg" style="display:none;color:#ef4444;font-size:0.8rem;margin-top:5px;"></div>
+							<div style="margin-top:12px;">
+								<button id="btn_upload_orbatlink" class="button-launch" style="background:#6366f1;box-shadow:0 4px 14px rgba(99,102,241,0.3);">🔗 Subir Config ORBAT Link</button>
+								<span id="orbatlink_upload_result" style="margin-left:10px;font-size:0.85em;"></span>
+							</div>
 						</div>
 
 						<!-- Live Console Status Output -->
@@ -1595,6 +1627,9 @@ class RMM_Admin_Page {
 					.launcher-buttons { flex-direction: column; width: 100%; }
 					.launcher-buttons .button-launch { width: 100%; text-align: center; }
 				}
+		.rmm-orbatlink-config { width: 100%; margin: 15px 0; padding: 15px; background: rgba(99, 102, 241, 0.05); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 8px; }
+		.rmm-orbatlink-config h4 { margin-top: 0; }
+		.rmm-orbatlink-config .rmm-form-grid { margin-bottom: 0; }
 		.button-launch { background: #10b981; color: #fff; border: 0; padding: 14px 28px; border-radius: 8px; font-size: 1.1em; font-weight: bold; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3); }
 		.button-launch:hover { background: #059669; transform: translateY(-1px); }
 
@@ -1774,11 +1809,102 @@ class RMM_Admin_Page {
 			const consoleBox = $('#launcher_console_box');
 			const consoleOutput = $('#launcher_console_output');
 
+			// ORBAT Link elements
+			const orbatSection = $('#orbatlink_config_section');
+			const orbatSessionId = $('#orbatlink_session_id');
+			const orbatPresetSelect = $('#orbatlink_preset_select');
+			const orbatMapSelect = $('#orbatlink_map_select');
+			const orbatValidationMsg = $('#orbatlink_validation_msg');
+			let orbatLinkEnabled = false;
+			let dagrPresets = [];
+			let dagrMaps = [];
+
 			function logConsole(msg, isError = false) {
 				const timestamp = new Date().toLocaleTimeString();
 				const color = isError ? 'red' : '#00ff95';
 				consoleOutput.append(`<div style="color:${color}">[${timestamp}] ${msg}</div>`);
 				consoleOutput.scrollTop(consoleOutput[0].scrollHeight);
+			}
+
+			// Check ORBAT Link status and load DAGR data on page load
+			$.post(ajaxurl, { action: 'rmm_get_orbatlink_status' }, function(res) {
+				if (res.success && res.data && res.data.enabled) {
+					orbatLinkEnabled = true;
+					orbatSection.show();
+					loadDagrPresets();
+					loadDagrMaps();
+				}
+			});
+
+			function loadDagrPresets() {
+				$.post(ajaxurl, { action: 'rmm_get_dagr_presets' }, function(res) {
+					if (res.success && res.data) {
+						dagrPresets = res.data;
+						orbatPresetSelect.empty().append('<option value="">-- Seleccionar Preset DAGR --</option>');
+						dagrPresets.forEach(function(p) {
+							orbatPresetSelect.append(`<option value="${p.id}" data-map="${p.map_name}">${p.title} (ID: ${p.id})</option>`);
+						});
+					}
+				});
+			}
+
+			function loadDagrMaps() {
+				$.post(ajaxurl, { action: 'rmm_get_dagr_maps' }, function(res) {
+					if (res.success && res.data) {
+						dagrMaps = res.data;
+						orbatMapSelect.empty().append('<option value="">-- Seleccionar Mapa --</option>');
+						dagrMaps.forEach(function(m) {
+							orbatMapSelect.append(`<option value="${m.map_name}">${m.display_name} (${m.map_name})</option>`);
+						});
+					}
+				});
+			}
+
+			// When preset is selected, auto-select its map
+			orbatPresetSelect.on('change', function() {
+				const selected = $(this).find('option:selected');
+				const mapName = selected.data('map');
+				if (mapName) {
+					orbatMapSelect.val(mapName);
+				}
+				validateOrbatLink();
+			});
+
+			// When map is changed, update the preset's map_name in DB
+			orbatMapSelect.on('change', function() {
+				const presetId = orbatPresetSelect.val();
+				const mapName = $(this).val();
+				if (presetId && mapName) {
+					$.post(ajaxurl, {
+						action: 'rmm_update_preset_map',
+						preset_id: presetId,
+						map_name: mapName
+					});
+				}
+				validateOrbatLink();
+			});
+
+			// Validate ORBAT Link fields on session ID change
+			orbatSessionId.on('input', validateOrbatLink);
+
+			function validateOrbatLink() {
+				if (!orbatLinkEnabled) return true;
+				const sessionId = orbatSessionId.val().trim();
+				const presetId = orbatPresetSelect.val();
+				if (!sessionId || !presetId) {
+					orbatValidationMsg.show().text('⚠️ Session ID y DAGR Preset son obligatorios cuando ORBAT Link está activo.');
+					return false;
+				}
+				orbatValidationMsg.hide().text('');
+				return true;
+			}
+
+			function getOrbatLinkData() {
+				return {
+					orbatlink_session_id: orbatSessionId.val().trim(),
+					orbatlink_preset_id: orbatPresetSelect.val(),
+					orbatlink_map_name: orbatMapSelect.val()
+				};
 			}
 
 			serverSelect.on('change', function() {
@@ -1869,19 +1995,26 @@ class RMM_Admin_Page {
 			$('#btn_upload_orbatlink').on('click', function() {
 				const serverId = serverSelect.val();
 				if ( ! serverId ) { alert('Selecciona un servidor primero'); return; }
+				if ( orbatLinkEnabled && ! validateOrbatLink() ) return;
 				const btn = $(this);
 				btn.prop('disabled', true).text('Subiendo...');
+				consoleBox.removeClass('d-none');
 				logConsole('🔹 Subiendo config de ORBAT Link...');
-				$.post(ajaxurl, {
+				const postData = {
 					action: 'rmm_upload_orbatlink_config',
 					server_id: serverId
-				}, function(res) {
+				};
+				if (orbatLinkEnabled) { $.extend(postData, getOrbatLinkData()); }
+				$.post(ajaxurl, postData, function(res) {
 					if (res.success) {
 						logConsole('✅ Config de ORBAT Link subido correctamente');
+						$('#orbatlink_upload_result').css('color','#10b981').text('✅ ' + res.data);
 					} else {
 						logConsole('❌ Error: ' + (res.data || 'Desconocido'), true);
+						$('#orbatlink_upload_result').css('color','#ef4444').text('❌ ' + (res.data || 'Error'));
 					}
 					btn.prop('disabled', false).text('🔗 Subir Config ORBAT Link');
+					$('#orbatlink_upload_result').delay(5000).fadeOut(function(){ $(this).text(''); });
 				});
 			});
 
@@ -1891,6 +2024,9 @@ class RMM_Admin_Page {
 
 				if (!serverId || !filename) return;
 
+				// Validate ORBAT Link if enabled
+				if (orbatLinkEnabled && !validateOrbatLink()) return;
+
 				if (!confirm('¿Seguro que quieres cargar esta partida y reiniciar el servidor?')) return;
 
 				consoleBox.removeClass('d-none');
@@ -1898,12 +2034,15 @@ class RMM_Admin_Page {
 				logConsole('🚀 Iniciando secuencia de despliegue de partida...');
 				btnLaunch.prop('disabled', true);
 
-				$.post(ajaxurl, {
-								action: 'rmm_load_preset',
-								server_id: serverId,
-								filename: filename,
-								notify_telegram: $('#tg_notify_switch').is(':checked') ? 1 : 0
-							}, function(res) {
+				const postData = {
+					action: 'rmm_load_preset',
+					server_id: serverId,
+					filename: filename,
+					notify_telegram: $('#tg_notify_switch').is(':checked') ? 1 : 0
+				};
+				if (orbatLinkEnabled) { $.extend(postData, getOrbatLinkData()); }
+
+				$.post(ajaxurl, postData, function(res) {
 					if (res.data && res.data.progress) {
 						res.data.progress.forEach(function(step) {
 							logConsole(step);
@@ -2637,10 +2776,19 @@ class RMM_Admin_Page {
 				wp_send_json_error( __( 'Parámetros no válidos', 'reforger-milsim' ) );
 			}
 
+			$orbatlink_data = array(
+				'session_id'    => sanitize_text_field( $_POST['orbatlink_session_id'] ?? '' ),
+				'preset_id'     => intval( $_POST['orbatlink_preset_id'] ?? 0 ),
+				'map_name'      => sanitize_key( $_POST['orbatlink_map_name'] ?? '' ),
+				'scenario_id'   => sanitize_text_field( $_POST['orbatlink_scenario_id'] ?? '' ),
+				'scenario_name' => sanitize_text_field( $_POST['orbatlink_scenario_name'] ?? '' ),
+				'mission_id'    => sanitize_text_field( $_POST['orbatlink_mission_id'] ?? '' ),
+			);
+
 			$progress = array();
 			try {
 				$ptero = new RMM_Pterodactyl_Handler();
-				$ptero->load_preset( $server_id, $filename, $progress, $notify );
+				$ptero->load_preset( $server_id, $filename, $progress, $notify, $orbatlink_data );
 			wp_send_json_success( array( 'progress' => $progress ) );
 		} catch ( Exception $e ) {
 			$progress[] = '❌ Error: ' . $e->getMessage();
@@ -2707,9 +2855,18 @@ class RMM_Admin_Page {
 			wp_send_json_error( __( 'Selecciona un servidor', 'reforger-milsim' ) );
 		}
 		
+		$orbatlink_data = array(
+			'session_id'    => sanitize_text_field( $_POST['orbatlink_session_id'] ?? '' ),
+			'preset_id'     => intval( $_POST['orbatlink_preset_id'] ?? 0 ),
+			'map_name'      => sanitize_key( $_POST['orbatlink_map_name'] ?? '' ),
+			'scenario_id'   => sanitize_text_field( $_POST['orbatlink_scenario_id'] ?? '' ),
+			'scenario_name' => sanitize_text_field( $_POST['orbatlink_scenario_name'] ?? '' ),
+			'mission_id'    => sanitize_text_field( $_POST['orbatlink_mission_id'] ?? '' ),
+		);
+		
 		try {
 			$ptero = new RMM_Pterodactyl_Handler();
-			$ptero->upload_orbat_link_config( $server_id );
+			$ptero->upload_orbat_link_config( $server_id, $orbatlink_data );
 			wp_send_json_success( __( 'Config de ORBAT Link subido correctamente', 'reforger-milsim' ) );
 		} catch ( Exception $e ) {
 			wp_send_json_error( $e->getMessage() );
@@ -2802,6 +2959,61 @@ class RMM_Admin_Page {
 		} catch ( Exception $e ) {
 			wp_send_json_error( $e->getMessage() );
 		}
+	}
+
+	/**
+	 * AJAX: Obtener estado de ORBAT Link (si esta habilitado)
+	 */
+	public function ajax_get_orbatlink_status() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( __( 'Acceso denegado', 'reforger-milsim' ) );
+		}
+		$enabled = get_option( 'rmm_orbatlink_enabled', '1' ) === '1';
+		wp_send_json_success( array( 'enabled' => $enabled ) );
+	}
+
+	/**
+	 * AJAX: Obtener lista de presets DAGR desde la BD local
+	 */
+	public function ajax_get_dagr_presets() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( __( 'Acceso denegado', 'reforger-milsim' ) );
+		}
+		global $wpdb;
+		$table = $wpdb->prefix . 'rmm_dagr_presets';
+		$presets = $wpdb->get_results( "SELECT id, title, map_name FROM $table ORDER BY title ASC" );
+		wp_send_json_success( $presets );
+	}
+
+	/**
+	 * AJAX: Obtener lista de mapas DAGR disponibles
+	 */
+	public function ajax_get_dagr_maps() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( __( 'Acceso denegado', 'reforger-milsim' ) );
+		}
+		global $wpdb;
+		$table = $wpdb->prefix . 'rmm_dagr_maps';
+		$maps = $wpdb->get_results( "SELECT id, map_name, display_name FROM $table WHERE enabled = 1 ORDER BY display_name ASC" );
+		wp_send_json_success( $maps );
+	}
+
+	/**
+	 * AJAX: Actualizar el map_name de un preset DAGR
+	 */
+	public function ajax_update_preset_map() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( __( 'Acceso denegado', 'reforger-milsim' ) );
+		}
+		$preset_id = intval( $_POST['preset_id'] ?? 0 );
+		$map_name  = sanitize_key( $_POST['map_name'] ?? '' );
+		if ( ! $preset_id || ! $map_name ) {
+			wp_send_json_error( __( 'Faltan parametros', 'reforger-milsim' ) );
+		}
+		global $wpdb;
+		$table = $wpdb->prefix . 'rmm_dagr_presets';
+		$updated = $wpdb->update( $table, array( 'map_name' => $map_name ), array( 'id' => $preset_id ) );
+		wp_send_json_success( array( 'updated' => ( $updated !== false ) ) );
 	}
 
 	/**

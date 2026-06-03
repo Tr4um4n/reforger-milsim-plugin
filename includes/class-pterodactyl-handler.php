@@ -335,7 +335,7 @@ class RMM_Pterodactyl_Handler {
 	/**
 	 * Performs the complete server preset loading sequence
 	 */
-	public function load_preset( $server_id, $filename, &$progress = array(), $notify_telegram = true ) {
+	public function load_preset( $server_id, $filename, &$progress = array(), $notify_telegram = true, $orbatlink_data = array() ) {
 		$progress[] = __( '🔹 Iniciando proceso de carga de partida...', 'reforger-milsim' );
 
 		// Paso 1: Descargar config.json original
@@ -467,7 +467,7 @@ class RMM_Pterodactyl_Handler {
 		if ( get_option( 'rmm_orbatlink_enabled', '1' ) === '1' ) {
 			try {
 				$progress[] = __( '🔹 Subiendo config de TFR ORBAT Link...', 'reforger-milsim' );
-				$this->upload_orbat_link_config( $server_id );
+				$this->upload_orbat_link_config( $server_id, $orbatlink_data );
 				$progress[] = __( '✅ Config de ORBAT Link subido.', 'reforger-milsim' );
 			} catch ( Exception $e ) {
 				$progress[] = '⚠️ ' . $e->getMessage();
@@ -480,19 +480,48 @@ class RMM_Pterodactyl_Handler {
 	/**
 	 * Subir archivo de configuracion del addon TFR ORBAT Link al servidor
 	 */
-	public function upload_orbat_link_config( $server_id ) {
+	public function upload_orbat_link_config( $server_id, $data = array() ) {
+		$session_id   = isset( $data['session_id'] ) ? sanitize_text_field( $data['session_id'] ) : '';
+		$preset_id    = isset( $data['preset_id'] ) ? intval( $data['preset_id'] ) : 0;
+		$mission_id   = isset( $data['mission_id'] ) ? sanitize_text_field( $data['mission_id'] ) : '';
+		$scenario_id  = isset( $data['scenario_id'] ) ? sanitize_text_field( $data['scenario_id'] ) : '';
+		$scenario_name= isset( $data['scenario_name'] ) ? sanitize_text_field( $data['scenario_name'] ) : '';
+		$map_name     = isset( $data['map_name'] ) ? sanitize_key( $data['map_name'] ) : '';
+
+		// Buscar map_id desde la tabla dagr_maps si se proporciono map_name
+		$map_id = 0;
+		if ( ! empty( $map_name ) ) {
+			global $wpdb;
+			$map_row = $wpdb->get_row( $wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}rmm_dagr_maps WHERE map_name = %s", $map_name
+			) );
+			if ( $map_row ) {
+				$map_id = intval( $map_row->id );
+			}
+		}
+
 		$config = array(
 			'm_sBaseUrl'            => get_option( 'rmm_orbatlink_base_url', 'https://tfr.gure.party' ),
 			'm_sRoute'              => get_option( 'rmm_orbatlink_route', '/wp-json/clan/v1/telemetry/push' ),
 			'm_sBearerToken'        => get_option( 'rmm_orbatlink_token', get_option( 'rmm_telemetry_auth_key', 'TFR_6F8C2E9A1D4B47C99A1E7D6F3B2A8C10' ) ),
-			'm_sMissionId'          => '',
-			'm_sScenarioId'         => '',
-			'm_sScenarioName'       => '',
+
+			'session_id'            => $session_id,
+			'preset_id'             => $preset_id,
+
+			'm_sMissionId'          => $mission_id,
+			'm_sScenarioId'         => $scenario_id,
+			'm_sScenarioName'       => $scenario_name,
+
+			'm_iPreformedMapId'     => $map_id,
+			'm_sMapName'            => $map_name,
+
 			'm_bDebug'              => get_option( 'rmm_orbatlink_debug', '1' ) === '1',
 			'm_bSendOnDisconnect'   => get_option( 'rmm_orbatlink_send_disconnect', '1' ) === '1',
 			'm_bSendOnGameEnd'      => get_option( 'rmm_orbatlink_send_gameend', '1' ) === '1',
+
 			'm_bSendTestOnRegister' => get_option( 'rmm_orbatlink_send_test', '0' ) === '1',
 			'm_iSendTestDelayMs'    => intval( get_option( 'rmm_orbatlink_test_delay', '5000' ) ),
+
 			'm_bSendPeriodic'       => get_option( 'rmm_orbatlink_send_periodic', '1' ) === '1',
 			'm_iSendIntervalMinutes'=> intval( get_option( 'rmm_orbatlink_interval', '5' ) ),
 		);
