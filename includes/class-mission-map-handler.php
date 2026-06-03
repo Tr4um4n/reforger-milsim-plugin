@@ -742,8 +742,8 @@ class RMM_Mission_Map_Handler {
 		.dagr-wp-item .wp-info{font-size:9px;color:#999}
 		.dagr-wp-item .wp-del{color:#ef4444;cursor:pointer;font-size:14px;padding:0 4px}
 
-		/* ── Layers panel (appears to the right of buttons) ── */
-		#dagr-layer-panel{position:absolute;top:40px;left:60px;background:rgba(0,0,0,.93);border:1px solid #333;border-radius:4px;color:#FFB000;padding:8px 10px;font-size:11px;display:none;min-width:120px;z-index:10000}
+		/* ── Layers panel (to the right of buttons) ── */
+		#dagr-layer-panel{position:absolute;top:170px;left:72px;background:rgba(0,0,0,.93);border:1px solid #333;border-radius:4px;color:#FFB000;padding:10px 12px;font-size:12px;display:none;min-width:130px;z-index:10000}
 		#dagr-layer-panel.open{display:block}
 		#dagr-layer-panel h4{font-size:11px;color:#FFB000;margin:0 0 5px;border-bottom:1px solid #2a2a2a;padding-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
 		#dagr-layer-panel label{display:flex;align-items:center;padding:5px 0;gap:6px;cursor:pointer;font-size:11px}
@@ -774,11 +774,11 @@ class RMM_Mission_Map_Handler {
 				<button class="dagr-phys-btn" id="btn-wp-menu">WP</button>
 			</div>
 
-			<!-- Left button column (below top bar) -->
-			<div style="position:absolute;top:40px;left:5px;display:flex;flex-direction:column;gap:6px">
-				<button class="dagr-phys-btn" id="btn-map">MAP</button>
-				<button class="dagr-phys-btn" id="btn-compass">CMP</button>
-				<button class="dagr-phys-btn" id="btn-layers">LAY</button>
+			<!-- Left button column (below top bar, pushed down to not overlap zoom) -->
+			<div style="position:absolute;top:170px;left:8px;display:flex;flex-direction:column;gap:8px">
+				<button class="dagr-phys-btn" id="btn-map" style="min-width:56px;min-height:44px;font-size:13px">MAP</button>
+				<button class="dagr-phys-btn" id="btn-compass" style="min-width:56px;min-height:44px;font-size:13px">CMP</button>
+				<button class="dagr-phys-btn" id="btn-layers" style="min-width:56px;min-height:44px;font-size:13px">LAY</button>
 			</div>
 
 			<!-- Layers panel (to the RIGHT of buttons, NOT on top) -->
