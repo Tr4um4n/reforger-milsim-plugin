@@ -319,7 +319,19 @@ class RMM_DAGR_Handler {
 					$active_sess = $wpdb->get_row( "SELECT session_id FROM $sess_table WHERE status = 'active' ORDER BY started_at DESC LIMIT 1" );
 				}
 				if ( $active_sess ) {
-					$show_dagr_btn = true;
+					// Solo mostrar DAGR si el steamid del usuario aparece en la sesión
+					$pos_table = $wpdb->prefix . 'rmm_mission_positions';
+					$in_game = $wpdb->get_var( $wpdb->prepare(
+						"SELECT COUNT(*) FROM $pos_table WHERE session_id = %s AND steamid = %s",
+						$active_sess->session_id, $steamid
+					) );
+					if ( ! $in_game ) {
+						// Fallback: mirar si tiene stats de esta sesión en user_meta
+						$in_game = get_user_meta( $current_user_id, 'rmm_pos_x', true ) ? 1 : 0;
+					}
+					if ( $in_game ) {
+						$show_dagr_btn = true;
+					}
 					$dagr_session = $active_sess->session_id;
 					$tok_table = $wpdb->prefix . 'rmm_microdagr_tokens';
 					$existing = $wpdb->get_row( $wpdb->prepare(
