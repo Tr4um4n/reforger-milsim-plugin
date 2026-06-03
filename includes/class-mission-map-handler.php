@@ -690,17 +690,18 @@ class RMM_Mission_Map_Handler {
 <html>
 <head>
 	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+	<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 	<meta name="apple-mobile-web-app-capable" content="yes">
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 	<title>MicroDAGR</title>
 	<style>
 		/* ══ ACE3 MicroDAGR Device ══ */
+		:root{--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px)}
 		*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 		html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a;font-family:'Courier New',monospace;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 
 		/* Device shell */
-		#dagr-shell{position:fixed;top:0;left:0;right:0;bottom:0;background:#1a1a1a;display:flex;flex-direction:column;padding:8px 5px 5px 5px}
+		#dagr-shell{position:fixed;top:0;left:0;right:0;bottom:0;background:#1a1a1a;display:flex;flex-direction:column;padding:var(--safe-top) 5px var(--safe-bottom) 5px}
 		#dagr-bezel-top{height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;color:#555;font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:bold}
 		#dagr-bezel-top span{color:#666}
 
@@ -724,7 +725,7 @@ class RMM_Mission_Map_Handler {
 		#dagr-ui button{-webkit-tap-highlight-color:transparent;touch-action:manipulation;outline:none}
 
 		/* ── HUD (Bottom bar) ── */
-		#dagr-hud{position:absolute;bottom:0;left:0;right:0;height:50px;background:rgba(0,0,0,.93);color:#FFB000;display:flex;justify-content:space-between;align-items:center;padding:0 8px;border-top:1px solid #333;font-size:11px;letter-spacing:.04em}
+		#dagr-hud{position:absolute;bottom:0;left:0;right:0;height:56px;padding:0 8px 6px 8px;background:rgba(0,0,0,.93);color:#FFB000;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #333;font-size:11px;letter-spacing:.04em}
 		#dagr-hud .hud-block{display:flex;flex-direction:column;align-items:center;min-width:48px}
 		#dagr-hud .hud-label{font-size:8px;color:#777;text-transform:uppercase}
 		#dagr-hud .hud-value{font-size:14px;font-weight:bold;color:#FFB000}
@@ -736,10 +737,10 @@ class RMM_Mission_Map_Handler {
 		#dagr-compass .hdg{position:absolute;bottom:-3px;font-size:8px;color:#999;line-height:1;pointer-events:none}
 
 		/* ── Top bar ── */
-		#dagr-topbar{position:absolute;top:0;left:0;right:0;height:32px;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:space-between;padding:0 6px;border-bottom:1px solid #333;font-size:10px;color:#999}
+		#dagr-topbar{position:absolute;top:0;left:0;right:0;height:32px;padding:var(--safe-top) 6px 0 6px;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #333;font-size:10px;color:#999}
 
 		/* ── Waypoint panel (top-right) ── */
-		#dagr-wp-panel{position:absolute;top:38px;right:6px;background:rgba(0,0,0,.93);border:1px solid #333;border-radius:4px;color:#FFB000;padding:8px 10px;max-height:50vh;overflow-y:auto;font-size:10px;min-width:130px;max-width:170px;display:none;z-index:10000}
+		#dagr-wp-panel{position:absolute;top:calc(38px + var(--safe-top));right:6px;background:rgba(0,0,0,.93);border:1px solid #333;border-radius:4px;color:#FFB000;padding:8px 10px;max-height:50vh;overflow-y:auto;font-size:10px;min-width:130px;max-width:170px;display:none;z-index:10000}
 		#dagr-wp-panel.open{display:block}
 		#dagr-wp-panel h4{font-size:11px;color:#FFB000;margin:0 0 5px;border-bottom:1px solid #2a2a2a;padding-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
 		.dagr-wp-item{display:flex;flex-direction:column;padding:5px 0;border-bottom:1px solid #1a1a1a;gap:2px}
@@ -782,7 +783,7 @@ class RMM_Mission_Map_Handler {
 			</div>
 
 			<!-- Left button column (pushed down, 4 buttons) -->
-			<div style="position:absolute;top:170px;left:8px;display:flex;flex-direction:column;gap:8px">
+			<div style="position:absolute;top:calc(170px + var(--safe-top));left:8px;display:flex;flex-direction:column;gap:8px">
 				<button class="dagr-phys-btn" id="btn-mark" style="min-width:56px;min-height:44px;font-size:13px">MARK</button>
 				<button class="dagr-phys-btn" id="btn-map" style="min-width:56px;min-height:44px;font-size:13px">MAP</button>
 				<button class="dagr-phys-btn" id="btn-compass" style="min-width:56px;min-height:44px;font-size:13px">CMP</button>
@@ -804,11 +805,11 @@ class RMM_Mission_Map_Handler {
 			</div>
 
 			<!-- Floating action buttons -->
-			<button class="dagr-icon-btn" id="btn-center" style="position:absolute;bottom:60px;right:8px" title="CENTRAR">◎</button>
-			<button class="dagr-icon-btn" id="btn-add-wp" style="position:absolute;bottom:110px;right:8px" title="AÑADIR WP">+</button>
+			<button class="dagr-icon-btn" id="btn-center" style="position:absolute;bottom:80px;right:12px" title="CENTRAR">◎</button>
+			<button class="dagr-icon-btn" id="btn-add-wp" style="position:absolute;bottom:136px;right:12px" title="AÑADIR WP">+</button>
 
 			<!-- WP creation form (grid coordinates) -->
-			<div id="dagr-wp-form" style="display:none;position:absolute;bottom:62px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.95);border:2px solid #FFB000;border-radius:6px;padding:12px;z-index:99999;min-width:240px;text-align:center;box-shadow:0 0 20px rgba(255,176,0,.2)">
+			<div id="dagr-wp-form" style="display:none;position:absolute;bottom:76px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.95);border:2px solid #FFB000;border-radius:6px;padding:12px;z-index:99999;min-width:240px;text-align:center;box-shadow:0 0 20px rgba(255,176,0,.2)">
 				<div style="color:#FFB000;font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">NUEVO WAYPOINT</div>
 				<div style="display:flex;gap:4px;align-items:center;margin:3px 0">
 					<span style="color:#888;font-size:10px;min-width:14px">E</span>
