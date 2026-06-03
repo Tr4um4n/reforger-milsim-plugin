@@ -1034,7 +1034,7 @@ class RMM_Mission_Map_Handler {
 				var isActive=(i===activeWpIdx);
 				var ic=L.divIcon({html:'<div style="width:'+(isActive?14:10)+'px;height:'+(isActive?14:10)+'px;background:#FFB000;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 '+(isActive?10:6)+'px rgba(255,176,0,.6)"></div>',iconSize:[18,18],iconAnchor:[9,9]});
 				var mk=L.marker(g2ll(w.pos_x,w.pos_y),{icon:ic,zIndexOffset:isActive?9998:0}).bindTooltip('WP: '+w.label,{direction:'top',offset:[0,-10]});
-				layers.waypoints.push(mk);if($('#dagr-layer-panel [data-layer=waypoints]').checked)mk.addTo(dagrMap);
+				layers.waypoints.push(mk);if(layerVisible.waypoints)mk.addTo(dagrMap);
 
 				// Only render active WP in panel (or all if total<=1 with nav hidden)
 				if(i===activeWpIdx){
@@ -1107,7 +1107,7 @@ class RMM_Mission_Map_Handler {
 						mePos={x:Number(p.pos_x),y:Number(p.pos_y),z:Number(p.pos_z||0),h:Number(p.heading||0),s:Number(p.speed||0)};
 						meMarker.setLatLng(ll);
 						// Respetar capa de jugadores también para "me"
-						if($('#dagr-layer-panel [data-layer=players]').checked){if(!dagrMap.hasLayer(meMarker))dagrMap.addLayer(meMarker)}
+						if(layerVisible.players){if(!dagrMap.hasLayer(meMarker))dagrMap.addLayer(meMarker)}
 						else{dagrMap.removeLayer(meMarker)}
 						if(followMe)dagrMap.panTo(ll,{animate:true});
 						updHUD(p);
@@ -1118,7 +1118,7 @@ class RMM_Mission_Map_Handler {
 						var ic=L.divIcon({html:'<div style="width:9px;height:9px;background:'+cl+';border:2px solid #fff;border-radius:50%"></div>',iconSize:[13,13],iconAnchor:[6,6]});
 						var mk=L.marker(ll,{icon:ic}).bindTooltip(p.player_name||'',{direction:'top',offset:[0,-8]});
 						layers.players.push(mk);
-						if($('#dagr-layer-panel [data-layer=players]').checked)mk.addTo(dagrMap);
+						if(layerVisible.players)mk.addTo(dagrMap);
 					}
 				});
 				if(!foundMe){$('#dagr-status').textContent='NO ENCONTRADO: mi steamid no coincide con ningún jugador';$('#dagr-status').style.color='#ef4444'}
@@ -1134,7 +1134,7 @@ class RMM_Mission_Map_Handler {
 				var ic=L.divIcon({html:mkIcons[mk.type]||mkDef,iconSize:[18,18],iconAnchor:[9,9]});
 				var mkr=L.marker(ll,{icon:ic}).bindTooltip(mk.label||mk.type,{direction:'top',offset:[0,-10]});
 				layers.markers.push(mkr);
-				if($('#dagr-layer-panel [data-layer=markers]').checked)mkr.addTo(dagrMap);
+				if(layerVisible.markers)mkr.addTo(dagrMap);
 			});
 		});
 
@@ -1259,12 +1259,14 @@ class RMM_Mission_Map_Handler {
 	});
 
 	/* ── Layer toggles (global function for inline onchange) ── */
+	var layerVisible = {players:true, markers:true, waypoints:true};
 	window.dagrToggleLayer = function(cb){
 		if(!dagrMap)return;
 		var k=cb.dataset.layer, v=cb.checked;
+		layerVisible[k]=v;
 		(layers[k]||[]).forEach(function(m){v?dagrMap.addLayer(m):dagrMap.removeLayer(m)});
 		if(k==='players'&&meMarker){v?dagrMap.addLayer(meMarker):dagrMap.removeLayer(meMarker)}
-		toast(v?'Capa '+k+' ON':'Capa '+k+' OFF');
+		toast('Capa '+k+(v?' ON':' OFF'));
 	};
 
 	/* ── Close panels when tapping map ── */
