@@ -408,12 +408,12 @@ class RMM_DAGR_Handler {
 		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 		<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 		<div id="<?php echo $uid; ?>" style="width:100%;height:<?php echo esc_attr( $atts['height'] ); ?>;background:#0d1117;border:1px solid #21262d;border-radius:8px;position:relative;">
-			<div class="dagr-mode-toggle" style="position:absolute;top:10px;right:10px;z-index:1000;display:flex;gap:4px;">
+			<div class="dagr-mode-toggle" style="position:absolute;top:35px;right:10px;z-index:1000;display:flex;gap:4px;">
 				<button class="dagr-mode-btn active" data-mode="personal" style="background:#1a1d21;color:#849b4c;border:1px solid #849b4c;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:0.7rem;font-weight:700;text-transform:uppercase;font-family:Inter,sans-serif;">👤 Yo</button>
 				<button class="dagr-mode-btn" data-mode="global" style="background:#1a1d21;color:#555;border:1px solid #333;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:0.7rem;font-weight:700;text-transform:uppercase;font-family:Inter,sans-serif;">🌍 Global</button>
 			</div>
 			<?php if ( $show_dagr_btn ) : ?>
-			<div style="position:absolute;top:50px;right:10px;z-index:1000;">
+			<div style="position:absolute;top:75px;right:10px;z-index:1000;">
 				<button onclick="openTacticalDAGR('<?php echo esc_js( $dagr_token ); ?>','<?php echo esc_js( $dagr_session ); ?>')" style="background:#142614;border:1px solid #2a502a;border-bottom:3px solid #1a301a;color:#4ade80;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:0.7rem;font-weight:700;text-transform:uppercase;font-family:Inter,sans-serif;">📡 DAGR</button>
 			</div>
 			<?php endif; ?>
