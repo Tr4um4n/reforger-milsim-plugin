@@ -1264,29 +1264,9 @@ class RMM_Mission_Map_Handler {
 		else{ov.style.display='block';this.classList.add('on');if(mePos){updHUD({pos_x:mePos.x,pos_y:mePos.y,pos_z:mePos.z,heading:mePos.h,speed:mePos.s})};toast('Brújula visible')}
 	};
 
-	// DRAW button: dibujar líneas (2 toques = 1 línea) o borrar si ya hay
-	var drawTimer=null;
+	// DRAW button: solo ON/OFF (sin CLEAR). Líneas se borran con doble toque
 	$('#btn-draw').onclick=function(){
 		if(!dagrMap)return;
-		// Si hay líneas y no estamos dibujando → borrar seleccionadas o preguntar
-		if(layers.lines.length>0 && !drawing){
-			if(selectedLines.length>0){
-				// Borrar solo las seleccionadas
-				selectedLines.forEach(function(l){dagrMap.removeLayer(l);var i=layers.lines.indexOf(l);if(i>=0)layers.lines.splice(i,1)});
-				selectedLines=[];
-				if(layers.lines.length===0){this.textContent='DRAW';this.classList.remove('on')}
-				else this.textContent='CLEAR';
-				toast('Líneas seleccionadas borradas');
-			}else{
-				if(confirm('¿Borrar TODAS las líneas ('+layers.lines.length+')?')){
-					layers.lines.forEach(function(l){dagrMap.removeLayer(l)});
-					layers.lines=[];selectedLines=[];
-					this.textContent='DRAW';this.classList.remove('on');
-					toast('Todas las líneas borradas');
-				}
-			}
-			return;
-		}
 		drawing=!drawing;
 		this.classList.toggle('on',drawing);
 		this.textContent=drawing?'DRAW*':'DRAW';
@@ -1294,13 +1274,14 @@ class RMM_Mission_Map_Handler {
 			dagrMap.getContainer().style.cursor='crosshair';
 			drawFirst=null;
 			if(drawTmp){dagrMap.removeLayer(drawTmp);drawTmp=null}
+			// Deseleccionar al entrar en modo dibujo
+			selectedLines.forEach(function(l){l.setStyle({color:'#FFB000',weight:3})});
+			selectedLines=[];
 			toast('DRAW ON — 2 toques = línea');
 		}else{
 			dagrMap.getContainer().style.cursor='';
 			if(drawTmp){dagrMap.removeLayer(drawTmp);drawTmp=null}
 			drawFirst=null;
-			if(layers.lines.length>0){this.textContent='CLEAR';this.classList.remove('on')}
-			else{this.textContent='DRAW';this.classList.remove('on')}
 			toast('DRAW OFF');
 		}
 	};
@@ -1356,14 +1337,25 @@ class RMM_Mission_Map_Handler {
 					drawTmp=L.circleMarker(e.latlng,{radius:6,color:'#FFB000',fillColor:'#FFB000',fillOpacity:0.6,weight:2}).addTo(dagrMap);
 					toast('Toca el segundo punto...');
 				}else{
-					// Segundo punto → crear línea con handler de selección
-					var line=L.polyline([drawFirst,e.latlng],{color:'#FFB000',weight:3,opacity:0.8,dashArray:'8,6'}).addTo(dagrMap);
-					line.on('click',function(ev){
+					// Segundo punto → crear línea (doble toque = borrar, radio amplio)
+					var line=L.polyline([drawFirst,e.latlng],{color:'#FFB000',weight:3,opacity:0.8,dashArray:'8,6',lineCap:'round',lineJoin:'round'}).addTo(dagrMap);
+					// Capa invisible más gruesa para facilitar el toque
+					var hitArea=L.polyline([drawFirst,e.latlng],{color:'transparent',weight:20,opacity:0}).addTo(dagrMap);
+					hitArea.on('click',function(ev){
 						L.DomEvent.stop(ev);
 						var idx=selectedLines.indexOf(line);
-						if(idx>=0){selectedLines.splice(idx,1);line.setStyle({color:'#FFB000',weight:3})}
-						else{selectedLines.push(line);line.setStyle({color:'#ef4444',weight:4})}
-						$('#btn-draw').textContent=selectedLines.length>0?'CLEAR('+selectedLines.length+')':'CLEAR';
+						if(idx>=0){
+							// Segundo toque: borrar
+							dagrMap.removeLayer(line);dagrMap.removeLayer(hitArea);
+							var i=layers.lines.indexOf(line);if(i>=0)layers.lines.splice(i,1);
+							selectedLines.splice(idx,1);
+							toast('Línea borrada');
+						}else{
+							// Primer toque: seleccionar
+							selectedLines.push(line);
+							line.setStyle({color:'#ef4444',weight:4});
+							toast('Línea seleccionada — toca otra vez para borrar');
+						}
 					});
 					layers.lines.push(line);
 					if(!layerVisible.lines)dagrMap.removeLayer(line);
@@ -1372,15 +1364,13 @@ class RMM_Mission_Map_Handler {
 					var g1=ll2g(e.latlng);
 					var d=mePos?Math.round(dist(mePos,{x:g1.x,y:g1.y})):0;
 					toast('Línea creada'+(d?' ('+d+'m)':''));
-					$('#btn-draw').textContent='CLEAR';
 				}
 				return;
 			}
-			// Close panels + deselect lines when tapping empty space
+			// Deselect lines when tapping empty space
 			if(selectedLines.length>0){
 				selectedLines.forEach(function(l){l.setStyle({color:'#FFB000',weight:3})});
 				selectedLines=[];
-				$('#btn-draw').textContent='CLEAR';
 			}
 			if($('#dagr-layer-panel').classList.contains('open')){$('#dagr-layer-panel').classList.remove('open');$('#btn-layers').classList.remove('on')}
 		});
