@@ -863,7 +863,7 @@ class RMM_Mission_Map_Handler {
 	var SID='<?php echo esc_js( $session ); ?>';
 	var MAP_NAME='<?php echo esc_js( $map_name ); ?>';
 	var MY_STEAM='<?php echo esc_js( $valid->steamid ); ?>';
-	var dagrMap=null, mePos=null, followMe=false, addingWP=false, drawing=false, drawFirst=null, drawTmp=null;
+	var dagrMap=null, mePos=null, followMe=false, addingWP=false, drawing=false, drawFirst=null, drawTmp=null, selectedLines=[];
 	var layers={players:[],markers:[],waypoints:[],lines:[]};
 
 	/* ── Find Leaflet instance via _rmmMap reference ── */
@@ -1264,12 +1264,32 @@ class RMM_Mission_Map_Handler {
 		else{ov.style.display='block';this.classList.add('on');if(mePos){updHUD({pos_x:mePos.x,pos_y:mePos.y,pos_z:mePos.z,heading:mePos.h,speed:mePos.s})};toast('Brújula visible')}
 	};
 
-	// DRAW button: dibujar líneas (2 toques = 1 línea, long-press = borrar)
+	// DRAW button: dibujar líneas (2 toques = 1 línea) o borrar si ya hay
 	var drawTimer=null;
 	$('#btn-draw').onclick=function(){
 		if(!dagrMap)return;
+		// Si hay líneas y no estamos dibujando → borrar seleccionadas o preguntar
+		if(layers.lines.length>0 && !drawing){
+			if(selectedLines.length>0){
+				// Borrar solo las seleccionadas
+				selectedLines.forEach(function(l){dagrMap.removeLayer(l);var i=layers.lines.indexOf(l);if(i>=0)layers.lines.splice(i,1)});
+				selectedLines=[];
+				if(layers.lines.length===0){this.textContent='DRAW';this.classList.remove('on')}
+				else this.textContent='CLEAR';
+				toast('Líneas seleccionadas borradas');
+			}else{
+				if(confirm('¿Borrar TODAS las líneas ('+layers.lines.length+')?')){
+					layers.lines.forEach(function(l){dagrMap.removeLayer(l)});
+					layers.lines=[];selectedLines=[];
+					this.textContent='DRAW';this.classList.remove('on');
+					toast('Todas las líneas borradas');
+				}
+			}
+			return;
+		}
 		drawing=!drawing;
 		this.classList.toggle('on',drawing);
+		this.textContent=drawing?'DRAW*':'DRAW';
 		if(drawing){
 			dagrMap.getContainer().style.cursor='crosshair';
 			drawFirst=null;
@@ -1279,13 +1299,11 @@ class RMM_Mission_Map_Handler {
 			dagrMap.getContainer().style.cursor='';
 			if(drawTmp){dagrMap.removeLayer(drawTmp);drawTmp=null}
 			drawFirst=null;
+			if(layers.lines.length>0){this.textContent='CLEAR';this.classList.remove('on')}
+			else{this.textContent='DRAW';this.classList.remove('on')}
 			toast('DRAW OFF');
 		}
 	};
-	// Long-press DRAW para borrar todas las líneas
-	$('#btn-draw').addEventListener('touchstart',function(){drawTimer=setTimeout(function(){if(!dagrMap)return;layers.lines.forEach(function(l){dagrMap.removeLayer(l)});layers.lines=[];toast('Líneas borradas')},800)});
-	$('#btn-draw').addEventListener('touchend',function(){clearTimeout(drawTimer)});
-	$('#btn-draw').addEventListener('touchmove',function(){clearTimeout(drawTimer)});
 
 	/* ── WP actions: delete + navigate (ANT/SIG) ── */
 	$('#dagr-wp-items').addEventListener('click',function(e){
@@ -1338,8 +1356,15 @@ class RMM_Mission_Map_Handler {
 					drawTmp=L.circleMarker(e.latlng,{radius:6,color:'#FFB000',fillColor:'#FFB000',fillOpacity:0.6,weight:2}).addTo(dagrMap);
 					toast('Toca el segundo punto...');
 				}else{
-					// Segundo punto → crear línea
+					// Segundo punto → crear línea con handler de selección
 					var line=L.polyline([drawFirst,e.latlng],{color:'#FFB000',weight:3,opacity:0.8,dashArray:'8,6'}).addTo(dagrMap);
+					line.on('click',function(ev){
+						L.DomEvent.stop(ev);
+						var idx=selectedLines.indexOf(line);
+						if(idx>=0){selectedLines.splice(idx,1);line.setStyle({color:'#FFB000',weight:3})}
+						else{selectedLines.push(line);line.setStyle({color:'#ef4444',weight:4})}
+						$('#btn-draw').textContent=selectedLines.length>0?'CLEAR('+selectedLines.length+')':'CLEAR';
+					});
 					layers.lines.push(line);
 					if(!layerVisible.lines)dagrMap.removeLayer(line);
 					if(drawTmp){dagrMap.removeLayer(drawTmp);drawTmp=null}
@@ -1347,10 +1372,16 @@ class RMM_Mission_Map_Handler {
 					var g1=ll2g(e.latlng);
 					var d=mePos?Math.round(dist(mePos,{x:g1.x,y:g1.y})):0;
 					toast('Línea creada'+(d?' ('+d+'m)':''));
+					$('#btn-draw').textContent='CLEAR';
 				}
 				return;
 			}
-			// Close panels
+			// Close panels + deselect lines when tapping empty space
+			if(selectedLines.length>0){
+				selectedLines.forEach(function(l){l.setStyle({color:'#FFB000',weight:3})});
+				selectedLines=[];
+				$('#btn-draw').textContent='CLEAR';
+			}
 			if($('#dagr-layer-panel').classList.contains('open')){$('#dagr-layer-panel').classList.remove('open');$('#btn-layers').classList.remove('on')}
 		});
 	});
