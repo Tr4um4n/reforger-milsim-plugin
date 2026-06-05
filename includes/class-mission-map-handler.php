@@ -15,6 +15,7 @@ class RMM_Mission_Map_Handler {
 		// Shortcodes
 		add_shortcode( 'rmm_mission_map', array( $this, 'render_mission_map' ) );
 		add_shortcode( 'rmm_microdagr', array( $this, 'render_microdagr_button' ) );
+		add_shortcode( 'rmm_event_map', array( $this, 'render_event_map' ) );
 
 		// REST API para recibir datos del addon
 		add_action( 'rest_api_init', array( $this, 'register_rest_endpoints' ) );
@@ -25,6 +26,10 @@ class RMM_Mission_Map_Handler {
 
 		// Auto-detectar mapa al publicar misión
 		add_action( 'save_post_misiones', array( $this, 'auto_create_mission_map' ), 10, 3 );
+
+		// Metabox de selección de mapa para eventos
+		add_action( 'add_meta_boxes', array( $this, 'add_event_map_metabox' ) );
+		add_action( 'save_post_eventos_partidas', array( $this, 'save_event_map_metabox' ), 10, 3 );
 	}
 
 	/**
@@ -192,7 +197,7 @@ class RMM_Mission_Map_Handler {
 				if ( $existing ) {
 					$microdagr_token = $existing->token;
 				} else {
-					$microdagr_token = wp_generate_password( 32, false );
+					$microdagr_token = wp_generate_password( 10, false );
 					$wpdb->insert( $table_tokens, array(
 						'token'      => $microdagr_token,
 						'user_id'    => $current_user_id,
@@ -513,7 +518,7 @@ class RMM_Mission_Map_Handler {
 		if ( $existing ) {
 			$token = $existing->token;
 		} else {
-			$token = wp_generate_password( 32, false );
+			$token = wp_generate_password( 10, false );
 			$wpdb->insert( $table_tokens, array(
 				'token'      => $token,
 				'user_id'    => $current_user_id,
@@ -685,17 +690,18 @@ class RMM_Mission_Map_Handler {
 <html>
 <head>
 	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+	<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 	<meta name="apple-mobile-web-app-capable" content="yes">
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 	<title>MicroDAGR</title>
 	<style>
 		/* ══ ACE3 MicroDAGR Device ══ */
+		:root{--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px)}
 		*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 		html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a;font-family:'Courier New',monospace;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 
 		/* Device shell */
-		#dagr-shell{position:fixed;top:0;left:0;right:0;bottom:0;background:#1a1a1a;display:flex;flex-direction:column;padding:8px 5px 5px 5px}
+		#dagr-shell{position:fixed;top:0;left:0;right:0;bottom:0;background:#1a1a1a;display:flex;flex-direction:column;padding:var(--safe-top) 5px var(--safe-bottom) 5px}
 		#dagr-bezel-top{height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;color:#555;font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:bold}
 		#dagr-bezel-top span{color:#666}
 
@@ -719,7 +725,7 @@ class RMM_Mission_Map_Handler {
 		#dagr-ui button{-webkit-tap-highlight-color:transparent;touch-action:manipulation;outline:none}
 
 		/* ── HUD (Bottom bar) ── */
-		#dagr-hud{position:absolute;bottom:0;left:0;right:0;height:50px;background:rgba(0,0,0,.93);color:#FFB000;display:flex;justify-content:space-between;align-items:center;padding:0 8px;border-top:1px solid #333;font-size:11px;letter-spacing:.04em}
+		#dagr-hud{position:absolute;bottom:0;left:0;right:0;height:56px;padding:0 8px 6px 8px;background:rgba(0,0,0,.93);color:#FFB000;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #333;font-size:11px;letter-spacing:.04em}
 		#dagr-hud .hud-block{display:flex;flex-direction:column;align-items:center;min-width:48px}
 		#dagr-hud .hud-label{font-size:8px;color:#777;text-transform:uppercase}
 		#dagr-hud .hud-value{font-size:14px;font-weight:bold;color:#FFB000}
@@ -731,10 +737,10 @@ class RMM_Mission_Map_Handler {
 		#dagr-compass .hdg{position:absolute;bottom:-3px;font-size:8px;color:#999;line-height:1;pointer-events:none}
 
 		/* ── Top bar ── */
-		#dagr-topbar{position:absolute;top:0;left:0;right:0;height:32px;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:space-between;padding:0 6px;border-bottom:1px solid #333;font-size:10px;color:#999}
+		#dagr-topbar{position:absolute;top:0;left:0;right:0;height:32px;padding:var(--safe-top) 6px 0 6px;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #333;font-size:10px;color:#999}
 
 		/* ── Waypoint panel (top-right) ── */
-		#dagr-wp-panel{position:absolute;top:38px;right:6px;background:rgba(0,0,0,.93);border:1px solid #333;border-radius:4px;color:#FFB000;padding:8px 10px;max-height:50vh;overflow-y:auto;font-size:10px;min-width:130px;max-width:170px;display:none;z-index:10000}
+		#dagr-wp-panel{position:absolute;top:calc(38px + var(--safe-top));right:6px;background:rgba(0,0,0,.93);border:1px solid #333;border-radius:4px;color:#FFB000;padding:8px 10px;max-height:50vh;overflow-y:auto;font-size:10px;min-width:130px;max-width:170px;display:none;z-index:10000}
 		#dagr-wp-panel.open{display:block}
 		#dagr-wp-panel h4{font-size:11px;color:#FFB000;margin:0 0 5px;border-bottom:1px solid #2a2a2a;padding-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
 		.dagr-wp-item{display:flex;flex-direction:column;padding:5px 0;border-bottom:1px solid #1a1a1a;gap:2px}
@@ -757,6 +763,9 @@ class RMM_Mission_Map_Handler {
 		.dagr-phys-btn.on{background:#332200;border-color:#FFB000;color:#FFB000}
 		.dagr-icon-btn{width:44px;height:44px;border-radius:50%;border:2px solid #444;background:rgba(0,0,0,.75);color:#FFB000;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:bold}
 		.dagr-icon-btn.active{background:rgba(255,176,0,.2);border-color:#FFB000;color:#FFB000;box-shadow:0 0 12px rgba(255,176,0,.3)}
+		/* Player arrow marker */
+		.dagr-me-marker{background:transparent!important;border:none!important}
+		.dagr-me-arrow{transform-origin:9px 15px;transition:transform 0.3s ease}
 	</style>
 </head>
 <body>
@@ -774,7 +783,7 @@ class RMM_Mission_Map_Handler {
 			</div>
 
 			<!-- Left button column (pushed down, 4 buttons) -->
-			<div style="position:absolute;top:170px;left:8px;display:flex;flex-direction:column;gap:8px">
+			<div style="position:absolute;top:calc(170px + var(--safe-top));left:8px;display:flex;flex-direction:column;gap:8px">
 				<button class="dagr-phys-btn" id="btn-mark" style="min-width:56px;min-height:44px;font-size:13px">MARK</button>
 				<button class="dagr-phys-btn" id="btn-map" style="min-width:56px;min-height:44px;font-size:13px">MAP</button>
 				<button class="dagr-phys-btn" id="btn-compass" style="min-width:56px;min-height:44px;font-size:13px">CMP</button>
@@ -796,11 +805,11 @@ class RMM_Mission_Map_Handler {
 			</div>
 
 			<!-- Floating action buttons -->
-			<button class="dagr-icon-btn" id="btn-center" style="position:absolute;bottom:60px;right:8px" title="CENTRAR">◎</button>
-			<button class="dagr-icon-btn" id="btn-add-wp" style="position:absolute;bottom:110px;right:8px" title="AÑADIR WP">+</button>
+			<button class="dagr-icon-btn" id="btn-center" style="position:absolute;bottom:80px;right:12px" title="CENTRAR">◎</button>
+			<button class="dagr-icon-btn" id="btn-add-wp" style="position:absolute;bottom:136px;right:12px" title="AÑADIR WP">+</button>
 
 			<!-- WP creation form (grid coordinates) -->
-			<div id="dagr-wp-form" style="display:none;position:absolute;bottom:62px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.95);border:2px solid #FFB000;border-radius:6px;padding:12px;z-index:99999;min-width:240px;text-align:center;box-shadow:0 0 20px rgba(255,176,0,.2)">
+			<div id="dagr-wp-form" style="display:none;position:absolute;bottom:76px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.95);border:2px solid #FFB000;border-radius:6px;padding:12px;z-index:99999;min-width:240px;text-align:center;box-shadow:0 0 20px rgba(255,176,0,.2)">
 				<div style="color:#FFB000;font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">NUEVO WAYPOINT</div>
 				<div style="display:flex;gap:4px;align-items:center;margin:3px 0">
 					<span style="color:#888;font-size:10px;min-width:14px">E</span>
@@ -850,6 +859,7 @@ class RMM_Mission_Map_Handler {
 (function(){
 	var TOKEN='<?php echo esc_js( $token ); ?>';
 	var SID='<?php echo esc_js( $session ); ?>';
+	var MAP_NAME='<?php echo esc_js( $map_name ); ?>';
 	var MY_STEAM='<?php echo esc_js( $valid->steamid ); ?>';
 	var dagrMap=null, mePos=null, followMe=false, addingWP=false;
 	var layers={players:[],markers:[],waypoints:[]};
@@ -984,7 +994,8 @@ class RMM_Mission_Map_Handler {
 		if(!mePos)return;
 		var container=$('#dagr-compass-overlay');
 		if(container.style.display!=='block')return;
-		container.querySelectorAll('.dagr-cmp-wp').forEach(function(el){el.remove()});
+		// Clear previous WP elements
+		container.querySelectorAll('.dagr-cmp-wp,.dagr-cmp-wp-line').forEach(function(el){el.remove()});
 		var ring=container.querySelector('div');
 		var cx=70,cy=70,r=62;
 		// Solo el WP activo
@@ -996,8 +1007,15 @@ class RMM_Mission_Map_Handler {
 		var brg=bearing(mePos,wp);
 		var rel=(brg-myHeading+360)%360;
 		var rad=rel*Math.PI/180;
-		var x=cx+r*Math.sin(rad)-6;
-		var y=cy-r*Math.cos(rad)-6;
+		// Line from center to WP dot
+		var ex=cx+r*Math.sin(rad),ey=cy-r*Math.cos(rad);
+		var line=document.createElement('div');
+		line.className='dagr-cmp-wp-line';
+		var dx=ex-cx,dy=ey-cy,dist=Math.sqrt(dx*dx+dy*dy);
+		line.style.cssText='position:absolute;left:'+cx+'px;top:'+cy+'px;width:'+dist+'px;height:2px;background:#FFB000;transform-origin:0 1px;transform:rotate('+(Math.atan2(dy,dx)*180/Math.PI)+'deg);opacity:0.6;pointer-events:none;box-shadow:0 0 4px #FFB000';
+		ring.appendChild(line);
+		// Dot at WP position
+		var x=ex-6,y=ey-6;
 		var dot=document.createElement('div');
 		dot.className='dagr-cmp-wp';
 		dot.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:12px;height:12px;background:#FFB000;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 8px #FFB000;pointer-events:none';
@@ -1067,9 +1085,14 @@ class RMM_Mission_Map_Handler {
 	/* ── Marker icons ── */
 	var mkIcons={objective:'<div style="width:14px;height:14px;background:#FFB000;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 8px rgba(255,176,0,.6)"></div>',completed:'<div style="width:12px;height:12px;background:#FFB000;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(255,176,0,.4)"></div>',enemy:'<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid #ef4444;filter:drop-shadow(0 0 4px rgba(239,68,68,.6))"></div>',friendly:'<div style="width:12px;height:12px;background:#60a5fa;border:2px solid #fff;border-radius:2px;box-shadow:0 0 8px rgba(96,165,250,.6)"></div>'},mkDef='<div style="width:12px;height:12px;background:#a78bfa;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(167,139,250,.5)"></div>';
 
-	/* ── Player marker (BIG and VISIBLE) ── */
-	var meIcon=L.divIcon({html:'<div style="width:18px;height:18px;background:#FFB000;border:3px solid #fff;border-radius:50%;box-shadow:0 0 16px #FFB000,0 0 32px rgba(255,176,0,.5)"></div><div style="position:absolute;top:-15px;left:50%;margin-left:-2px;width:3px;height:12px;background:#FFB000;border-radius:2px;box-shadow:0 0 6px #FFB000"></div>',iconSize:[26,34],iconAnchor:[13,17]});
-	var meMarker=null;
+	/* ── Player marker (arrow that rotates with heading) ── */
+	var meIcon=L.divIcon({
+		className:'dagr-me-marker',
+		html:'<div class="dagr-me-arrow" style="width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:20px solid #FFB000;filter:drop-shadow(0 0 8px #FFB000);transform-origin:9px 15px;"></div><div style="width:10px;height:10px;background:#FFB000;border:2px solid #fff;border-radius:50%;position:absolute;top:14px;left:4px;box-shadow:0 0 8px #FFB000;"></div>',
+		iconSize:[22,30],
+		iconAnchor:[11,15]
+	});
+	var meMarker=null, lastHeading=0;
 
 	waitMap(function(){
 		meMarker=L.marker(dagrMap.getCenter(),{icon:meIcon,zIndexOffset:99999}).addTo(dagrMap);
@@ -1091,22 +1114,27 @@ class RMM_Mission_Map_Handler {
 			},2000);
 		}
 
-		/* ── Poll positions (every 4s for snappier updates) ── */
+		/* ── Poll positions (every 4s) ── usa mismo endpoint que el mapa web ── */
+		var notFoundCount=0;
 		setInterval(function(){
-			fetch('/wp-json/clan/v1/mission/positions?session='+SID).then(function(r){return r.json()}).then(function(d){
+			fetch('/wp-json/clan/v1/dagr/positions?map='+MAP_NAME+'&_='+Date.now()).then(function(r){return r.json()}).then(function(d){
 				if(!d||!d.players){$('#dagr-status').textContent='SIN DATOS';return}
 				layers.players.forEach(function(m){dagrMap.removeLayer(m)});layers.players=[];
 				var foundMe=false;
 				d.players.forEach(function(p){
 					var ll=g2ll(p.pos_x,p.pos_y);
 					var sid=String(p.steamid||'').trim();
-					// Debug: mostrar steamids en status
 					if(!foundMe)$('#dagr-status').textContent='BUSCANDO mi='+MY_STEAM.substr(-6)+' vs '+sid.substr(-6);
 					if(sid===MY_STEAM){
-						foundMe=true;
+						foundMe=true; notFoundCount=0;
 						mePos={x:Number(p.pos_x),y:Number(p.pos_y),z:Number(p.pos_z||0),h:Number(p.heading||0),s:Number(p.speed||0)};
 						meMarker.setLatLng(ll);
-						// Respetar capa de jugadores también para "me"
+						// Rotate arrow to heading
+						var h=Number(p.heading||0);
+						if(meMarker._icon){
+							var arrow=meMarker._icon.querySelector('.dagr-me-arrow');
+							if(arrow)arrow.style.transform='rotate('+h+'deg)';
+						}
 						if(layerVisible.players){if(!dagrMap.hasLayer(meMarker))dagrMap.addLayer(meMarker)}
 						else{dagrMap.removeLayer(meMarker)}
 						if(followMe)dagrMap.panTo(ll,{animate:true});
@@ -1114,14 +1142,18 @@ class RMM_Mission_Map_Handler {
 						$('#dagr-status').textContent='MAPA OK | GPS OK';
 						$('#dagr-status').style.color='#4ade80';
 					}else{
-						var cl=p.is_alive?'#FFB000':'#ef4444';
+						var cl='#FFB000'; // DAGR endpoint no tiene is_alive, asumir vivo
 						var ic=L.divIcon({html:'<div style="width:9px;height:9px;background:'+cl+';border:2px solid #fff;border-radius:50%"></div>',iconSize:[13,13],iconAnchor:[6,6]});
-						var mk=L.marker(ll,{icon:ic}).bindTooltip(p.player_name||'',{direction:'top',offset:[0,-8]});
+						var mk=L.marker(ll,{icon:ic}).bindTooltip(p.name||p.player_name||'',{direction:'top',offset:[0,-8]});
 						layers.players.push(mk);
 						if(layerVisible.players)mk.addTo(dagrMap);
 					}
 				});
-				if(!foundMe){$('#dagr-status').textContent='NO ENCONTRADO: mi steamid no coincide con ningún jugador';$('#dagr-status').style.color='#ef4444'}
+				if(!foundMe){
+					notFoundCount++;
+					if(notFoundCount>=5){$('#dagr-status').textContent='NO ENCONTRADO: steamid no encontrado tras '+notFoundCount+' intentos';$('#dagr-status').style.color='#ef4444'}
+					else{$('#dagr-status').textContent='ESPERANDO datos del addon... ('+notFoundCount+'/5)'}
+				}
 				loadWP();
 			});
 		},4000);
@@ -1876,6 +1908,98 @@ class RMM_Mission_Map_Handler {
 			'moved'      => $moved,
 			'session_id' => $session_id,
 			'time'       => $tick_time,
+		) );
+	}
+
+	/**
+	 * Metabox: Seleccion de mapa DAGR para eventos
+	 */
+	public function add_event_map_metabox() {
+		add_meta_box(
+			'rmm_event_map_metabox',
+			'🗺️ Mapa Interactivo DAGR',
+			array( $this, 'render_event_map_metabox' ),
+			'eventos_partidas',
+			'side',
+			'default'
+		);
+	}
+
+	/**
+	 * Render metabox: selector de preset DAGR (incluye mapa + markers)
+	 */
+	public function render_event_map_metabox( $post ) {
+		global $wpdb;
+		$presets = $wpdb->get_results( "SELECT id, title, map_name FROM {$wpdb->prefix}rmm_dagr_presets ORDER BY title ASC" );
+		$current = get_post_meta( $post->ID, '_rmm_event_dagr_preset', true );
+		wp_nonce_field( 'rmm_event_map_save', 'rmm_event_map_nonce' );
+		?>
+		<select name="rmm_event_dagr_preset" style="width:100%;">
+			<option value="">-- Sin mapa (desactivado) --</option>
+			<?php foreach ( $presets as $p ) : ?>
+				<option value="<?php echo esc_attr( $p->id ); ?>" <?php selected( $current, $p->id ); ?>>
+					<?php echo esc_html( $p->title ); ?> — 🗺️ <?php echo esc_html( $p->map_name ); ?>
+				</option>
+			<?php endforeach; ?>
+		</select>
+		<p style="font-size:11px;color:#666;margin-top:6px;">Usa el shortcode <code>[rmm_event_map]</code> en Elementor para mostrar el mapa con sus marcadores.</p>
+		<?php
+	}
+
+	/**
+	 * Guardar seleccion de preset del evento
+	 */
+	public function save_event_map_metabox( $post_id, $post, $update ) {
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
+		if ( ! current_user_can( 'edit_post', $post_id ) ) return;
+		if ( ! isset( $_POST['rmm_event_map_nonce'] ) || ! wp_verify_nonce( $_POST['rmm_event_map_nonce'], 'rmm_event_map_save' ) ) return;
+
+		if ( isset( $_POST['rmm_event_dagr_preset'] ) ) {
+			$preset_id = intval( $_POST['rmm_event_dagr_preset'] );
+			if ( empty( $preset_id ) ) {
+				delete_post_meta( $post_id, '_rmm_event_dagr_preset' );
+			} else {
+				update_post_meta( $post_id, '_rmm_event_dagr_preset', $preset_id );
+			}
+		}
+	}
+
+	/**
+	 * Shortcode [rmm_event_map] — Mapa DAGR del evento configurado via preset
+	 * Atributos: id (post_id), height
+	 */
+	public function render_event_map( $atts ) {
+		$atts = shortcode_atts( array(
+			'id'     => get_the_ID(),
+			'height' => '600px',
+		), $atts, 'rmm_event_map' );
+
+		$post_id = intval( $atts['id'] );
+
+		// Buscar preset asignado
+		$preset_id = get_post_meta( $post_id, '_rmm_event_dagr_preset', true );
+
+		// Fallback: buscar en rmm_mission_maps si no hay meta
+		if ( empty( $preset_id ) ) {
+			$post_type = get_post_type( $post_id );
+			if ( in_array( $post_type, array( 'misiones', 'eventos_partidas' ) ) ) {
+				global $wpdb;
+				$map_row = $wpdb->get_row( $wpdb->prepare(
+					"SELECT preset_id FROM {$wpdb->prefix}rmm_mission_maps WHERE post_id = %d AND enabled = 1", $post_id
+				) );
+				if ( $map_row && ! empty( $map_row->preset_id ) ) $preset_id = $map_row->preset_id;
+			}
+		}
+
+		if ( empty( $preset_id ) ) {
+			return '<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:24px;text-align:center;color:#8b949e;font-family:Inter,sans-serif;">🗺️ No hay mapa interactivo ni MicroDAGR asignado</div>';
+		}
+
+		// Delegar al mapa tactico usando el preset ID (carga mapa + markers + positions)
+		$dagr = new RMM_DAGR_Handler();
+		return $dagr->render_tactical_map( array(
+			'id'     => intval( $preset_id ),
+			'height' => $atts['height'],
 		) );
 	}
 }
