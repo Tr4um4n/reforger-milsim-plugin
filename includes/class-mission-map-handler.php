@@ -785,6 +785,7 @@ class RMM_Mission_Map_Handler {
 			<!-- Left button column (pushed down, 4 buttons) -->
 			<div style="position:absolute;top:170px;left:8px;display:flex;flex-direction:column;gap:8px">
 				<button class="dagr-phys-btn" id="btn-mark" style="min-width:56px;min-height:44px;font-size:13px">MARK</button>
+				<button class="dagr-phys-btn" id="btn-mrk" style="min-width:56px;min-height:44px;font-size:13px">MRK</button>
 				<button class="dagr-phys-btn" id="btn-draw" style="min-width:56px;min-height:44px;font-size:13px">DRAW</button>
 				<button class="dagr-phys-btn" id="btn-map" style="min-width:56px;min-height:44px;font-size:13px">MAP</button>
 				<button class="dagr-phys-btn" id="btn-compass" style="min-width:56px;min-height:44px;font-size:13px">CMP</button>
@@ -804,6 +805,12 @@ class RMM_Mission_Map_Handler {
 			<div id="dagr-wp-panel">
 				<h4>WAYPOINTS</h4>
 				<div id="dagr-wp-items"><em style="color:#555">VACÍO</em></div>
+			</div>
+
+			<!-- Marker type selector (NATO icons) -->
+			<div id="dagr-mrk-panel" style="display:none;position:absolute;top:38px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.95);border:1px solid #FFB000;border-radius:4px;padding:8px;z-index:10001;max-width:280px">
+				<div style="color:#FFB000;font-size:10px;text-align:center;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">TIPO DE MARCADOR</div>
+				<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px" id="dagr-mrk-types"></div>
 			</div>
 
 			<!-- Floating action buttons -->
@@ -1084,8 +1091,38 @@ class RMM_Mission_Map_Handler {
 	// Keep addWP alias for backward compat
 	var addWP=function(ll){doAddWP(ll)};
 
-	/* ── Marker icons ── */
-	var mkIcons={objective:'<div style="width:14px;height:14px;background:#FFB000;border:2px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 8px rgba(255,176,0,.6)"></div>',completed:'<div style="width:12px;height:12px;background:#FFB000;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(255,176,0,.4)"></div>',enemy:'<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid #ef4444;filter:drop-shadow(0 0 4px rgba(239,68,68,.6))"></div>',friendly:'<div style="width:12px;height:12px;background:#60a5fa;border:2px solid #fff;border-radius:2px;box-shadow:0 0 8px rgba(96,165,250,.6)"></div>'},mkDef='<div style="width:12px;height:12px;background:#a78bfa;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(167,139,250,.5)"></div>';
+	/* ── Marker icons (PNG reales NATO) ── */
+	var NATO_PATH='<?php echo RMM_PLUGIN_URL; ?>assets/nato_icons/';
+	function makeIcon(url,w,h){return L.icon({iconUrl:url,iconSize:[w||24,h||24],iconAnchor:[12,12],popupAnchor:[0,-12]})}
+	var mkIcons={
+		infantry:   makeIcon(NATO_PATH+'Friend%20Land/1.sfgpi-----h----.png'),
+		armor:      makeIcon(NATO_PATH+'Friend%20Land/1.sffpa----------.png'),
+		heli:       makeIcon(NATO_PATH+'Friend%20Land/1.sffpah---------.png'),
+		hq:         makeIcon(NATO_PATH+'Friend%20Land/1.sfgp-----------.png'),
+		artillery:  makeIcon(NATO_PATH+'Friend%20Land/1.sffpn----------.png'),
+		medical:    makeIcon(NATO_PATH+'Friend%20Land/1.sfgpimc---h----.png'),
+		enemy_inf:  makeIcon(NATO_PATH+'Hostile%20Land/3.shfp-----------.png'),
+		enemy_armor:makeIcon(NATO_PATH+'Hostile%20Land/3.shfpa----------.png'),
+		objective:  makeIcon(NATO_PATH+'Friend%20Land/1.sffp-----------.png'),
+		danger:     makeIcon(NATO_PATH+'Friend%20Land/1.sfgp-----------.png'),
+		enemy:      makeIcon(NATO_PATH+'Hostile%20Land/3.shfp-----------.png',24,30),
+		friendly:   makeIcon(NATO_PATH+'Friend%20Land/1.sffp-----------.png'),
+		completed:  makeIcon(NATO_PATH+'Friend%20Land/1.sffp-----------.png'),
+		mil_marker: makeIcon(NATO_PATH+'Friend%20Land/1.sffp-----------.png')
+	},
+	mkDef=makeIcon(NATO_PATH+'Friend%20Land/1.sffp-----------.png');
+
+	// NATO marker types for UI (8 tipos, imágenes reales)
+	var natoTypes=[
+		{id:'infantry',label:'INF',img:NATO_PATH+'Friend%20Land/1.sfgpi-----h----.png'},
+		{id:'armor',label:'ARM',img:NATO_PATH+'Friend%20Land/1.sffpa----------.png'},
+		{id:'heli',label:'HEL',img:NATO_PATH+'Friend%20Land/1.sffpah---------.png'},
+		{id:'hq',label:'HQ',img:NATO_PATH+'Friend%20Land/1.sfgp-----------.png'},
+		{id:'artillery',label:'ART',img:NATO_PATH+'Friend%20Land/1.sffpn----------.png'},
+		{id:'medical',label:'MED',img:NATO_PATH+'Friend%20Land/1.sfgpimc---h----.png'},
+		{id:'enemy_inf',label:'EINF',img:NATO_PATH+'Hostile%20Land/3.shfp-----------.png'},
+		{id:'enemy_armor',label:'EARM',img:NATO_PATH+'Hostile%20Land/3.shfpa----------.png'}
+	];
 
 	/* ── Player marker (arrow that rotates with heading) ── */
 	var meIcon=L.divIcon({
@@ -1264,6 +1301,28 @@ class RMM_Mission_Map_Handler {
 		else{ov.style.display='block';this.classList.add('on');if(mePos){updHUD({pos_x:mePos.x,pos_y:mePos.y,pos_z:mePos.z,heading:mePos.h,speed:mePos.s})};toast('Brújula visible')}
 	};
 
+	// MRK button: selector de tipo de marcador NATO
+	var placingMarker=null;
+	// Poblar la parrilla de tipos con imágenes reales
+	natoTypes.forEach(function(t){
+		var btn=document.createElement('button');
+		btn.className='dagr-phys-btn';
+		btn.style.cssText='padding:6px 4px;font-size:9px;min-height:50px;display:flex;flex-direction:column;align-items:center;gap:2px';
+		btn.innerHTML='<img src="'+t.img+'" style="width:28px;height:28px;image-rendering:pixelated"><span>'+t.label+'</span>';
+		btn.onclick=function(){
+			placingMarker=t.id;
+			$('#dagr-mrk-panel').style.display='none';
+			$('#btn-mrk').classList.remove('on');
+			toast('Toca el mapa para colocar '+t.label);
+		};
+		$('#dagr-mrk-types').appendChild(btn);
+	});
+	$('#btn-mrk').onclick=function(){
+		var p=$('#dagr-mrk-panel');
+		if(p.style.display==='block'){p.style.display='none';this.classList.remove('on');placingMarker=null;return}
+		p.style.display='block';this.classList.add('on');
+	};
+
 	// DRAW button: solo ON/OFF (sin CLEAR). Líneas se borran con doble toque
 	$('#btn-draw').onclick=function(){
 		if(!dagrMap)return;
@@ -1365,6 +1424,20 @@ class RMM_Mission_Map_Handler {
 					var d=mePos?Math.round(dist(mePos,{x:g1.x,y:g1.y})):0;
 					toast('Línea creada'+(d?' ('+d+'m)':''));
 				}
+				return;
+			}
+			// Place NATO marker
+			if(placingMarker){
+				var g=ll2g(e.latlng);
+				var lb=prompt('Etiqueta (opcional):');
+				if(lb===null){placingMarker=null;return}
+				fetch('/wp-json/clan/v1/mission/markers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:TOKEN,session_id:SID,type:placingMarker,label:lb||'',pos_x:g.x,pos_y:g.y,color:'#FFB000'})}).then(function(r){return r.json()}).then(function(){
+					var ic=mkIcons[placingMarker]||mkDef;
+					var mk=L.marker(e.latlng,{icon:ic}).bindTooltip(lb||placingMarker,{direction:'top',offset:[0,-14]});
+					layers.markers.push(mk);if(layerVisible.markers)mk.addTo(dagrMap);
+					toast('Marcador '+placingMarker+' colocado');
+				});
+				placingMarker=null;
 				return;
 			}
 			// Deselect lines when tapping empty space
