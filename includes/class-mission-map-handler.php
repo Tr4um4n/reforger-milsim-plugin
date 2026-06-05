@@ -706,12 +706,12 @@ class RMM_Mission_Map_Handler {
 		#dagr-bezel-top span{color:#666}
 
 		/* Screen - amber military tint (NOT green) */
-		#dagr-screen-wrap{flex:1;position:relative;overflow:hidden;border:2px solid #0a0a0a;border-radius:3px;background:#0d0d0d}
+		#dagr-screen-wrap{flex:1;position:relative;overflow:hidden;border:2px solid #0a0a0a;border-radius:3px;background:#0d0d0d;margin-top:30px}
 		#dagr-screen-wrap .leaflet-container{filter:sepia(.25) brightness(.7) contrast(1.1) saturate(.9)!important;background:#111!important}
 		#dagr-screen-wrap .leaflet-div-icon{background:transparent!important;border:none!important}
 		#dagr-screen-wrap .leaflet-tooltip{background:rgba(0,0,0,.85)!important;border:1px solid #FFB000!important;color:#FFB000!important;font-family:monospace!important;font-size:10px!important;padding:3px 6px!important;border-radius:3px!important;box-shadow:none!important}
 		#dagr-screen-wrap .leaflet-tooltip::before{border-top-color:#FFB000!important}
-		#dagr-screen-wrap .leaflet-control-zoom{border:1px solid #333!important;box-shadow:none!important;margin:8px!important}
+		#dagr-screen-wrap .leaflet-control-zoom{border:1px solid #333!important;box-shadow:none!important;margin:8px!important;margin-top:38px!important}
 		#dagr-screen-wrap .leaflet-control-zoom a{background:#1c1c1c!important;color:#FFB000!important;border-color:#333!important;width:36px!important;height:36px!important;line-height:36px!important;font-size:20px!important;border-radius:3px!important}
 		#dagr-screen-wrap .leaflet-control-zoom a:hover{color:#fff!important;background:#2a2a2a!important}
 		#dagr-frame{width:100%;height:100%}
