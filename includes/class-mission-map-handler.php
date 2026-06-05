@@ -822,11 +822,11 @@ class RMM_Mission_Map_Handler {
 			<!-- Compass overlay (shown when CMP active) -->
 			<div id="dagr-compass-overlay" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;text-align:center;z-index:9998">
 				<div style="width:140px;height:140px;border-radius:50%;border:3px solid #FFB000;position:relative;margin:0 auto;background:rgba(0,0,0,.7);box-shadow:0 0 30px rgba(255,176,0,.15);overflow:hidden">
-					<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:36px;font-weight:bold;color:#FFB000" id="dagr-cmp-hdg">---</div>
 					<div class="north" style="font-size:14px!important">N</div>
 					<div class="needle" id="dagr-cmp-needle" style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:50px solid #ef4444;transition:transform .15s;position:absolute;bottom:50%;left:50%;margin-left:-7px;transform-origin:bottom center"></div>
 				</div>
-				<div style="color:#FFB000;font-size:10px;margin-top:4px;letter-spacing:.05em">HEADING</div>
+				<div style="color:#FFB000;font-size:10px;letter-spacing:.05em;margin-top:2px">HEADING</div>
+				<div style="font-size:32px;font-weight:bold;color:#FFB000;line-height:1" id="dagr-cmp-hdg">---°</div>
 			</div>
 
 			<!-- HUD -->
