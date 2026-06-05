@@ -784,8 +784,8 @@ class RMM_Mission_Map_Handler {
 
 			<!-- Left button column (pushed down, 4 buttons) -->
 			<div style="position:absolute;top:170px;left:8px;display:flex;flex-direction:column;gap:8px">
-				<button class="dagr-phys-btn" id="btn-mark" style="min-width:56px;min-height:44px;font-size:13px">MARK</button>
-				<button class="dagr-phys-btn" id="btn-mrk" style="min-width:56px;min-height:44px;font-size:13px">MRK</button>
+				<button class="dagr-phys-btn" id="btn-mark" style="min-width:56px;min-height:44px;font-size:12px">WP</button>
+				<button class="dagr-phys-btn" id="btn-mrk" style="min-width:56px;min-height:44px;font-size:12px">MRK</button>
 				<button class="dagr-phys-btn" id="btn-draw" style="min-width:56px;min-height:44px;font-size:13px">DRAW</button>
 				<button class="dagr-phys-btn" id="btn-map" style="min-width:56px;min-height:44px;font-size:13px">MAP</button>
 				<button class="dagr-phys-btn" id="btn-compass" style="min-width:56px;min-height:44px;font-size:13px">CMP</button>
