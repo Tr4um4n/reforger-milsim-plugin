@@ -1434,17 +1434,35 @@ class RMM_Mission_Map_Handler {
 				fetch('/wp-json/clan/v1/mission/markers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:TOKEN,session_id:SID,type:placingMarker,label:lb||'',pos_x:g.x,pos_y:g.y,color:'#FFB000'})}).then(function(r){return r.json()}).then(function(){
 					var ic=mkIcons[placingMarker]||mkDef;
 					var mk=L.marker(e.latlng,{icon:ic}).bindTooltip(lb||placingMarker,{direction:'top',offset:[0,-14]});
+					mk._type=placingMarker; mk._selected=false;
+					mk.on('click',function(ev){
+						L.DomEvent.stop(ev);
+						if(mk._selected){
+							dagrMap.removeLayer(mk);
+							var i=layers.markers.indexOf(mk);if(i>=0)layers.markers.splice(i,1);
+							toast('Marcador eliminado');
+							// TODO: notificar al addon que se borró esta marca
+						}else{
+							mk._selected=true;
+							mk.setIcon(makeIcon(NATO_PATH+'1.sfgp-----------.png',30,30)); // icono más grande al seleccionar
+							mk.setZIndexOffset(9999);
+							toast('Seleccionado — toca otra vez para borrar');
+						}
+					});
 					layers.markers.push(mk);if(layerVisible.markers)mk.addTo(dagrMap);
 					toast('Marcador '+placingMarker+' colocado');
 				});
 				placingMarker=null;
 				return;
 			}
-			// Deselect lines when tapping empty space
+			// Deselect lines + markers when tapping empty space
 			if(selectedLines.length>0){
 				selectedLines.forEach(function(l){l.setStyle({color:'#FFB000',weight:3})});
 				selectedLines=[];
 			}
+			layers.markers.forEach(function(m){
+				if(m._selected){m._selected=false;m.setIcon(mkIcons[m._type]||mkDef);m.setZIndexOffset(0)}
+			});
 			if($('#dagr-layer-panel').classList.contains('open')){$('#dagr-layer-panel').classList.remove('open');$('#btn-layers').classList.remove('on')}
 		});
 	});
