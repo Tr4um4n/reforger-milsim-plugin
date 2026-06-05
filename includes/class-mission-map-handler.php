@@ -1095,33 +1095,33 @@ class RMM_Mission_Map_Handler {
 	var NATO_PATH='<?php echo RMM_PLUGIN_URL; ?>assets/nato_icons/';
 	function makeIcon(url,w,h){return L.icon({iconUrl:url,iconSize:[w||24,h||24],iconAnchor:[12,12],popupAnchor:[0,-12]})}
 	var mkIcons={
-		infantry:   makeIcon(NATO_PATH+'Friend%20Land/1.sfgpi-----h----.png'),
-		armor:      makeIcon(NATO_PATH+'Friend%20Land/1.sffpa----------.png'),
-		heli:       makeIcon(NATO_PATH+'Friend%20Land/1.sffpah---------.png'),
-		hq:         makeIcon(NATO_PATH+'Friend%20Land/1.sfgp-----------.png'),
-		artillery:  makeIcon(NATO_PATH+'Friend%20Land/1.sffpn----------.png'),
-		medical:    makeIcon(NATO_PATH+'Friend%20Land/1.sfgpimc---h----.png'),
-		enemy_inf:  makeIcon(NATO_PATH+'Hostile%20Land/3.shfp-----------.png'),
-		enemy_armor:makeIcon(NATO_PATH+'Hostile%20Land/3.shfpa----------.png'),
-		objective:  makeIcon(NATO_PATH+'Friend%20Land/1.sffp-----------.png'),
-		danger:     makeIcon(NATO_PATH+'Friend%20Land/1.sfgp-----------.png'),
-		enemy:      makeIcon(NATO_PATH+'Hostile%20Land/3.shfp-----------.png',24,30),
-		friendly:   makeIcon(NATO_PATH+'Friend%20Land/1.sffp-----------.png'),
-		completed:  makeIcon(NATO_PATH+'Friend%20Land/1.sffp-----------.png'),
-		mil_marker: makeIcon(NATO_PATH+'Friend%20Land/1.sffp-----------.png')
+		infantry:   makeIcon(NATO_PATH+'1.sfgpi-----h----.png'),
+		armor:      makeIcon(NATO_PATH+'1.sffpa----------.png'),
+		heli:       makeIcon(NATO_PATH+'1.sffpah---------.png'),
+		hq:         makeIcon(NATO_PATH+'1.sfgp-----------.png'),
+		artillery:  makeIcon(NATO_PATH+'1.sffpn----------.png'),
+		medical:    makeIcon(NATO_PATH+'1.sfgpimc---h----.png'),
+		enemy_inf:  makeIcon(NATO_PATH+'3.shfp-----------.png'),
+		enemy_armor:makeIcon(NATO_PATH+'3.shfpa----------.png'),
+		objective:  makeIcon(NATO_PATH+'1.sffp-----------.png'),
+		danger:     makeIcon(NATO_PATH+'1.sfgp-----------.png'),
+		enemy:      makeIcon(NATO_PATH+'3.shfp-----------.png',24,30),
+		friendly:   makeIcon(NATO_PATH+'1.sffp-----------.png'),
+		completed:  makeIcon(NATO_PATH+'1.sffp-----------.png'),
+		mil_marker: makeIcon(NATO_PATH+'1.sffp-----------.png')
 	},
-	mkDef=makeIcon(NATO_PATH+'Friend%20Land/1.sffp-----------.png');
+	mkDef=makeIcon(NATO_PATH+'1.sffp-----------.png');
 
 	// NATO marker types for UI (8 tipos, imágenes reales)
 	var natoTypes=[
-		{id:'infantry',label:'INF',img:NATO_PATH+'Friend%20Land/1.sfgpi-----h----.png'},
-		{id:'armor',label:'ARM',img:NATO_PATH+'Friend%20Land/1.sffpa----------.png'},
-		{id:'heli',label:'HEL',img:NATO_PATH+'Friend%20Land/1.sffpah---------.png'},
-		{id:'hq',label:'HQ',img:NATO_PATH+'Friend%20Land/1.sfgp-----------.png'},
-		{id:'artillery',label:'ART',img:NATO_PATH+'Friend%20Land/1.sffpn----------.png'},
-		{id:'medical',label:'MED',img:NATO_PATH+'Friend%20Land/1.sfgpimc---h----.png'},
-		{id:'enemy_inf',label:'EINF',img:NATO_PATH+'Hostile%20Land/3.shfp-----------.png'},
-		{id:'enemy_armor',label:'EARM',img:NATO_PATH+'Hostile%20Land/3.shfpa----------.png'}
+		{id:'infantry',label:'INF',img:NATO_PATH+'1.sfgpi-----h----.png'},
+		{id:'armor',label:'ARM',img:NATO_PATH+'1.sffpa----------.png'},
+		{id:'heli',label:'HEL',img:NATO_PATH+'1.sffpah---------.png'},
+		{id:'hq',label:'HQ',img:NATO_PATH+'1.sfgp-----------.png'},
+		{id:'artillery',label:'ART',img:NATO_PATH+'1.sffpn----------.png'},
+		{id:'medical',label:'MED',img:NATO_PATH+'1.sfgpimc---h----.png'},
+		{id:'enemy_inf',label:'EINF',img:NATO_PATH+'3.shfp-----------.png'},
+		{id:'enemy_armor',label:'EARM',img:NATO_PATH+'3.shfpa----------.png'}
 	];
 
 	/* ── Player marker (arrow that rotates with heading) ── */
