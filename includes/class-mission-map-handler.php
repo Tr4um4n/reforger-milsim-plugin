@@ -783,8 +783,9 @@ class RMM_Mission_Map_Handler {
 			</div>
 
 			<!-- Left button column (pushed down, 4 buttons) -->
-			<div style="position:absolute;top:calc(170px + var(--safe-top));left:8px;display:flex;flex-direction:column;gap:8px">
+			<div style="position:absolute;top:170px;left:8px;display:flex;flex-direction:column;gap:8px">
 				<button class="dagr-phys-btn" id="btn-mark" style="min-width:56px;min-height:44px;font-size:13px">MARK</button>
+				<button class="dagr-phys-btn" id="btn-draw" style="min-width:56px;min-height:44px;font-size:13px">DRAW</button>
 				<button class="dagr-phys-btn" id="btn-map" style="min-width:56px;min-height:44px;font-size:13px">MAP</button>
 				<button class="dagr-phys-btn" id="btn-compass" style="min-width:56px;min-height:44px;font-size:13px">CMP</button>
 				<button class="dagr-phys-btn" id="btn-layers" style="min-width:56px;min-height:44px;font-size:13px">LAY</button>
@@ -796,6 +797,7 @@ class RMM_Mission_Map_Handler {
 				<label><input type="checkbox" checked data-layer="players" onchange="dagrToggleLayer(this)">JUGADORES</label>
 				<label><input type="checkbox" checked data-layer="markers" onchange="dagrToggleLayer(this)">MARCADORES</label>
 				<label><input type="checkbox" checked data-layer="waypoints" onchange="dagrToggleLayer(this)">WAYPOINTS</label>
+				<label><input type="checkbox" checked data-layer="lines" onchange="dagrToggleLayer(this)">LINEAS</label>
 			</div>
 
 			<!-- Waypoint panel (top-right, toggled by WP button) -->
@@ -861,8 +863,8 @@ class RMM_Mission_Map_Handler {
 	var SID='<?php echo esc_js( $session ); ?>';
 	var MAP_NAME='<?php echo esc_js( $map_name ); ?>';
 	var MY_STEAM='<?php echo esc_js( $valid->steamid ); ?>';
-	var dagrMap=null, mePos=null, followMe=false, addingWP=false;
-	var layers={players:[],markers:[],waypoints:[]};
+	var dagrMap=null, mePos=null, followMe=false, addingWP=false, drawing=false, drawFirst=null, drawTmp=null;
+	var layers={players:[],markers:[],waypoints:[],lines:[]};
 
 	/* ── Find Leaflet instance via _rmmMap reference ── */
 	function waitMap(cb){
@@ -1262,6 +1264,29 @@ class RMM_Mission_Map_Handler {
 		else{ov.style.display='block';this.classList.add('on');if(mePos){updHUD({pos_x:mePos.x,pos_y:mePos.y,pos_z:mePos.z,heading:mePos.h,speed:mePos.s})};toast('Brújula visible')}
 	};
 
+	// DRAW button: dibujar líneas (2 toques = 1 línea, long-press = borrar)
+	var drawTimer=null;
+	$('#btn-draw').onclick=function(){
+		if(!dagrMap)return;
+		drawing=!drawing;
+		this.classList.toggle('on',drawing);
+		if(drawing){
+			dagrMap.getContainer().style.cursor='crosshair';
+			drawFirst=null;
+			if(drawTmp){dagrMap.removeLayer(drawTmp);drawTmp=null}
+			toast('DRAW ON — 2 toques = línea');
+		}else{
+			dagrMap.getContainer().style.cursor='';
+			if(drawTmp){dagrMap.removeLayer(drawTmp);drawTmp=null}
+			drawFirst=null;
+			toast('DRAW OFF');
+		}
+	};
+	// Long-press DRAW para borrar todas las líneas
+	$('#btn-draw').addEventListener('touchstart',function(){drawTimer=setTimeout(function(){if(!dagrMap)return;layers.lines.forEach(function(l){dagrMap.removeLayer(l)});layers.lines=[];toast('Líneas borradas')},800)});
+	$('#btn-draw').addEventListener('touchend',function(){clearTimeout(drawTimer)});
+	$('#btn-draw').addEventListener('touchmove',function(){clearTimeout(drawTimer)});
+
 	/* ── WP actions: delete + navigate (ANT/SIG) ── */
 	$('#dagr-wp-items').addEventListener('click',function(e){
 		var del=e.target.closest('.wp-del');
@@ -1291,7 +1316,7 @@ class RMM_Mission_Map_Handler {
 	});
 
 	/* ── Layer toggles (global function for inline onchange) ── */
-	var layerVisible = {players:true, markers:true, waypoints:true};
+	var layerVisible = {players:true, markers:true, waypoints:true, lines:true};
 	window.dagrToggleLayer = function(cb){
 		if(!dagrMap)return;
 		var k=cb.dataset.layer, v=cb.checked;
@@ -1301,9 +1326,31 @@ class RMM_Mission_Map_Handler {
 		toast('Capa '+k+(v?' ON':' OFF'));
 	};
 
-	/* ── Close panels when tapping map ── */
+	/* ── Close panels when tapping map (skip if drawing) ── */
 	waitMap(function(){
-		dagrMap.on('click',function(){
+		dagrMap.on('click',function(e){
+			// Modo DRAW: 2 toques = 1 línea
+			if(drawing){
+				if(!drawFirst){
+					// Primer punto
+					drawFirst=e.latlng;
+					if(drawTmp)dagrMap.removeLayer(drawTmp);
+					drawTmp=L.circleMarker(e.latlng,{radius:6,color:'#FFB000',fillColor:'#FFB000',fillOpacity:0.6,weight:2}).addTo(dagrMap);
+					toast('Toca el segundo punto...');
+				}else{
+					// Segundo punto → crear línea
+					var line=L.polyline([drawFirst,e.latlng],{color:'#FFB000',weight:3,opacity:0.8,dashArray:'8,6'}).addTo(dagrMap);
+					layers.lines.push(line);
+					if(!layerVisible.lines)dagrMap.removeLayer(line);
+					if(drawTmp){dagrMap.removeLayer(drawTmp);drawTmp=null}
+					drawFirst=null;
+					var g1=ll2g(e.latlng);
+					var d=mePos?Math.round(dist(mePos,{x:g1.x,y:g1.y})):0;
+					toast('Línea creada'+(d?' ('+d+'m)':''));
+				}
+				return;
+			}
+			// Close panels
 			if($('#dagr-layer-panel').classList.contains('open')){$('#dagr-layer-panel').classList.remove('open');$('#btn-layers').classList.remove('on')}
 		});
 	});
